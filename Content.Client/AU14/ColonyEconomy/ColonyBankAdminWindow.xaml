@@ -1,0 +1,55 @@
+<controls:ColonyBankAdminWindow
+    xmlns="https://spacestation14.io"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="clr-namespace:Content.Client.AU14.ColonyEconomy"
+    Title="Bank Administration Console" MinSize="660 560">
+
+    <BoxContainer Orientation="Vertical" Margin="6">
+
+        <!-- ACTION BAR -->
+        <BoxContainer Orientation="Horizontal" Margin="0 0 0 6">
+            <Label Text="Account #:" Margin="0 0 4 0" />
+            <LineEdit Name="AccountInput" Access="Public" PlaceHolder="e.g. 47291" MinSize="100 0" Margin="0 0 6 0" />
+            <Label Text="Amount:" Margin="0 0 4 0" />
+            <LineEdit Name="AmountInput" Access="Public" PlaceHolder="e.g. 500" MinSize="80 0" Margin="0 0 6 0" />
+            <Label Text="Note:" Margin="0 0 4 0" />
+            <LineEdit Name="NoteInput" Access="Public" PlaceHolder="optional" HorizontalExpand="True" Margin="0 0 6 0" />
+            <Button Name="CreditButton" Access="Public" Text="Credit +" StyleClasses="ButtonGreen" Margin="0 0 3 0" />
+            <Button Name="DebitButton"  Access="Public" Text="Debit –"  StyleClasses="ButtonRed"   Margin="0 0 3 0" />
+            <Button Name="UnlockButton" Access="Public" Text="Unlock Card" />
+        </BoxContainer>
+
+        <HSeparator Margin="0 0 0 4" />
+
+        <!-- ACCOUNTS TABLE -->
+        <Label Text="Accounts" StyleClasses="LabelBig" Margin="0 0 0 2" />
+        <!-- Header -->
+        <BoxContainer Orientation="Horizontal">
+            <Label Text="Account #"  MinSize="90  0" StyleClasses="LabelSubText" />
+            <Label Text="Name"       MinSize="160 0" StyleClasses="LabelSubText" />
+            <Label Text="Job"        MinSize="130 0" StyleClasses="LabelSubText" />
+            <Label Text="Balance"    MinSize="80  0" StyleClasses="LabelSubText" />
+        </BoxContainer>
+        <ScrollContainer VerticalExpand="True" MinSize="0 160">
+            <BoxContainer Name="AccountRows" Access="Public" Orientation="Vertical" />
+        </ScrollContainer>
+
+        <HSeparator Margin="0 6 0 4" />
+
+        <!-- TRANSACTIONS TABLE -->
+        <Label Text="Transaction Log" StyleClasses="LabelBig" Margin="0 0 0 2" />
+        <!-- Header -->
+        <BoxContainer Orientation="Horizontal">
+            <Label Text="Time"    MinSize="50  0" StyleClasses="LabelSubText" />
+            <Label Text="Account" MinSize="90  0" StyleClasses="LabelSubText" />
+            <Label Text="Name"    MinSize="130 0" StyleClasses="LabelSubText" />
+            <Label Text="Type"    MinSize="110 0" StyleClasses="LabelSubText" />
+            <Label Text="Amount"  MinSize="70  0" StyleClasses="LabelSubText" />
+            <Label Text="Note"    HorizontalExpand="True" StyleClasses="LabelSubText" />
+        </BoxContainer>
+        <ScrollContainer VerticalExpand="True" MinSize="0 180">
+            <BoxContainer Name="TransactionRows" Access="Public" Orientation="Vertical" />
+        </ScrollContainer>
+
+    </BoxContainer>
+</controls:ColonyBankAdminWindow>

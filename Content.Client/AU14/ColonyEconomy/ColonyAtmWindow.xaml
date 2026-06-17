@@ -2,39 +2,116 @@
     xmlns="https://spacestation14.io"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:controls="clr-namespace:Content.Client.AU14.ColonyEconomy"
-    Title="Colony ATM" MinSize="350 220">
-    <BoxContainer Orientation="Vertical">
-        <Label Name="OwnerLabel" Access="Public" Text="Account: Unknown" />
-        <Label Name="BalanceLabel" Access="Public" Text="Balance: $0" />
-        <Label Name="IncomeTaxLabel" Access="Public" Text="" StyleClasses="LabelSubText" Margin="0 2" />
-        <BoxContainer Orientation="Horizontal">
-            <Control HorizontalExpand="True" />
-            <Button Name="Withdraw50" Access="Public" Text="10"
-                    StyleClasses="OpenBoth" HorizontalExpand="True" SizeFlagsStretchRatio="3"
-                    Margin="0 2" />
-            <Control HorizontalExpand="True" />
+    Title="Colony ATM" MinSize="520 560">
+
+    <!-- Outer shell: left-buttons | screen+numpad | right-buttons -->
+    <BoxContainer Orientation="Horizontal" Margin="4">
+
+        <!-- LEFT SIDE BUTTONS (L1, L2, L3) -->
+        <BoxContainer Orientation="Vertical" MinSize="90 0" Margin="0 0 4 0">
+            <Control VerticalExpand="True" />
+            <Button Name="BtnL1" Access="Public" Text="" MinSize="88 44" Margin="0 2"
+                    StyleClasses="OpenRight" HorizontalAlignment="Right" />
+            <Control VerticalExpand="True" />
+            <Button Name="BtnL2" Access="Public" Text="" MinSize="88 44" Margin="0 2"
+                    StyleClasses="OpenRight" HorizontalAlignment="Right" />
+            <Control VerticalExpand="True" />
+            <Button Name="BtnL3" Access="Public" Text="" MinSize="88 44" Margin="0 2"
+                    StyleClasses="OpenRight" HorizontalAlignment="Right" />
+            <Control VerticalExpand="True" />
         </BoxContainer>
-        <BoxContainer Orientation="Horizontal">
-            <Control HorizontalExpand="True" />
-            <Button Name="Withdraw100" Access="Public" Text="25"
-                    StyleClasses="OpenBoth" HorizontalExpand="True" SizeFlagsStretchRatio="3"
-                    Margin="0 2" />
-            <Control HorizontalExpand="True" />
+
+        <!-- CENTRE: Screen + numpad -->
+        <BoxContainer Orientation="Vertical" HorizontalExpand="True">
+
+            <!-- SCREEN AREA -->
+            <PanelContainer StyleClasses="BackgroundDark" MinSize="0 220" Margin="0 0 0 4">
+                <BoxContainer Orientation="Vertical" Margin="8">
+                    <!-- Header bar -->
+                    <BoxContainer Orientation="Horizontal">
+                        <Label Name="AccountLabel" Access="Public" Text="COLONY ATM"
+                               StyleClasses="LabelBig" HorizontalExpand="True" />
+                        <Label Name="BalanceLabel" Access="Public" Text=""
+                               StyleClasses="LabelSubText" />
+                    </BoxContainer>
+                    <HSeparator Margin="0 4" />
+                    <!-- Main screen text -->
+                    <Label Name="ScreenLabel" Access="Public" Text="Welcome!"
+                           HorizontalExpand="True" VerticalExpand="True"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                           ClipText="False" />
+                    <!-- Keypad buffer display -->
+                    <Label Name="BufferLabel" Access="Public" Text=""
+                           HorizontalAlignment="Center" StyleClasses="LabelBig" Margin="0 4 0 0" />
+
+                    <!-- SKIMMER TABLE (hidden by default) -->
+                    <PanelContainer Name="SkimmerPanel" Access="Public" Visible="False">
+                        <BoxContainer Orientation="Vertical">
+                            <!-- Header row -->
+                            <BoxContainer Orientation="Horizontal">
+                                <Label Text="Account #" MinSize="120 0" StyleClasses="LabelSubText" />
+                                <Label Text="Name"      MinSize="140 0" StyleClasses="LabelSubText" />
+                                <Label Text="PIN"       MinSize="60 0"  StyleClasses="LabelSubText" />
+                            </BoxContainer>
+                            <!-- Data rows injected by code-behind -->
+                            <BoxContainer Name="SkimmerRows" Access="Public" Orientation="Vertical" />
+                        </BoxContainer>
+                    </PanelContainer>
+                </BoxContainer>
+            </PanelContainer>
+
+            <!-- NUMPAD (digits) -->
+            <BoxContainer Name="NumpadContainer" Access="Public" Orientation="Vertical" Margin="0 0 0 4">
+                <BoxContainer Orientation="Horizontal">
+                    <Button Name="Btn7" Access="Public" Text="7" HorizontalExpand="True" MinSize="0 40" Margin="1" />
+                    <Button Name="Btn8" Access="Public" Text="8" HorizontalExpand="True" MinSize="0 40" Margin="1" />
+                    <Button Name="Btn9" Access="Public" Text="9" HorizontalExpand="True" MinSize="0 40" Margin="1" />
+                </BoxContainer>
+                <BoxContainer Orientation="Horizontal">
+                    <Button Name="Btn4" Access="Public" Text="4" HorizontalExpand="True" MinSize="0 40" Margin="1" />
+                    <Button Name="Btn5" Access="Public" Text="5" HorizontalExpand="True" MinSize="0 40" Margin="1" />
+                    <Button Name="Btn6" Access="Public" Text="6" HorizontalExpand="True" MinSize="0 40" Margin="1" />
+                </BoxContainer>
+                <BoxContainer Orientation="Horizontal">
+                    <Button Name="Btn1" Access="Public" Text="1" HorizontalExpand="True" MinSize="0 40" Margin="1" />
+                    <Button Name="Btn2" Access="Public" Text="2" HorizontalExpand="True" MinSize="0 40" Margin="1" />
+                    <Button Name="Btn3" Access="Public" Text="3" HorizontalExpand="True" MinSize="0 40" Margin="1" />
+                </BoxContainer>
+                <BoxContainer Orientation="Horizontal">
+                    <Button Name="Btn0" Access="Public" Text="0" HorizontalExpand="True" MinSize="0 40" Margin="1"
+                            SizeFlagsStretchRatio="3" />
+                </BoxContainer>
+            </BoxContainer>
+
+            <!-- CONTROL ROW: Backspace | Confirm | Cancel -->
+            <BoxContainer Name="ControlRow" Access="Public" Orientation="Horizontal" Margin="0 2">
+                <Button Name="BtnBackspace" Access="Public" Text="⌫"
+                        HorizontalExpand="True" MinSize="0 44" Margin="1"
+                        StyleClasses="ButtonYellow" />
+                <Button Name="BtnConfirm" Access="Public" Text="✓ OK"
+                        HorizontalExpand="True" MinSize="0 44" Margin="1"
+                        StyleClasses="ButtonGreen" />
+                <Button Name="BtnCancel" Access="Public" Text="✗ Cancel"
+                        HorizontalExpand="True" MinSize="0 44" Margin="1"
+                        StyleClasses="ButtonRed" />
+            </BoxContainer>
+
         </BoxContainer>
-        <BoxContainer Orientation="Horizontal">
-            <Control HorizontalExpand="True" />
-            <Button Name="Withdraw250" Access="Public" Text="100"
-                    StyleClasses="OpenBoth" HorizontalExpand="True" SizeFlagsStretchRatio="3"
-                    Margin="0 2" />
-            <Control HorizontalExpand="True" />
+
+        <!-- RIGHT SIDE BUTTONS (R1, R2, R3) -->
+        <BoxContainer Orientation="Vertical" MinSize="90 0" Margin="4 0 0 0">
+            <Control VerticalExpand="True" />
+            <Button Name="BtnR1" Access="Public" Text="" MinSize="88 44" Margin="0 2"
+                    StyleClasses="OpenLeft" />
+            <Control VerticalExpand="True" />
+            <Button Name="BtnR2" Access="Public" Text="" MinSize="88 44" Margin="0 2"
+                    StyleClasses="OpenLeft" />
+            <Control VerticalExpand="True" />
+            <Button Name="BtnR3" Access="Public" Text="" MinSize="88 44" Margin="0 2"
+                    StyleClasses="OpenLeft" />
+            <Control VerticalExpand="True" />
         </BoxContainer>
-        <BoxContainer Orientation="Horizontal">
-            <Control HorizontalExpand="True" />
-            <Button Name="Withdraw500" Access="Public" Text="$250"
-                    StyleClasses="OpenBoth" HorizontalExpand="True" SizeFlagsStretchRatio="3"
-                    Margin="0 2" />
-            <Control HorizontalExpand="True" />
-        </BoxContainer>
+
     </BoxContainer>
 </controls:ColonyAtmWindow>
 

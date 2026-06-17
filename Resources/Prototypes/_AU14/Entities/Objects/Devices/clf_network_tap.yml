@@ -1,0 +1,21 @@
+# CLF Network Tap — ATM skimming device
+# Used by CLF guerillas to install a covert data skimmer on Colony ATMs.
+# First use: installs skimmer and plants DNA evidence.
+# Second use (same tap): retrieves captured account data and removes skimmer.
+
+- type: entity
+  parent: BaseItem
+  id: ClfNetworkTap
+  name: network tap
+  description: >
+    A small electronic device used to intercept and record data from networked terminals.
+    Used by CLF operatives to skim account data from Colony ATMs.
+    Handle with care — forensic investigators can recover DNA from tampered devices.
+  components:
+  - type: Sprite
+    sprite: Objects/Tools/tools.rsi
+    state: multitool
+    color: "#1a3d1a"
+  - type: Item
+    size: Small
+  - type: ClfNetworkTap

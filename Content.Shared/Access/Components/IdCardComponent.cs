@@ -76,5 +76,30 @@ public sealed partial class IdCardComponent : Component
     /// </summary>
     [DataField, AutoNetworkedField]
     public int AccountBalance;
+
+    /// <summary>
+    ///     5-digit bank account number (10000–99999). Assigned at round start.
+    /// </summary>
+    [DataField, AutoNetworkedField]
+    public int AccountNumber;
+
+    /// <summary>
+    ///     4-digit ATM PIN (1000–9999). Assigned at round start.
+    /// </summary>
+    [DataField, AutoNetworkedField]
+    public int AtmPin;
+
+    /// <summary>
+    ///     How many consecutive failed PIN attempts have been made.
+    /// </summary>
+    [DataField, AutoNetworkedField]
+    public int PinAttempts;
+
+    /// <summary>
+    ///     Game-time timestamp after which the PIN lockout expires.
+    ///     Null means the card is not locked.
+    /// </summary>
+    [DataField, AutoNetworkedField]
+    public TimeSpan? PinLockedUntil;
     //AU14
 }

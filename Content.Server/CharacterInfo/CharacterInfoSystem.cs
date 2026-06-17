@@ -1,8 +1,10 @@
 using System.Linq;
+using Content.Server.AU14.ColonyEconomy;
 using Content.Server.Mind;
 using Content.Server.Roles;
 using Content.Server.Roles.Jobs;
 using Content.Server.AU14.Round;
+using Content.Shared.Access.Components;
 using Content.Shared.Mind;
 using Content.Server.GameTicking;
 using Content.Shared._RMC14.Rules;
@@ -31,6 +33,7 @@ public sealed partial class CharacterInfoSystem : EntitySystem
     [Dependency] private PlatoonSpawnRuleSystem _platoons = default!;
     [Dependency] private IPrototypeManager _prototypes = default!;
     [Dependency] private IRobustRandom _random = default!;
+    [Dependency] private ColonyBankSystem _bank = default!;
 
     private (int roundId, string? threatId) _knowledgeKey = (-1, null);
     private string? _roundKnowledgeLine;
@@ -83,6 +86,7 @@ public sealed partial class CharacterInfoSystem : EntitySystem
 
         var isThreatRole = mind != null && IsThreatMind(mind);
         PopulateLorePrimerLines(lorePrimerLines, jobId, isThreatRole);
+        AddAtmCardLines(lorePrimerLines, entity);
 
         // Check inventory and hands for JobTitleChangerComponent
         if (TryComp(entity, out InventoryComponent? _))
@@ -299,8 +303,30 @@ public sealed partial class CharacterInfoSystem : EntitySystem
 
     private void AddThreatRolePrimer(List<string> lines)
     {
-
         lines.Add("You are aligned with the active threat. Keep your identity and goals in mind.");
+    }
+
+    /// <summary>
+    ///     Injects ATM account number and PIN into the character notes for
+    ///     ColonyFall and Insurgency gamemodes. Generates credentials if not yet assigned.
+    /// </summary>
+    private void AddAtmCardLines(List<string> lines, EntityUid entity)
+    {
+        var presetId = (_ticker.CurrentPreset?.ID ?? _ticker.Preset?.ID ?? string.Empty).ToLowerInvariant();
+        if (presetId != "colonyfall" && presetId != "insurgency")
+            return;
+
+        // Find the ID card on this entity
+        var invSys = EntityManager.System<InventorySystem>();
+        foreach (var item in invSys.GetHandOrInventoryEntities(entity))
+        {
+            if (!TryComp<IdCardComponent>(item, out var card))
+                continue;
+
+            _bank.EnsureAccountCredentials(item, card);
+            lines.Add($"ATM Card: Account #{card.AccountNumber}  ·  PIN: {card.AtmPin}");
+            return;
+        }
     }
 
 }
