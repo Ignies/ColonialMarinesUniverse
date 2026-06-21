@@ -36,6 +36,9 @@ public sealed class ColonyAtmBuiState : BoundUserInterfaceState
     /// <summary>Skimmer data — only populated on AtmScreen.SkimmerData.</summary>
     public List<SkimmedAccount> SkimmerData { get; }
 
+    /// <summary>Whether a card skimmer is physically installed on the ATM (changes the background art).</summary>
+    public bool SkimmerInstalled { get; }
+
     public ColonyAtmBuiState(
         AtmScreen screen,
         int balance,
@@ -47,7 +50,8 @@ public sealed class ColonyAtmBuiState : BoundUserInterfaceState
         string keypadBuffer,
         string[] leftLabels,
         string[] rightLabels,
-        List<SkimmedAccount>? skimmerData = null)
+        List<SkimmedAccount>? skimmerData = null,
+        bool skimmerInstalled = false)
     {
         Screen = screen;
         Balance = balance;
@@ -60,6 +64,7 @@ public sealed class ColonyAtmBuiState : BoundUserInterfaceState
         LeftLabels = leftLabels;
         RightLabels = rightLabels;
         SkimmerData = skimmerData ?? new List<SkimmedAccount>();
+        SkimmerInstalled = skimmerInstalled;
     }
 }
 
@@ -99,3 +104,4 @@ public sealed class ColonyAtmWithdrawBuiMsg : BoundUserInterfaceMessage
 {
     public int Amount { get; }
     public ColonyAtmWithdrawBuiMsg(int amount) => Amount = amount;
+}

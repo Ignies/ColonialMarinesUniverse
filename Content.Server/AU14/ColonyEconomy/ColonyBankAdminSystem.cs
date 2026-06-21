@@ -8,7 +8,7 @@ namespace Content.Server.AU14.ColonyEconomy;
 ///     Powers the admin bank console. Lists all accounts, full transaction log,
 ///     and allows admins to credit/debit accounts or unlock locked cards.
 /// </summary>
-public sealed class ColonyBankAdminSystem : EntitySystem
+public sealed partial class ColonyBankAdminSystem : EntitySystem
 {
     [Dependency] private UserInterfaceSystem _ui = default!;
     [Dependency] private ColonyBankSystem _bank = default!;

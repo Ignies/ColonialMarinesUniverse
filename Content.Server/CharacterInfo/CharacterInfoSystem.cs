@@ -318,9 +318,19 @@ public sealed partial class CharacterInfoSystem : EntitySystem
 
         // Find the ID card on this entity
         var invSys = EntityManager.System<InventorySystem>();
+        var ownName = Name(entity);
         foreach (var item in invSys.GetHandOrInventoryEntities(entity))
         {
             if (!TryComp<IdCardComponent>(item, out var card))
+                continue;
+
+            // Only ever show the card that belongs to this character. A card bound to
+            // someone else (OriginalOwner set to another mob) is never shown, so holding
+            // another player's ID will not leak their account or PIN. If the card has no
+            // owner yet, fall back to matching the printed name to this character.
+            var ownedByUs = card.OriginalOwner == entity
+                || (card.OriginalOwner == null && card.FullName == ownName);
+            if (!ownedByUs)
                 continue;
 
             _bank.EnsureAccountCredentials(item, card);

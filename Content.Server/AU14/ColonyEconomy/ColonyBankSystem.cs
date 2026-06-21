@@ -1,6 +1,6 @@
 using Content.Shared.Access.Components;
 using Content.Shared.AU14.ColonyEconomy;
-using Robust.Shared.GameTiming;
+using Robust.Shared.Timing;
 using Robust.Shared.Random;
 
 namespace Content.Server.AU14.ColonyEconomy;
@@ -150,11 +150,11 @@ public sealed partial class ColonyBankSystem : EntitySystem
     /// <summary>
     ///     Whether a card is currently locked out.
     /// </summary>
-    public bool IsLocked(IdCardComponent card, out TimeSpan? unlockAt)
+    public bool IsLocked(IdCardComponent? card, out TimeSpan? unlockAt)
     {
-        if (card.PinLockedUntil.HasValue && _timing.CurTime < card.PinLockedUntil.Value)
+        if (card?.PinLockedUntil is { } lockedUntil && _timing.CurTime < lockedUntil)
         {
-            unlockAt = card.PinLockedUntil;
+            unlockAt = lockedUntil;
             return true;
         }
         unlockAt = null;

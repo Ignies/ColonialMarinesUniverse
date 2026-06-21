@@ -1,3 +1,4 @@
+using System.Linq;
 using Content.Server.Forensics;
 using Content.Server.Stack;
 using Content.Shared.Access.Components;
@@ -25,17 +26,41 @@ public sealed partial class ColonyAtmSystem : EntitySystem
 
     private static readonly string[] EmptyLabels = { "", "", "" };
 
+    // Stack type shared by every dollar-bill denomination (RMCSpaceCash1, 10, 100, 1000, ...).
+    private const string CashStackType = "Dollar";
+
     public override void Initialize()
     {
         base.Initialize();
         SubscribeLocalEvent<ColonyAtmComponent, InteractUsingEvent>(OnInteractUsing);
+        SubscribeLocalEvent<ColonyAtmComponent, ActivateInWorldEvent>(OnActivate);
         SubscribeLocalEvent<ColonyAtmComponent, BoundUIOpenedEvent>(OnUiOpened);
         SubscribeLocalEvent<ColonyAtmComponent, BoundUIClosedEvent>(OnUiClosed);
-        SubscribeLocalEvent<ColonyAtmComponent, ColonyAtmSideButtonBuiMsg>(OnSideButton);
         SubscribeLocalEvent<ColonyAtmComponent, ColonyAtmDigitBuiMsg>(OnDigit);
         SubscribeLocalEvent<ColonyAtmComponent, ColonyAtmBackspaceBuiMsg>(OnBackspace);
         SubscribeLocalEvent<ColonyAtmComponent, ColonyAtmConfirmBuiMsg>(OnConfirm);
-        SubscribeLocalEvent<ColonyAtmComponent, ColonyAtmCancelBuiMsg>(OnCancel);
+    }
+
+    // ─── Activation (no card) ──────────────────────────────────────────────
+
+    private void OnActivate(EntityUid uid, ColonyAtmComponent comp, ActivateInWorldEvent args)
+    {
+        if (args.Handled)
+            return;
+
+        args.Handled = true;
+        comp.CurrentUser = args.User;
+
+        // A card session may already be running; only reset to the public menu otherwise.
+        if (comp.SwipedCard == null)
+        {
+            comp.Screen = AtmScreen.Welcome;
+            comp.KeypadBuffer = string.Empty;
+            comp.StatusMessage = string.Empty;
+        }
+
+        _ui.TryOpenUi(uid, ColonyAtmUi.Key, args.User);
+        RefreshUi(uid, comp);
     }
 
     // ─── Card swipe ────────────────────────────────────────────────────────
@@ -46,7 +71,7 @@ public sealed partial class ColonyAtmSystem : EntitySystem
             return;
 
         // Multitool: tampering check
-        if (TryComp<ToolComponent>(args.Used, out var tool) && tool.Qualities.Contains("Multitool"))
+        if (TryComp<ToolComponent>(args.Used, out var tool) && tool.Qualities.Contains("Pulsing"))
         {
             args.Handled = true;
             if (HasComp<ColonyAtmTamperedComponent>(uid))
@@ -105,33 +130,34 @@ public sealed partial class ColonyAtmSystem : EntitySystem
 
     private void OnDigit(EntityUid uid, ColonyAtmComponent comp, ColonyAtmDigitBuiMsg msg)
     {
-        if (comp.Screen is AtmScreen.Welcome or AtmScreen.PinLocked or AtmScreen.Result)
-            return;
-        if (comp.KeypadBuffer.Length < 10)
-            comp.KeypadBuffer += msg.Digit;
-        RefreshUi(uid, comp);
+        switch (comp.Screen)
+        {
+            case AtmScreen.Welcome:
+                HandleWelcomeMenu(uid, comp, msg.Digit);
+                return;
+            case AtmScreen.MainMenu:
+                HandleMainMenu(uid, comp, msg.Digit);
+                return;
+            default:
+                // Numeric entry screens buffer the digit; everything else ignores it.
+                if (IsInputScreen(comp.Screen) && comp.KeypadBuffer.Length < 10)
+                    comp.KeypadBuffer += msg.Digit;
+                RefreshUi(uid, comp);
+                return;
+        }
     }
 
     private void OnBackspace(EntityUid uid, ColonyAtmComponent comp, ColonyAtmBackspaceBuiMsg msg)
     {
+        // DEL edits the current entry, or steps back a screen when the entry is empty.
         if (comp.KeypadBuffer.Length > 0)
-            comp.KeypadBuffer = comp.KeypadBuffer[..^1];
-        RefreshUi(uid, comp);
-    }
-
-    private void OnCancel(EntityUid uid, ColonyAtmComponent comp, ColonyAtmCancelBuiMsg msg)
-    {
-        comp.KeypadBuffer = string.Empty;
-        comp.StatusMessage = string.Empty;
-        if (comp.PinAuthenticated && comp.SwipedCard != null)
-            comp.Screen = AtmScreen.MainMenu;
-        else
         {
-            comp.Screen = AtmScreen.Welcome;
-            comp.SwipedCard = null;
-            comp.PinAuthenticated = false;
+            comp.KeypadBuffer = comp.KeypadBuffer[..^1];
+            RefreshUi(uid, comp);
+            return;
         }
-        RefreshUi(uid, comp);
+
+        GoBack(uid, comp);
     }
 
     private void OnConfirm(EntityUid uid, ColonyAtmComponent comp, ColonyAtmConfirmBuiMsg msg)
@@ -148,6 +174,7 @@ public sealed partial class ColonyAtmSystem : EntitySystem
             case AtmScreen.Transfer:              HandleTransferAccountConfirm(uid, comp); break;
             case AtmScreen.TransferAmount:        HandleTransferAmountConfirm(uid, comp); break;
             case AtmScreen.TransferConfirm:       ExecuteTransfer(uid, comp); break;
+            case AtmScreen.PinLocked:             Eject(uid, comp); break;
             case AtmScreen.Result:
                 comp.Screen = comp.PinAuthenticated && comp.SwipedCard != null
                     ? AtmScreen.MainMenu : AtmScreen.Welcome;
@@ -158,28 +185,81 @@ public sealed partial class ColonyAtmSystem : EntitySystem
         }
     }
 
-    private void OnSideButton(EntityUid uid, ColonyAtmComponent comp, ColonyAtmSideButtonBuiMsg msg)
+    private void HandleWelcomeMenu(EntityUid uid, ColonyAtmComponent comp, string digit)
     {
+        if (digit == "1")
+        {
+            comp.Screen = AtmScreen.RemoteDeposit;
+            comp.KeypadBuffer = string.Empty;
+            comp.StatusMessage = string.Empty;
+        }
+        RefreshUi(uid, comp);
+    }
+
+    private void HandleMainMenu(EntityUid uid, ColonyAtmComponent comp, string digit)
+    {
+        comp.KeypadBuffer = string.Empty;
+        comp.StatusMessage = string.Empty;
+        switch (digit)
+        {
+            case "1": comp.Screen = AtmScreen.Withdraw; break;
+            case "2": comp.Screen = AtmScreen.Deposit; break;
+            case "3": comp.Screen = AtmScreen.Transfer; break;
+            case "4": comp.Screen = AtmScreen.RemoteDeposit; break;
+            case "5": Eject(uid, comp); return;
+        }
+        RefreshUi(uid, comp);
+    }
+
+    /// <summary>Steps back one screen (DEL on an empty entry), ejecting if at the top level.</summary>
+    private void GoBack(EntityUid uid, ColonyAtmComponent comp)
+    {
+        comp.StatusMessage = string.Empty;
         switch (comp.Screen)
         {
-            case AtmScreen.MainMenu:
-                HandleMainMenuButton(uid, comp, msg.Button); break;
-            case AtmScreen.WithdrawConfirm:
-            case AtmScreen.RemoteDepositConfirm:
-            case AtmScreen.TransferConfirm:
-                if (msg.Button == AtmSideButton.L1)      OnConfirm(uid, comp, new ColonyAtmConfirmBuiMsg());
-                else if (msg.Button == AtmSideButton.R3) OnCancel(uid, comp, new ColonyAtmCancelBuiMsg());
+            case AtmScreen.Withdraw:
+            case AtmScreen.Deposit:
+            case AtmScreen.Transfer:
+                comp.Screen = AtmScreen.MainMenu;
                 break;
+            case AtmScreen.RemoteDeposit:
+                comp.Screen = comp.PinAuthenticated && comp.SwipedCard != null
+                    ? AtmScreen.MainMenu : AtmScreen.Welcome;
+                break;
+            case AtmScreen.RemoteDepositAmount:
+                comp.Screen = AtmScreen.RemoteDeposit;
+                break;
+            case AtmScreen.RemoteDepositConfirm:
+                comp.Screen = AtmScreen.RemoteDepositAmount;
+                break;
+            case AtmScreen.TransferAmount:
+                comp.Screen = AtmScreen.Transfer;
+                break;
+            case AtmScreen.TransferConfirm:
+                comp.Screen = AtmScreen.TransferAmount;
+                break;
+            case AtmScreen.WithdrawConfirm:
+                comp.Screen = AtmScreen.Withdraw;
+                break;
+            case AtmScreen.PinEntry:
+            case AtmScreen.MainMenu:
             case AtmScreen.PinLocked:
             case AtmScreen.Result:
-                comp.Screen = AtmScreen.Welcome;
-                comp.SwipedCard = null;
-                comp.PinAuthenticated = false;
-                comp.StatusMessage = string.Empty;
-                comp.KeypadBuffer = string.Empty;
-                RefreshUi(uid, comp);
-                break;
+                Eject(uid, comp);
+                return;
         }
+        RefreshUi(uid, comp);
+    }
+
+    /// <summary>Ends the current card session and returns to the public welcome screen.</summary>
+    private void Eject(EntityUid uid, ColonyAtmComponent comp)
+    {
+        comp.Screen = AtmScreen.Welcome;
+        comp.SwipedCard = null;
+        comp.PinAuthenticated = false;
+        comp.KeypadBuffer = string.Empty;
+        comp.StatusMessage = string.Empty;
+        RefreshUi(uid, comp);
     }
 
     // ─── Screen handlers ───────────────────────────────────────────────────
@@ -225,25 +305,6 @@ public sealed partial class ColonyAtmSystem : EntitySystem
             comp.StatusMessage = $"Incorrect PIN. Attempt {card.PinAttempts}/3.";
         }
 
-        RefreshUi(uid, comp);
-    }
-
-    private void HandleMainMenuButton(EntityUid uid, ColonyAtmComponent comp, AtmSideButton btn)
-    {
-        comp.KeypadBuffer = string.Empty;
-        comp.StatusMessage = string.Empty;
-        switch (btn)
-        {
-            case AtmSideButton.L1: comp.Screen = AtmScreen.Withdraw; break;
-            case AtmSideButton.L2: comp.Screen = AtmScreen.Deposit; break;
-            case AtmSideButton.L3: comp.Screen = AtmScreen.Transfer; break;
-            case AtmSideButton.R1: comp.Screen = AtmScreen.RemoteDeposit; break;
-            case AtmSideButton.R3:
-                comp.Screen = AtmScreen.Welcome;
-                comp.SwipedCard = null;
-                comp.PinAuthenticated = false;
-                break;
-        }
         RefreshUi(uid, comp);
     }
 
@@ -467,7 +528,7 @@ public sealed partial class ColonyAtmSystem : EntitySystem
         if (comp.SwipedCard != null)
             TryComp(comp.SwipedCard.Value, out card);
 
-        _bank.IsLocked(card!, out var lockExpiry);
+        _bank.IsLocked(card, out var lockExpiry);
 
         var state = new ColonyAtmBuiState(
             comp.Screen,
@@ -478,36 +539,15 @@ public sealed partial class ColonyAtmSystem : EntitySystem
             lockExpiry,
             comp.StatusMessage,
             comp.Screen == AtmScreen.PinEntry ? new string('*', comp.KeypadBuffer.Length) : comp.KeypadBuffer,
-            BuildLeftLabels(comp),
-            BuildRightLabels(comp),
+            EmptyLabels,
+            EmptyLabels,
             comp.Screen == AtmScreen.SkimmerData && TryComp<ColonyAtmSkimmerComponent>(uid, out var sk)
-                ? sk.CapturedAccounts : null
+                ? sk.CapturedAccounts : null,
+            HasComp<ColonyAtmSkimmerComponent>(uid)
         );
 
         _ui.SetUiState(uid, ColonyAtmUi.Key, state);
     }
-
-    private static string[] BuildLeftLabels(ColonyAtmComponent comp) =>
-        comp.Screen switch
-        {
-            AtmScreen.MainMenu             => new[] { "Withdraw", "Deposit", "Transfer" },
-            AtmScreen.WithdrawConfirm      => new[] { "CONFIRM",  "",        ""         },
-            AtmScreen.RemoteDepositConfirm => new[] { "CONFIRM",  "",        ""         },
-            AtmScreen.TransferConfirm      => new[] { "CONFIRM",  "",        ""         },
-            _                              => EmptyLabels,
-        };
-
-    private static string[] BuildRightLabels(ColonyAtmComponent comp) =>
-        comp.Screen switch
-        {
-            AtmScreen.MainMenu             => new[] { "Remote Dep.", "", "Exit"   },
-            AtmScreen.WithdrawConfirm      => new[] { "",            "", "Cancel" },
-            AtmScreen.RemoteDepositConfirm => new[] { "",            "", "Cancel" },
-            AtmScreen.TransferConfirm      => new[] { "",            "", "Cancel" },
-            AtmScreen.PinLocked            => new[] { "",            "", "Eject"  },
-            AtmScreen.Result               => new[] { "",            "", "OK"     },
-            _                              => EmptyLabels,
-        };
 
     private void ShowResult(EntityUid uid, ColonyAtmComponent comp, string msg)
     {
@@ -525,7 +565,7 @@ public sealed partial class ColonyAtmSystem : EntitySystem
         foreach (var item in _hands.EnumerateHeld(user))
         {
             if (TryComp<StackComponent>(item, out var stack) &&
-                MetaData(item).EntityPrototype?.ID == "RMCSpaceCash")
+                stack.StackTypeId == CashStackType)
                 total += stack.Count;
         }
         return total >= amount;
@@ -537,8 +577,7 @@ public sealed partial class ColonyAtmSystem : EntitySystem
         foreach (var item in _hands.EnumerateHeld(user).ToList())
         {
             if (remaining <= 0) break;
-            if (MetaData(item).EntityPrototype?.ID != "RMCSpaceCash") continue;
-            if (!TryComp<StackComponent>(item, out var stack)) continue;
+            if (!TryComp<StackComponent>(item, out var stack) || stack.StackTypeId != CashStackType) continue;
 
             if (stack.Count <= remaining)
             {
@@ -555,6 +594,11 @@ public sealed partial class ColonyAtmSystem : EntitySystem
 
     private static bool ParsePositiveInt(string input, out int value) =>
         int.TryParse(input, out value) && value > 0;
+
+    private static bool IsInputScreen(AtmScreen screen) =>
+        screen is AtmScreen.PinEntry or AtmScreen.Withdraw or AtmScreen.Deposit
+            or AtmScreen.RemoteDeposit or AtmScreen.RemoteDepositAmount
+            or AtmScreen.Transfer or AtmScreen.TransferAmount;
 }
 
 

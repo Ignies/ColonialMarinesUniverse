@@ -12,7 +12,7 @@ namespace Content.Server.AU14.ColonyEconomy;
 /// <summary>
 ///     Handles the CLF Network Tap item being used on ATMs to install/retrieve skimmers.
 /// </summary>
-public sealed class ClfNetworkTapSystem : EntitySystem
+public sealed partial class ClfNetworkTapSystem : EntitySystem
 {
     [Dependency] private SharedPopupSystem _popup = default!;
     [Dependency] private UserInterfaceSystem _ui = default!;
