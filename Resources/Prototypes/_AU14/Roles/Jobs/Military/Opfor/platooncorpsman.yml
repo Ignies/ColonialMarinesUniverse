@@ -1,6 +1,6 @@
 - type: job
   parent: AU14JobPlatoonCorpsmanBase
-  id: AU14JobOpforPlatoonCorpsman
+  id: AU14JobOPFORPlatoonCorpsman
   icon: "AU14JobIconOPFORCorpsman"
   spawnMenuRoleName: Hospital Coprsman (OPFOR)
   supervisors: au14-job-supervisors-opfor
@@ -22,7 +22,7 @@
       - OPFOR
     - type: TacticalMapIcon
       icon:
-        sprite: /Textures/_AU14/Interface/au14opforhud.rsi
+        sprite: /Textures/_AU14/Interface/au14opforjobicons.rsi
         state: corpsman
 
 - type: startingGear
@@ -37,7 +37,7 @@
   name: Spawn Point opfor Squad Sergeant
   components:
   - type: SpawnPoint
-    job_id: AU14JobOpforPlatoonCorpsman
+    job_id: AU14JobOPFORPlatoonCorpsman
   - type: Sprite
     state: syn_spawn
 

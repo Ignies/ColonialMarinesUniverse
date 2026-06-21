@@ -45,7 +45,7 @@
   - type: KillObjective
     factiontokill: opfor
     amounttokill: 1
-    specificjob: AU14JobOpforPlatCo
+    specificjob: AU14JobOPFORPlatCo
 
 - type: entity
   name: "Kill the GOVFOR Commander (FOF)"
