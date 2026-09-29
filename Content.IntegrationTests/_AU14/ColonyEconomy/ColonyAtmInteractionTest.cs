@@ -1,6 +1,9 @@
+using System.Linq;
+using Content.Client._AU14.Insurgency.Sapper;
 using Content.Client.AU14.ColonyEconomy;
 using Content.IntegrationTests.Tests.Interaction;
 using Content.Server.AU14.ColonyEconomy;
+using Content.Shared._AU14.Insurgency.Sapper;
 using Content.Shared.Access.Components;
 using Content.Shared.AU14.ColonyEconomy;
 using Content.Shared.Stacks;
@@ -18,6 +21,7 @@ public sealed class ColonyAtmInteractionTest : InteractionTest
     private const string Atm = "AUColonyATM";
     private const string IdCard = "AU14IDCardCLFCivilian";
     private const string Cash = "RMCSpaceCash";
+    private const string SiphonRig = "AU14SapperSiphonRig";
 
     private ColonyAtmComponent AtmComp => Comp<ColonyAtmComponent>();
 
@@ -241,5 +245,43 @@ public sealed class ColonyAtmInteractionTest : InteractionTest
         await Server.WaitPost(() => InteractSys.InteractionActivate(stranger, atm));
         await RunTicks(5);
         Assert.That(AtmComp.CurrentUser, Is.EqualTo(stranger));
+    }
+
+    [Test]
+    public async Task SiphonRigLeaksRecentLogins()
+    {
+        await SpawnTarget(Atm);
+        var (_, pin, account) = await SwipeNewCard(100);
+        await Type(pin.ToString());
+        await CloseBui(ColonyAtmUi.Key);
+        Assert.That(AtmComp.RecentLogins.Select(l => l.AccountNumber), Does.Contain(account));
+
+        // A trained sapper clamps a (quick) siphon rig onto the ATM.
+        await Server.WaitPost(() => SEntMan.EnsureComponent<SapperComponent>(SPlayer));
+        var rig = await PlaceInHands(SiphonRig);
+        var rigComp = Comp<SapperAtmHackingComponent>(rig);
+        await Server.WaitPost(() => rigComp.AtmHackTime = 0.5f);
+        await Interact();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(rigComp.CapturedAccounts, Has.Count.EqualTo(1));
+            Assert.That(rigComp.CapturedAccounts[0].AccountNumber, Is.EqualTo(account));
+            Assert.That(rigComp.CapturedAccounts[0].Pin, Is.EqualTo(pin));
+            Assert.That(AtmComp.RecentLogins, Is.Empty, "Leaked logins were not wiped from the ATM");
+            Assert.That(SEntMan.HasComponent<SapperAtmHackedComponent>(STarget), "ATM was not hacked");
+            Assert.That(SEntMan.HasComponent<ColonyAtmTamperedComponent>(STarget), "ATM was not marked tampered");
+        });
+
+        // The hacked ATM refuses to open, even on a plain click.
+        await Activate();
+        Assert.That(IsUiOpen(ColonyAtmUi.Key), Is.False, "Hacked ATM opened");
+
+        // Reading the rig in hand shows the stolen login.
+        await UseInHand();
+        Assert.That(IsUiOpen(SapperSiphonRigUiKey.Key), "Siphon rig data window did not open");
+        await RunTicks(5);
+        var window = GetWindow<SapperSiphonRigWindow>();
+        Assert.That(window.DataRows.ChildCount, Is.EqualTo(1));
     }
 }
