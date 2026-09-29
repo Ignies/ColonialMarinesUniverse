@@ -1,8 +1,10 @@
 using System.Linq;
+using Content.Server.AU14.ColonyEconomy;
 using Content.Server.Mind;
 using Content.Server.Roles;
 using Content.Server.Roles.Jobs;
 using Content.Server.AU14.Round;
+using Content.Shared.Access.Components;
 using Content.Shared.Mind;
 using Content.Server.GameTicking;
 using Content.Shared._RMC14.Rules;
@@ -31,6 +33,7 @@ public sealed partial class CharacterInfoSystem : EntitySystem
     [Dependency] private PlatoonSpawnRuleSystem _platoons = default!;
     [Dependency] private IPrototypeManager _prototypes = default!;
     [Dependency] private IRobustRandom _random = default!;
+    [Dependency] private ColonyBankSystem _bank = default!;
 
     private (int roundId, string? threatId) _knowledgeKey = (-1, null);
     private string? _roundKnowledgeLine;
@@ -84,6 +87,7 @@ public sealed partial class CharacterInfoSystem : EntitySystem
         var isThreatRole = mind != null && IsThreatMind(mind);
         PopulateLorePrimerLines(lorePrimerLines, jobId, isThreatRole);
         AddCLFStandingOrders(lorePrimerLines, entity);
+        AddAtmCardLines(lorePrimerLines, entity);
 
         // Check inventory and hands for JobTitleChangerComponent
         if (TryComp(entity, out InventoryComponent? _))
@@ -302,6 +306,43 @@ public sealed partial class CharacterInfoSystem : EntitySystem
     {
 
         lines.Add("You are aligned with the active threat. Keep your identity and goals in mind.");
+    }
+
+    /// <summary>
+    ///     Injects ATM account number and PIN into the character notes for
+    ///     ColonyFall and Insurgency gamemodes. Only ever shows this character's own card.
+    ///     Read-only: opening character info never assigns or changes a PIN.
+    /// </summary>
+    private void AddAtmCardLines(List<string> lines, EntityUid entity)
+    {
+        var presetId = (_ticker.CurrentPreset?.ID ?? _ticker.Preset?.ID ?? string.Empty).ToLowerInvariant();
+        if (presetId != "colonyfall" && presetId != "insurgency")
+            return;
+
+        // The card bound to this character (OriginalOwner), wherever it is now, so losing the card
+        // does not lose the details and holding someone else's card never shows theirs.
+        var owned = _bank.FindOwnedCard(entity);
+
+        // A card nobody has claimed yet: fall back to one we carry that has our name printed on it.
+        if (owned == null)
+        {
+            var invSys = EntityManager.System<InventorySystem>();
+            var ownName = Name(entity);
+            foreach (var item in invSys.GetHandOrInventoryEntities(entity))
+            {
+                if (TryComp<IdCardComponent>(item, out var card) && card.OriginalOwner == null && card.FullName == ownName)
+                {
+                    owned = (item, card);
+                    break;
+                }
+            }
+        }
+
+        // Credentials are assigned when the card is created; this only reads them.
+        if (owned is not { } found || found.card.AccountNumber == 0)
+            return;
+
+        lines.Add($"ATM Card: Account #{found.card.AccountNumber}  ·  PIN: {found.card.AtmPin}");
     }
 
 }
