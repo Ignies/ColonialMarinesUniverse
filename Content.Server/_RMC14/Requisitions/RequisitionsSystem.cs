@@ -1142,7 +1142,8 @@ public sealed partial class RequisitionsSystem : SharedRequisitionsSystem
     {
         // CMU14: the colony ATM holds the customer's ID card, and the cash it pays out until it is taken,
         // in containers of their own; neither is a payment.
-        if (args.Container.ID is ColonyAtmComponent.CardSlotId or ColonyAtmComponent.CashTrayId)
+        if (args.Container.ID is ColonyAtmComponent.CardSlotId or ColonyAtmComponent.CashTrayId
+            or ColonyAtmComponent.ReceiptSlotId)
             return;
 
         int stackCount = 1;

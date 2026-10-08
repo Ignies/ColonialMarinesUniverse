@@ -78,6 +78,13 @@ public sealed class ColonyAtmBuiState : BoundUserInterfaceState
     /// <summary>What the sapper who knocked the machine out left on its screen, if anything.</summary>
     public string? OutOfServiceMessage { get; }
 
+    public bool ReceiptWaiting { get; }
+
+    public TimeSpan? ReceiptPrintedAt { get; }
+
+    /// <summary>The last transfer's certificate can be printed from the result screen.</summary>
+    public bool CertificateReady { get; }
+
     public ColonyAtmBuiState(
         AtmScreen screen,
         int balance,
@@ -101,7 +108,10 @@ public sealed class ColonyAtmBuiState : BoundUserInterfaceState
         bool outOfService = false,
         int cashAmount = 0,
         int cashWaiting = 0,
-        string? outOfServiceMessage = null)
+        string? outOfServiceMessage = null,
+        bool receiptWaiting = false,
+        TimeSpan? receiptPrintedAt = null,
+        bool certificateReady = false)
     {
         Screen = screen;
         Balance = balance;
@@ -126,6 +136,9 @@ public sealed class ColonyAtmBuiState : BoundUserInterfaceState
         CashAmount = cashAmount;
         CashWaiting = cashWaiting;
         OutOfServiceMessage = outOfServiceMessage;
+        ReceiptWaiting = receiptWaiting;
+        ReceiptPrintedAt = receiptPrintedAt;
+        CertificateReady = certificateReady;
     }
 }
 
@@ -166,6 +179,9 @@ public sealed class ColonyAtmEjectCardBuiMsg : BoundUserInterfaceMessage { }
 /// <summary>Player clicked the bills waiting in the cash tray: put them in their hand.</summary>
 [Serializable, NetSerializable]
 public sealed class ColonyAtmTakeCashBuiMsg : BoundUserInterfaceMessage { }
+
+[Serializable, NetSerializable]
+public sealed class ColonyAtmTakeReceiptBuiMsg : BoundUserInterfaceMessage { }
 
 /// <summary>
 ///     Client → server, once the screen exists: which card is mine? Answered with

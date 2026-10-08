@@ -65,11 +65,21 @@ public enum AtmHistoryKind : byte
     Retracted,
     /// <summary>Paid at a vending machine with the card, for whatever inserted cash didn't cover.</summary>
     Purchase,
+    /// <summary>Paid a merchant at a card terminal; <c>OtherAccount</c> is the merchant's payout account.</summary>
+    CardPayment,
+    /// <summary>Taken at this account's card terminal; <c>OtherAccount</c> is the customer's account.</summary>
+    CardSale,
 }
 
 /// <summary>
 ///     One line of an account's history. <see cref="Amount"/> is always positive; the kind says
 ///     which way it went. <see cref="OtherAccount"/> is the other side of a transfer, otherwise 0.
+///     <see cref="Reference"/> is the code printed on the transfer certificate or card receipt.
 /// </summary>
 [Serializable, NetSerializable]
-public readonly record struct ColonyAccountHistoryEntry(TimeSpan Time, AtmHistoryKind Kind, int Amount, int OtherAccount);
+public readonly record struct ColonyAccountHistoryEntry(
+    TimeSpan Time,
+    AtmHistoryKind Kind,
+    int Amount,
+    int OtherAccount,
+    string? Reference = null);

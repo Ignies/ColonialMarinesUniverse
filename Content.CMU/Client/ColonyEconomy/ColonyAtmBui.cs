@@ -93,6 +93,7 @@ public sealed partial class ColonyAtmBui(EntityUid owner, Enum uiKey) : BoundUse
         _window.InsertCardPressed += () => SendPredictedMessage(new ColonyAtmInsertCardBuiMsg());
         _window.LogOffPressed += () => SendPredictedMessage(new ColonyAtmEjectCardBuiMsg());
         _window.TakeCashPressed += () => SendPredictedMessage(new ColonyAtmTakeCashBuiMsg());
+        _window.TakeReceiptPressed += () => SendPredictedMessage(new ColonyAtmTakeReceiptBuiMsg());
 
         _window.TextTyped += () => Play(TypeSound, -9f, _random.NextFloat(0.85f, 1.2f));
 

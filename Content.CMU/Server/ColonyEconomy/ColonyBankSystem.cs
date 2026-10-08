@@ -30,6 +30,9 @@ public sealed partial class ColonyBankSystem : EntitySystem
     private readonly HashSet<int> _usedAccounts = new();
     private readonly HashSet<int> _usedPins = new();
 
+    // Every reference code printed this round, so no two documents ever share one.
+    private readonly HashSet<string> _usedReferences = new();
+
     public override void Initialize()
     {
         base.Initialize();
@@ -48,6 +51,7 @@ public sealed partial class ColonyBankSystem : EntitySystem
     {
         _usedAccounts.Clear();
         _usedPins.Clear();
+        _usedReferences.Clear();
     }
 
     /// <summary>
@@ -146,10 +150,11 @@ public sealed partial class ColonyBankSystem : EntitySystem
     /// <summary>
     ///     Adds a line to the card's account history, dropping the oldest once it is full.
     /// </summary>
-    public void RecordTransaction(EntityUid cardUid, AtmHistoryKind kind, int amount, int otherAccount = 0)
+    public void RecordTransaction(EntityUid cardUid, AtmHistoryKind kind, int amount, int otherAccount = 0,
+        string? reference = null)
     {
         var history = EnsureComp<ColonyAccountHistoryComponent>(cardUid);
-        history.Entries.Add(new ColonyAccountHistoryEntry(_ticker.RoundDuration(), kind, amount, otherAccount));
+        history.Entries.Add(new ColonyAccountHistoryEntry(_ticker.RoundDuration(), kind, amount, otherAccount, reference));
         if (history.Entries.Count > MaxHistoryEntries)
             history.Entries.RemoveAt(0);
     }
@@ -162,6 +167,18 @@ public sealed partial class ColonyBankSystem : EntitySystem
         return TryComp<ColonyAccountHistoryComponent>(cardUid, out var history)
             ? history.Entries
             : Array.Empty<ColonyAccountHistoryEntry>();
+    }
+
+    /// <summary>A reference code unique this round, e.g. <c>TRF-7F3A12</c>.</summary>
+    public string NewReference(string prefix)
+    {
+        string reference;
+        do
+        {
+            reference = $"{prefix}-{_random.Next(0x1000000):X6}";
+        } while (!_usedReferences.Add(reference));
+
+        return reference;
     }
 
     // ── Internal helpers ─────────────────────────────────────────────────

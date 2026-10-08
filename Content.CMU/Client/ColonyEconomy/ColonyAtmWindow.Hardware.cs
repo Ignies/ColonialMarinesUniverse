@@ -32,6 +32,8 @@ public sealed partial class ColonyAtmWindow
     private static readonly UIBox2 CashRect = UIBox2.FromDimensions(42, 196, 85, 27);
     // The bills themselves, all the way out with the stack fanned (the generator's CASH_* geometry).
     private static readonly UIBox2 BillsRect = UIBox2.FromDimensions(51, 202, 67, 21);
+    private static readonly UIBox2 ReceiptRect = UIBox2.FromDimensions(121, 189, 19, 32);
+    private static readonly UIBox2 PaperRect = UIBox2.FromDimensions(124, 202, 13, 15);
     // The status lights sit on the fascia left of the cash slot, above the counter shelf.
     private static readonly UIBox2 PowerLedRect = UIBox2.FromDimensions(31, 196, 5, 5);
     private static readonly UIBox2 ActivityLedRect = UIBox2.FromDimensions(31, 207, 5, 5);
@@ -64,6 +66,9 @@ public sealed partial class ColonyAtmWindow
     private bool _cardIn;
     private TimeSpan? _seenDispense;
     private TimeSpan? _seenDeposit;
+    private TimeSpan? _seenPrint;
+    private AtmSprite _receipt = default!;
+    private bool _receiptOut;
     private float _reading;
     // Bills are out in the tray (or on their way out), waiting to be taken.
     private bool _cashOut;
@@ -114,6 +119,16 @@ public sealed partial class ColonyAtmWindow
                 LiftCash();
         };
 
+        _receipt = new AtmSprite(Rsi(cache, "atm_receipt"));
+        Art(_receipt, ReceiptRect);
+        Art(BtnReceipt, PaperRect);
+        BtnReceipt.Visible = false;
+        BtnReceipt.OnPressed += _ =>
+        {
+            BtnReceipt.Visible = false;
+            TakeReceiptPressed?.Invoke();
+        };
+
         var leds = Rsi(cache, "atm_leds");
         _ledPower = new AtmSprite(leds);
         _ledActivity = new AtmSprite(leds);
@@ -158,6 +173,9 @@ public sealed partial class ColonyAtmWindow
         var digits = new[] { Btn0, Btn1, Btn2, Btn3, Btn4, Btn5, Btn6, Btn7, Btn8, Btn9 };
         for (var digit = 0; digit < digits.Length; digit++)
             ((KeyButton) digits[digit]).Lit = DigitLive(s.Screen, digit, buffer);
+        // 1 prints the statement, or the last transfer's certificate.
+        if (s.Screen == AtmScreen.History || s.Screen == AtmScreen.Result && s.CertificateReady)
+            ((KeyButton) Btn1).Lit = true;
         // 00 types two zeros, so it needs room for both.
         ((KeyButton) Btn00).Lit = DigitLive(s.Screen, 0, buffer + 1) && IsInputScreen(s.Screen);
 
@@ -244,6 +262,8 @@ public sealed partial class ColonyAtmWindow
             LiftCash();
         }
 
+        UpdateReceipt(s, previous == null);
+
         // A siphoned machine: broken down and taped off while it is out, pry marks once it is back.
         _skimmer.Show(s.OutOfService ? "broken" : s.Tampered ? "tampered" : null);
 
@@ -262,6 +282,28 @@ public sealed partial class ColonyAtmWindow
         _cashOut = false;
         BtnCash.Visible = false;
         _cash.Play($"take_{_notes}", () => _cash.Show(null));
+    }
+
+    private void UpdateReceipt(ColonyAtmBuiState s, bool opening)
+    {
+        if (TakeEvent(s.ReceiptPrintedAt, ref _seenPrint, opening))
+        {
+            _receiptOut = true;
+            BtnReceipt.Visible = true;
+            _receipt.Play("print", () => _receipt.Show(_state?.ReceiptWaiting == true ? "presented" : null));
+        }
+        else if (s.ReceiptWaiting && !_receiptOut)
+        {
+            _receiptOut = true;
+            BtnReceipt.Visible = true;
+            _receipt.Show("presented");
+        }
+        else if (!s.ReceiptWaiting && _receiptOut)
+        {
+            _receiptOut = false;
+            BtnReceipt.Visible = false;
+            _receipt.Play("take", () => _receipt.Show(null));
+        }
     }
 
     private static int Notes(int amount)
@@ -491,16 +533,16 @@ public sealed partial class ColonyAtmWindow
 
     // ─── The cash slot ────────────────────────────────────────────────────
 
-    /// <summary>
-    ///     The bills while they are out of the slot: a click takes them in hand. The same light outline
-    ///     as the reader's shows round them.
-    /// </summary>
-    public sealed class CashButton : Button
+    /// <summary>Whatever waits in a slot, bills or a receipt: a click takes it, outlined like the reader.</summary>
+    public sealed class SlotButton : Button
     {
         private static readonly Color Hover = new(1f, 0.95f, 0.8f, 0.35f);
 
-        public CashButton()
+        private readonly float _artWidth;
+
+        public SlotButton(float artWidth)
         {
+            _artWidth = artWidth;
             StyleBoxOverride = new StyleBoxFlat { BackgroundColor = Color.Transparent };
             ModulateSelfOverride = Color.White;
             DefaultCursorShape = CursorShape.Hand;
@@ -512,7 +554,7 @@ public sealed partial class ColonyAtmWindow
             if (DrawMode is not (DrawModeEnum.Hover or DrawModeEnum.Pressed))
                 return;
 
-            var artPixel = PixelSize.X / BillsRect.Width;
+            var artPixel = PixelSize.X / _artWidth;
             for (var i = 0; i < 2; i++)
             {
                 var inset = i * artPixel;

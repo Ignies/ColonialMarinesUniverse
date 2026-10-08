@@ -21,6 +21,9 @@ public sealed partial class ColonyAtmComponent : Component
     /// </summary>
     public const string CashTrayId = "colony_atm_cash";
 
+    /// <summary>Printed statements and certificates wait here until taken.</summary>
+    public const string ReceiptSlotId = "colony_atm_receipt";
+
     /// <summary>Digits in a card PIN.</summary>
     public const int PinLength = 4;
 
@@ -44,6 +47,11 @@ public sealed partial class ColonyAtmComponent : Component
 
     /// <summary>How many dollars the last of those two moved, so the slot shows a wad that thick.</summary>
     public int CashAmount;
+
+    public TimeSpan? ReceiptPrintedAt;
+
+    /// <summary>The certificate a successful transfer can print, until the session moves on.</summary>
+    public (string Reference, string Markup)? PendingCertificate;
 
     /// <summary>The account the cash waiting in the tray came out of; it goes back there if left.</summary>
     public int CashAccount;

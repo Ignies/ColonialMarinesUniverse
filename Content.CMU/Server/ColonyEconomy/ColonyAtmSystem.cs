@@ -31,6 +31,7 @@ public sealed partial class ColonyAtmSystem : EntitySystem
     [Dependency] private AdminConsoleSystem _adminConsole = default!;
     [Dependency] private ColonyBudgetSystem _colonyBudget = default!;
     [Dependency] private ColonyBankSystem _bank = default!;
+    [Dependency] private ColonyBankPaperworkSystem _paperwork = default!;
     [Dependency] private IGameTiming _timing = default!;
     [Dependency] private SharedHandsSystem _hands = default!;
     [Dependency] private SharedAudioSystem _audio = default!;
@@ -64,6 +65,7 @@ public sealed partial class ColonyAtmSystem : EntitySystem
         SubscribeLocalEvent<ColonyAtmComponent, ColonyAtmInsertCardBuiMsg>(OnInsertCardMsg);
         SubscribeLocalEvent<ColonyAtmComponent, ColonyAtmEjectCardBuiMsg>(OnEjectCardMsg);
         SubscribeLocalEvent<ColonyAtmComponent, ColonyAtmTakeCashBuiMsg>(OnTakeCashMsg);
+        SubscribeLocalEvent<ColonyAtmComponent, ColonyAtmTakeReceiptBuiMsg>(OnTakeReceiptMsg);
         SubscribeLocalEvent<ColonyAtmComponent, ColonyAtmOwnCardRequestMsg>(OnOwnCardRequest);
         SubscribeLocalEvent<ColonyAtmComponent, ColonyAtmScrollHistoryBuiMsg>(OnScrollHistory);
         SubscribeLocalEvent<ColonyAtmComponent, EntRemovedFromContainerMessage>(OnCardRemoved);
@@ -121,6 +123,7 @@ public sealed partial class ColonyAtmSystem : EntitySystem
         comp.PendingTransferTarget = 0;
         comp.RemoteDepositTarget = 0;
         comp.HistoryOffset = 0;
+        comp.PendingCertificate = null;
     }
 
     /// <summary>
@@ -262,6 +265,15 @@ public sealed partial class ColonyAtmSystem : EntitySystem
                 Act = () => TakeCash(uid, comp, user),
             });
         }
+
+        if (_paperwork.GetWaitingPaper(uid, ColonyAtmComponent.ReceiptSlotId) != null)
+        {
+            args.Verbs.Add(new AlternativeVerb
+            {
+                Text = Loc.GetString("cmu-bank-take-receipt-verb"),
+                Act = () => TakeReceipt(uid, comp, user),
+            });
+        }
     }
 
     /// <summary>Clicking the empty reader on the screen puts in the user's card.</summary>
@@ -317,6 +329,21 @@ public sealed partial class ColonyAtmSystem : EntitySystem
 
         Touch(comp);
         TakeCash(uid, comp, msg.Actor);
+    }
+
+    private void OnTakeReceiptMsg(EntityUid uid, ColonyAtmComponent comp, ColonyAtmTakeReceiptBuiMsg msg)
+    {
+        if (msg.Actor != comp.CurrentUser)
+            return;
+
+        Touch(comp);
+        TakeReceipt(uid, comp, msg.Actor);
+    }
+
+    private void TakeReceipt(EntityUid uid, ColonyAtmComponent comp, EntityUid user)
+    {
+        if (_paperwork.TryTake(uid, ColonyAtmComponent.ReceiptSlotId, user))
+            RefreshUi(uid, comp);
     }
 
     // ─── Card insertion ────────────────────────────────────────────────────
@@ -394,6 +421,12 @@ public sealed partial class ColonyAtmSystem : EntitySystem
                 return;
             case AtmScreen.MainMenu:
                 HandleMainMenu(uid, comp, msg.Digit);
+                return;
+            case AtmScreen.History when msg.Digit == "1":
+                PrintStatement(uid, comp, msg.Actor);
+                return;
+            case AtmScreen.Result when msg.Digit == "1":
+                PrintCertificate(uid, comp, msg.Actor);
                 return;
             default:
                 // Numeric entry screens buffer the digit; everything else ignores it.
@@ -479,6 +512,7 @@ public sealed partial class ColonyAtmSystem : EntitySystem
                     ? AtmScreen.MainMenu : AtmScreen.Welcome;
                 comp.StatusMessage = string.Empty;
                 comp.KeypadBuffer = string.Empty;
+                comp.PendingCertificate = null;
                 RefreshUi(uid, comp);
                 break;
         }
@@ -897,10 +931,54 @@ public sealed partial class ColonyAtmSystem : EntitySystem
         Dirty(senderUid, sender);
         target.Value.card.AccountBalance += amount;
         Dirty(target.Value.uid, target.Value.card);
-        _bank.RecordTransaction(senderUid, AtmHistoryKind.TransferOut, amount, target.Value.card.AccountNumber);
-        _bank.RecordTransaction(target.Value.uid, AtmHistoryKind.TransferIn, amount, sender.AccountNumber);
+        var reference = _bank.NewReference("TRF");
+        _bank.RecordTransaction(senderUid, AtmHistoryKind.TransferOut, amount, target.Value.card.AccountNumber, reference);
+        _bank.RecordTransaction(target.Value.uid, AtmHistoryKind.TransferIn, amount, sender.AccountNumber, reference);
 
-        ShowResult(uid, comp, $"Transferred ${amount}. Balance: ${sender.AccountBalance}.");
+        var certificate = _paperwork.Certificate(reference, amount,
+            sender.FullName ?? "Unknown", sender.AccountNumber,
+            target.Value.card.FullName ?? "Unknown", target.Value.card.AccountNumber);
+        ShowResult(uid, comp, $"Transferred ${amount}. Balance: ${sender.AccountBalance}.", (reference, certificate));
+    }
+
+    // ─── Paperwork ─────────────────────────────────────────────────────────
+
+    private void PrintStatement(EntityUid uid, ColonyAtmComponent comp, EntityUid user)
+    {
+        if (!TryGetSessionCard(uid, comp, out var cardUid, out var card))
+            return;
+
+        var account = card.AccountNumber;
+        var statement = _paperwork.Statement(card.FullName ?? "Unknown", account, card.AccountBalance,
+            _bank.GetHistory(cardUid));
+        Print(uid, comp, user, Loc.GetString("cmu-bank-statement-name", ("account", account.ToString())), statement);
+    }
+
+    // One copy per transfer.
+    private void PrintCertificate(EntityUid uid, ColonyAtmComponent comp, EntityUid user)
+    {
+        if (comp.PendingCertificate is not { } certificate)
+            return;
+
+        var name = Loc.GetString("cmu-bank-certificate-name", ("reference", certificate.Reference));
+        if (Print(uid, comp, user, name, certificate.Markup))
+        {
+            comp.PendingCertificate = null;
+            RefreshUi(uid, comp);
+        }
+    }
+
+    private bool Print(EntityUid uid, ColonyAtmComponent comp, EntityUid user, string name, string markup)
+    {
+        if (!_paperwork.TryPrint(uid, ColonyAtmComponent.ReceiptSlotId, name, markup))
+        {
+            _popup.PopupEntity(Loc.GetString("cmu-bank-slot-full"), uid, user);
+            return false;
+        }
+
+        comp.ReceiptPrintedAt = _timing.CurTime;
+        RefreshUi(uid, comp);
+        return true;
     }
 
     // ─── UI building ───────────────────────────────────────────────────────
@@ -959,14 +1037,19 @@ public sealed partial class ColonyAtmSystem : EntitySystem
             hacked != null,
             comp.CashAmount,
             CashInTray(uid),
-            hacked?.Message
+            hacked?.Message,
+            _paperwork.GetWaitingPaper(uid, ColonyAtmComponent.ReceiptSlotId) != null,
+            comp.ReceiptPrintedAt,
+            comp.PendingCertificate != null
         );
 
         _ui.SetUiState(uid, ColonyAtmUi.Key, state);
     }
 
-    private void ShowResult(EntityUid uid, ColonyAtmComponent comp, string msg)
+    private void ShowResult(EntityUid uid, ColonyAtmComponent comp, string msg,
+        (string Reference, string Markup)? certificate = null)
     {
+        comp.PendingCertificate = certificate;
         comp.Screen = AtmScreen.Result;
         comp.StatusMessage = msg;
         comp.KeypadBuffer = string.Empty;

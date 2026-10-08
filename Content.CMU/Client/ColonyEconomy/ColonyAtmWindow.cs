@@ -103,10 +103,14 @@ public sealed partial class ColonyAtmWindow : BaseWindow
     public event Action? LogOffPressed;
 
     /// <summary>The bills in the cash tray; shown only while they wait there.</summary>
-    public readonly CashButton BtnCash = new();
+    public readonly SlotButton BtnCash = new(BillsRect.Width);
 
     /// <summary>The bills in the tray were clicked: the player takes the cash in hand.</summary>
     public event Action? TakeCashPressed;
+
+    public readonly SlotButton BtnReceipt = new(PaperRect.Width);
+
+    public event Action? TakeReceiptPressed;
 
     /// <summary>Text appeared on the screen this frame, a character or a self-test line.</summary>
     public event Action? TextTyped;
@@ -606,7 +610,7 @@ public sealed partial class ColonyAtmWindow : BaseWindow
             AtmScreen.Transfer => Combine("TRANSFER\nRecipient account #:", s.StatusMessage),
             AtmScreen.TransferAmount => s.StatusMessage,
             AtmScreen.TransferConfirm => $"{s.StatusMessage}\n\n{Loc.GetString("cmu-atm-hint-confirm")}",
-            AtmScreen.Result => $"{s.StatusMessage}\n\n{Loc.GetString("cmu-atm-hint-continue")}",
+            AtmScreen.Result => $"{s.StatusMessage}\n\n{Loc.GetString(s.CertificateReady ? "cmu-atm-hint-certificate" : "cmu-atm-hint-continue")}",
             AtmScreen.History => BuildHistory(s),
             _ => string.Empty,
         };
@@ -632,13 +636,15 @@ public sealed partial class ColonyAtmWindow : BaseWindow
                 AtmHistoryKind.TransferOut => $"-${entry.Amount} TO #{entry.OtherAccount}",
                 AtmHistoryKind.TransferIn => $"+${entry.Amount} FROM #{entry.OtherAccount}",
                 AtmHistoryKind.Retracted => $"+${entry.Amount} CASH RETURNED",
+                AtmHistoryKind.CardPayment => $"-${entry.Amount} PAID #{entry.OtherAccount}",
+                AtmHistoryKind.CardSale => $"+${entry.Amount} SALE #{entry.OtherAccount}",
                 AtmHistoryKind.Purchase => $"-${entry.Amount} PURCHASE",
                 _ => $"{entry.Amount}",
             };
             sb.Append('\n').Append(time).Append(' ').Append(line);
         }
 
-        sb.Append("\nENTER = back");
+        sb.Append('\n').Append(Loc.GetString("cmu-atm-hint-history"));
         return sb.ToString();
     }
 

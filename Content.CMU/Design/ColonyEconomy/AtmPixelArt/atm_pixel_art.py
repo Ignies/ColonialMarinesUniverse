@@ -51,6 +51,7 @@ LAYOUT = {
     "card": (145, 86, 51, 48),
     # Room for the bills fanned out toward the customer, down to the shelf.
     "cash": (42, 196, 85, 27),
+    "receipt": (121, 189, 19, 32),
     "led_power": (31, 196, 5, 5),
     "led_activity": (31, 207, 5, 5),
 }
@@ -467,7 +468,7 @@ def draw_base():
     bone_slot(L, 52, 199, 116, 211, "#5c4b32")
     L.rect(55, 200, 113, 200, "#000000")
     L.rect(57, 210, 111, 210, "#1c1712")
-    for gx in (41, 44, 47, 121, 124, 127):
+    for gx in (41, 44, 47):
         L.rect(gx, 201, gx, 209, C["grille"])
         L.rect(gx + 1, 201, gx + 1, 209, C["grille_hi"])
         L.set(gx, 200, "#4a3e2e")
@@ -476,8 +477,65 @@ def draw_base():
         L.outline(x, y, x + 4, y + 4, "#5e4a30", rounded=True)
         L.paste(led(name, None))
 
+    draw_receipt_slot(L)
     draw_shelf(L)
 
+    return L
+
+
+# ── Receipt printer ──────────────────────────────────────────────────────────
+# The receipt comes out of the slit toward the customer like the bills: a strip that widens as it
+# nears and darkens toward the slit, leading edge first, printed lines across it.
+RECEIPT_FAR_Y, RECEIPT_ROWS = 201, 13
+RECEIPT_FAR_W, RECEIPT_NEAR_W = 9, 13
+RECEIPT_MID = 130
+RECEIPT_SHADE = (0.85, 0.65, 0.45, 0.3, 0.18, 0.1, 0.05)
+PRINT_DELAYS = [0.15, 0.17, 0.17, 0.17, 0.17, 0.17, 0.25]   # with short_print_and_rip.ogg
+PAPER = dict(edge="#8d877a", paper="#e9e4d6", ink="#8d877a")
+
+
+def draw_receipt_slot(L):
+    """Where the right-hand grille was: a small housing like the cash slot's, with a paper slit."""
+    x0, y0, w, h = LAYOUT["receipt"]
+    x1, y1 = x0 + w - 1, y0 + h - 1
+    L.rect(x0, y0, x1, y1, "#5c4b32")
+    for y in range(y0 + 1, y1):
+        if y < 197 or y > 206:
+            L.rect(x0 + 1, y, x1 - 1, y, "#66543a" if y % 2 else "#55452e")
+    bevel(L, x0, y0, x1, y1, "#7d6a4e", "#3a2f20")
+    stamp(L, F3, centred(F3, "RCPT", x0 + w // 2), 191, "RCPT", "#2c241a", "#8f7c5f")
+    L.rect(x0 + 3, 199, x1 - 3, 202, C["slot"])
+    L.rect(x0 + 3, 199, x1 - 3, 199, "#000000")
+    L.rect(x0 + 4, 203, x1 - 4, 203, C["slot_rim"])
+
+
+def receipt_span(row):
+    width = RECEIPT_FAR_W + (RECEIPT_NEAR_W - RECEIPT_FAR_W) * row / (RECEIPT_ROWS - 1)
+    return round(RECEIPT_MID - width / 2), round(RECEIPT_MID + width / 2) - 1
+
+
+def receipt(drop):
+    """The receipt `drop` rows out of the slit; the part still inside is hidden."""
+    L = Layer()
+    drop = min(drop, RECEIPT_ROWS)
+    for row in range(drop):
+        x0, x1 = receipt_span(row)
+        v = 1 - (drop - row - 0.5) / RECEIPT_ROWS
+        printed = 0.2 < v < 0.85 and int(v * RECEIPT_ROWS) % 2 == 0
+        for x in range(x0, x1 + 1):
+            u = (x - x0 + 0.5) / (x1 - x0 + 1)
+            if x in (x0, x1) or row == drop - 1:
+                colour = PAPER["edge"]
+            elif printed and 0.2 < u < (0.8 if int(v * RECEIPT_ROWS) % 4 else 0.6):
+                colour = PAPER["ink"]
+            else:
+                colour = PAPER["paper"]
+            keep = 1 - (RECEIPT_SHADE[row] if row < len(RECEIPT_SHADE) else 0)
+            r, g, b, _ = rgba(colour)
+            L.set(x, RECEIPT_FAR_Y + row, "#%02x%02x%02x" % (int(r * keep), int(g * keep), int(b * keep)))
+    if drop > 0:
+        x0, x1 = receipt_span(drop - 1)
+        L.rect(x0 + 1, RECEIPT_FAR_Y + drop, x1 - 1, RECEIPT_FAR_Y + drop, "#3d3324")
     return L
 
 
@@ -1127,6 +1185,13 @@ def export_assets():
             (f"deposit_{n}", deposit(n), DEPOSIT_DELAYS),
         ]
     write_rsi("atm_cash", LAYOUT["cash"], cash_states)
+
+    feed = [2, 4, 6, 8, 10, 12, RECEIPT_ROWS]
+    write_rsi("atm_receipt", LAYOUT["receipt"], [
+        ("print", [receipt(drop) for drop in feed], PRINT_DELAYS),
+        ("presented", [receipt(RECEIPT_ROWS)], None),
+        ("take", [receipt(0)], [0.05]),
+    ])
 
     led_states = [("off", [led("led_power", None)], None)]
     for colour in LED_COLOURS:

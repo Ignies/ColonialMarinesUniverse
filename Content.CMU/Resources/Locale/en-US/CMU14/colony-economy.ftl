@@ -100,6 +100,8 @@ cmu-atm-out-of-order-sorry = PLEASE USE ANOTHER MACHINE
 # Colony ATM screen hints; the keys are labelled OK and X
 cmu-atm-hint-confirm = OK = confirm   X = back
 cmu-atm-hint-continue = OK to continue.
+cmu-atm-hint-certificate = OK to continue. 1 = print certificate.
+cmu-atm-hint-history = OK = back   1 = print
 
 # Colony ATM nav bar
 cmu-atm-nav-title = Colony ATM
@@ -107,3 +109,104 @@ cmu-atm-nav-pin = Your card #{ $account } - PIN { $pin }
 cmu-atm-nav-no-card = You have no card of your own
 cmu-atm-nav-pin-unknown = Reading your card...
 cmu-atm-nav-pop-out = Pop Out
+
+# Bank paperwork
+cmu-bank-stamp-name = W-Y Colonial Bank
+cmu-bank-slot-full = Take the paper waiting in the slot first.
+cmu-bank-take-receipt-verb = Take receipt
+cmu-bank-statement-name = account statement (#{ $account })
+cmu-bank-statement-title = ACCOUNT STATEMENT
+cmu-bank-statement-columns = DATE             AMOUNT  DETAILS
+cmu-bank-statement-empty = No transactions yet.
+cmu-bank-statement-footer = W-Y Colonial Bank. Keep this statement for your records.
+cmu-bank-certificate-name = certificate of transfer ({ $reference })
+cmu-bank-certificate-title = CERTIFICATE OF TRANSFER
+cmu-bank-certificate-body = This certifies that { $amount } was transferred between the accounts below.
+cmu-bank-certificate-footer = The reference is listed on both accounts' statements.
+cmu-bank-receipt-name = card receipt ({ $total })
+cmu-bank-receipt-title = CARD PAYMENT RECEIPT
+cmu-bank-receipt-merchant-copy = MERCHANT COPY
+cmu-bank-receipt-sale = SALE
+cmu-bank-receipt-tip = TIP ({ $percent }%)
+cmu-bank-receipt-total = TOTAL
+cmu-bank-receipt-card = { $digits }, PIN verified
+cmu-bank-receipt-approved = APPROVED
+cmu-bank-field-holder = Account holder:
+cmu-bank-field-account = Account:
+cmu-bank-field-issued = Issued:
+cmu-bank-field-balance = Balance:
+cmu-bank-field-from = From:
+cmu-bank-field-to = To:
+cmu-bank-field-amount = Amount:
+cmu-bank-field-date = Date:
+cmu-bank-field-reference = Reference:
+cmu-bank-field-merchant = Merchant:
+cmu-bank-field-card = Card:
+cmu-bank-line-withdrawal = WITHDRAWAL
+cmu-bank-line-deposit = DEPOSIT
+cmu-bank-line-cash-deposit = CASH DEPOSIT
+cmu-bank-line-transfer-out = TO #{ $account }
+cmu-bank-line-transfer-in = FROM #{ $account }
+cmu-bank-line-retracted = CASH RETURNED
+cmu-bank-line-purchase = PURCHASE
+cmu-bank-line-card-payment = PAID #{ $account }
+cmu-bank-line-card-sale = SALE #{ $account }
+cmu-bank-receipt-copy-name = card receipt, merchant copy ({ $total })
+
+# Card terminal
+cmu-terminal-nav-title = Card Terminal
+cmu-terminal-nav-customer = Card Payment
+cmu-terminal-header = CARD TERMINAL
+cmu-terminal-not-set-up = NOT SET UP
+cmu-terminal-tap-to-register = Tap your card to register.
+cmu-terminal-enter-pin = ENTER PIN
+cmu-terminal-ready = READY
+cmu-terminal-payout = Pays into #{ $account }
+cmu-terminal-amount = Amount:
+cmu-terminal-charge = CHARGE { $amount }
+cmu-terminal-use-on-customer = Use the terminal on the customer.
+cmu-terminal-waiting = WAITING FOR
+cmu-terminal-approved = APPROVED
+cmu-terminal-approved-from = { $amount } from { $name }
+cmu-terminal-declined = DECLINED
+cmu-terminal-hint-cancel = X = cancel
+cmu-terminal-hint-new-sale = OK = new sale
+cmu-terminal-hint-copy = 1 = merchant copy
+cmu-terminal-setup = SETUP
+cmu-terminal-tap-owner = Tap the owner's card.
+cmu-terminal-setup-payout = 1) Payout #{ $account }
+cmu-terminal-setup-tips = 2) Tips: { $state }
+cmu-terminal-setup-presets = 3) Tip presets { $presets }%
+cmu-terminal-setup-unregister = 4) Unregister
+cmu-terminal-setup-done = X = done
+cmu-terminal-on = ON
+cmu-terminal-off = OFF
+cmu-terminal-payout-title = PAYOUT ACCOUNT
+cmu-terminal-account = Account #:
+cmu-terminal-tip-title = TIP PRESET { $index } OF 3
+cmu-terminal-percent = Percent:
+cmu-terminal-pay-to = PAY { $name }
+cmu-terminal-amount-line = Amount { $amount }
+cmu-terminal-add-tip = ADD A TIP?
+cmu-terminal-tip-option = { $key }) { $percent }%  { $amount }
+cmu-terminal-no-tip = 0) No tip
+cmu-terminal-total = TOTAL { $amount }
+cmu-terminal-tap-card = TAP YOUR CARD
+cmu-terminal-thanks = Thank you!
+cmu-terminal-take-receipt = Take your receipt.
+cmu-terminal-no-card = Hold or wear your ID card.
+cmu-terminal-not-owner = Not the owner's card.
+cmu-terminal-wrong-pin = Incorrect PIN.
+cmu-terminal-registered = Registered to { $name }.
+cmu-terminal-no-account = Account not found.
+cmu-terminal-declined-locked = Card locked.
+cmu-terminal-declined-funds = Insufficient funds.
+cmu-terminal-declined-payout = Payout account not found.
+cmu-terminal-declined-self = Can't pay your own account.
+cmu-terminal-declined-card = Card not readable.
+cmu-terminal-cancelled = Cancelled.
+cmu-terminal-timed-out = Timed out.
+cmu-terminal-popup-no-sale = Enter an amount first.
+cmu-terminal-popup-busy = The terminal is waiting on another payment.
+cmu-terminal-popup-present = { CAPITALIZE(THE($merchant)) } holds out a card terminal: { $amount }.
+cmu-terminal-popup-present-self = You hold out the card terminal to { THE($customer) }.

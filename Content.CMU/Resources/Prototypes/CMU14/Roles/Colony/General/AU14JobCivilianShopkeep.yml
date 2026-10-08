@@ -45,6 +45,9 @@
     shoes: RMCShoesBlack
     id: AU14IDCardColonyShopkeep
     back: CMSatchel
+  storage:
+    back:
+    - AUColonyCardTerminal
 
 - type: entity
   parent: CMSpawnPointJobBase

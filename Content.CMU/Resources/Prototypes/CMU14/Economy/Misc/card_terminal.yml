@@ -1,0 +1,39 @@
+- type: entity
+  parent: BaseItem
+  id: AUColonyCardTerminal
+  name: card terminal
+  description: A Weyland-Yutani contactless payment terminal. Key in the amount, then hold it out to the customer to tap their card and enter their PIN.
+  components:
+  - type: Sprite
+    sprite: CMU14/Objects/Devices/card_terminal.rsi
+    layers:
+    - state: icon
+    - state: screen
+      shader: unshaded
+    - state: receipt
+      map: [ "receipt" ]
+      visible: false
+  - type: Appearance
+  - type: GenericVisualizer
+    visuals:
+      enum.CardTerminalVisuals.Receipt:
+        receipt:
+          None: { visible: false }
+          Printing: { visible: true, state: receipt_print }
+          Waiting: { visible: true, state: receipt }
+  - type: Item
+    size: Small
+  - type: ActivatableUI
+    key: enum.ColonyCardTerminalUi.Merchant
+    singleUser: true
+    blockSpectators: true
+  - type: UserInterface
+    interfaces:
+      enum.ColonyCardTerminalUi.Merchant:
+        type: ColonyCardTerminalBui
+      # Opened by the server for whoever the terminal is held out to; the system checks their reach.
+      enum.ColonyCardTerminalUi.Customer:
+        type: ColonyCardTerminalBui
+        interactionRange: 0
+        requireInputValidation: false
+  - type: ColonyCardTerminal
