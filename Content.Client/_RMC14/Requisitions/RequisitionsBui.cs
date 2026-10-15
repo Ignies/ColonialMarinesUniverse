@@ -82,6 +82,7 @@ public sealed partial class RequisitionsBui(EntityUid owner, Enum uiKey) : Bound
         ["Specialist Ammo"] = "rmc-requisitions-category-specialist-ammo",
         ["Supplies"] = "rmc-requisitions-category-supplies",
         ["Vehicle Ammo"] = "rmc-requisitions-category-vehicle-ammo",
+        ["Vehicles"] = "cmu-requisitions-category-vehicles",
         ["Weapons"] = "rmc-requisitions-category-weapons",
         ["WEYSEC Ammo"] = "rmc-requisitions-category-weysec-ammo",
         ["WEYSEC Gear"] = "rmc-requisitions-category-weysec-gear",
