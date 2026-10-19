@@ -107,6 +107,22 @@ Welcome, colonist. Choose a service below.
 A link to a site the computer can't reach shows the OS's "NETWORK ACCESS DENIED" page.
 A missing address shows a themed 404.
 
+### Boards (round postings)
+
+A site with a `board:` block shows the round's postings under its index page. Only the listed `posters`
+jobs (exact ids, so list every variant) see the composer and publish; anyone at a computer that reaches the
+site comments; ghosts cannot. Admins publish anywhere and get a Delete button. The server names the author
+and role, caps titles (80), bodies (2000) and comments (300), rate limits posting (30 s) and commenting
+(5 s), keeps 40 postings and 60 comments per posting, and admin logs everything. Player text is drawn as
+plain text. Postings reset every round. Defined in `boards.yml`:
+
+| Address | Board | Posters |
+|---------|-------|---------|
+| `herald.colony.news` | The Colony Herald | journalist |
+| `admin.colony.gov` | Colony Administration | administrator, deputy administrator |
+| `command.govfor.mil` | Garrison Command | GOVFOR commanding, executive and staff officers (all force variants) |
+| `embassy.upp`, `embassy.twe`, `embassy.ua`, `embassy.icsc`, `embassy.cca` | Embassies | each ambassador |
+
 ### Networks
 
 `CMUNetPublic`, `CMUNetSeegson`, `CMUNetWeylandYutani` and `CMUNetUSCM` (`cmuNetwork` prototypes).
@@ -127,6 +143,9 @@ server in a later phase.
    every site has an index, every OS home page is reachable, every tag in pages and OS documents
    parses (a bad colour, font or sprite fails it), and logo paths are absolute .png or .rsi paths.
 4. To look at it without a desktop, start the client with `--cvar cmu.panel_preview=pc`.
+5. To use it in a round: `Content.CMU/Design/PersonalComputers/Test/server.toml` starts Stable Garrison with
+   no lobby, spawns players as the journalist (`cmu.pc.dev_job`) and puts both desktops beside them
+   (`cmu.pc.dev_desks`).
 
 Built in pages: `sys://directory` lists every listed site the computer can reach. Set `unlisted: true`
 on a site to keep it out of the directory. Unknown hosts, missing pages and denied networks get themed
@@ -138,5 +157,7 @@ error pages.
 2. Done: computer component and BUI, `RMCPersonalDesktop` hookup.
 3. Done: boot splash with logos, desktop, program windows, taskbar and start menu, window pop out,
    page styling, sprites, blink and marquee, Files and System.
-4. Next: round-local Notepad, laptops, a USCM theme.
-5. Later: server-delivered pages (objective secrets, round events).
+4. Done: board sites with round postings and comments for the press, administration, garrison command
+   and embassies.
+5. Next: photos on postings, round-local Notepad, laptops, a USCM theme.
+6. Later: server-delivered pages (objective secrets, round events).

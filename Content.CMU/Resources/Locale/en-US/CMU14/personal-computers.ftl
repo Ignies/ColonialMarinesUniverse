@@ -68,3 +68,35 @@ cmu-pc-files-empty = No documents on this terminal.
 cmu-pc-system-terminal = Terminal: {$name}
 cmu-pc-system-networks = Networks:
 cmu-pc-system-uptime = Uptime: {$time}
+
+## Boards
+
+cmu-net-site-colony-herald = The Colony Herald
+cmu-net-site-colony-administration = Colony Administration
+cmu-net-site-govfor-command = Garrison Command
+cmu-net-site-embassy-upp = UPP Embassy
+cmu-net-site-embassy-twe = TWE Embassy
+cmu-net-site-embassy-ua = UA Embassy
+cmu-net-site-embassy-icsc = ICSC Mission
+cmu-net-site-embassy-cca = CCA Mission
+
+cmu-net-board-herald-post = File a story
+cmu-net-board-herald-empty = No stories filed yet this shift.
+cmu-net-board-administration-post = Issue a notice
+cmu-net-board-administration-empty = No notices issued this shift.
+cmu-net-board-govfor-post = Issue a bulletin
+cmu-net-board-govfor-empty = No bulletins issued.
+cmu-net-board-embassy-post = Publish a communique
+cmu-net-board-embassy-empty = The mission has made no statements.
+
+cmu-net-board-offline = Postings are unavailable: this terminal is offline.
+cmu-net-board-loading = Retrieving postings...
+cmu-net-board-title-placeholder = Headline
+cmu-net-board-body-placeholder = Write the posting here.
+cmu-net-board-cancel = Cancel
+cmu-net-board-delete = Delete
+cmu-net-board-byline = By {$author}, {$role}, at {$time}
+cmu-net-board-comment-byline = {$author} ({$role}) at {$time}:
+cmu-net-board-comment-placeholder = Leave a comment
+cmu-net-board-comment-send = Send
+cmu-net-board-no-role = Visitor

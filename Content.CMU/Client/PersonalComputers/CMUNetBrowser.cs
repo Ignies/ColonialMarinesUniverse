@@ -18,6 +18,8 @@ public sealed partial class CMUNetBrowser : BoxContainer, ILinkClickHandler
     [Dependency] private IResourceManager _resources = default!;
 
     private readonly CMUExtraNetSystem _net;
+    private readonly CMUComputerTheme _theme;
+    private readonly ICMUNetBoardHost? _boards;
     private readonly HashSet<ProtoId<CMUNetworkPrototype>> _networks;
     private readonly string _home;
 
@@ -37,10 +39,16 @@ public sealed partial class CMUNetBrowser : BoxContainer, ILinkClickHandler
     public event Action? OnClicked;
     public event Action<string>? OnTitleChanged;
 
-    public CMUNetBrowser(CMUComputerTheme theme, HashSet<ProtoId<CMUNetworkPrototype>> networks, string home)
+    public CMUNetBrowser(
+        CMUComputerTheme theme,
+        HashSet<ProtoId<CMUNetworkPrototype>> networks,
+        string home,
+        ICMUNetBoardHost? boards)
     {
         IoCManager.InjectDependencies(this);
         _net = _entities.System<CMUExtraNetSystem>();
+        _theme = theme;
+        _boards = boards;
         _networks = networks;
         _home = home;
 
@@ -149,6 +157,19 @@ public sealed partial class CMUNetBrowser : BoxContainer, ILinkClickHandler
                 using (var reader = _resources.ContentFileReadText(page.File!.Value))
                 {
                     _view.ShowDocument(reader.ReadToEnd(), page.Site!.Style);
+                }
+
+                // A board's postings run under its index page.
+                if (page.Site.Board != null && CMUExtraNetSystem.Split(page.Address).Path.Length == 0)
+                {
+                    var site = page.Site;
+                    _view.Append(style =>
+                    {
+                        var board = new CMUNetBoardView(_theme, style, site, _boards);
+                        board.OnClicked += () => OnClicked?.Invoke();
+                        board.OnKeyTyped += () => OnKeyTyped?.Invoke();
+                        return board;
+                    });
                 }
 
                 SetStatus(siteTitle, "cmu-pc-browser-status-done");

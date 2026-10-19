@@ -8,6 +8,12 @@
   - [netlink="Technical support" link="support.seegson.net"]
   - [netlink="Colony Radio 88.1" link="colony.seegson.net/radio"]
 
+  ## COLONY NETWORK
+  - [netlink="The Colony Herald" link="herald.colony.news"]
+  - [netlink="Colony Administration" link="admin.colony.gov"]
+  - [netlink="Garrison Command" link="command.govfor.mil"]
+  - Embassies: [netlink="UPP" link="embassy.upp"] [netlink="TWE" link="embassy.twe"] [netlink="UA" link="embassy.ua"] [netlink="ICSC" link="embassy.icsc"] [netlink="CCA" link="embassy.cca"]
+
   ## TERMINAL USE
   Type an address in the bar above, or press DIR for every node this terminal can reach.
   Report faulty equipment to your colony maintenance office. Do not attempt repairs yourself.

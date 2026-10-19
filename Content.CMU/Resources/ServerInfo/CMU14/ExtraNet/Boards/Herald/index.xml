@@ -1,0 +1,6 @@
+<Document>
+  # THE COLONY HERALD
+  [italic]Independent news for the colony, filed by our own correspondent.[/italic]
+
+  <CMUNetMarquee Text="LATEST  ///  Stories are filed by the colony journalist as events unfold  ///  Readers are welcome to comment" Speed="60"/>
+</Document>

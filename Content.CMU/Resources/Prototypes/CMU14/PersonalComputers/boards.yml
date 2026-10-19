@@ -1,0 +1,184 @@
+# Board sites: postings made during the round by key roles, commented on by anyone who reaches the site.
+# The index page is the masthead; postings run under it. Posters are exact job ids, variants included.
+
+- type: cmuNetSite
+  id: CMUNetSiteColonyHerald
+  address: herald.colony.news
+  title: cmu-net-site-colony-herald
+  networks:
+  - CMUNetPublic
+  root: /ServerInfo/CMU14/ExtraNet/Boards/Herald/
+  style:
+    background: "#F1EBDD"
+    text: "#1E1E1E"
+    heading: "#8A1C1C"
+    link: "#1F4F7A"
+    font: Sans
+  pages:
+    "": index.xml
+  board:
+    postLabel: cmu-net-board-herald-post
+    empty: cmu-net-board-herald-empty
+    posters:
+    - AU14JobCivilianJournalist
+
+- type: cmuNetSite
+  id: CMUNetSiteColonyAdministration
+  address: admin.colony.gov
+  title: cmu-net-site-colony-administration
+  networks:
+  - CMUNetPublic
+  root: /ServerInfo/CMU14/ExtraNet/Boards/Administration/
+  style:
+    background: "#0E1E33"
+    text: "#DCE6F2"
+    heading: "#F2C14E"
+    link: "#7FB2E5"
+    font: Sans
+  pages:
+    "": index.xml
+  board:
+    postLabel: cmu-net-board-administration-post
+    empty: cmu-net-board-administration-empty
+    posters:
+    - AU14JobCivilianColonyAdministrator
+    - AU14JobCivilianColonyAdminAssistant
+
+- type: cmuNetSite
+  id: CMUNetSiteGovforCommand
+  address: command.govfor.mil
+  title: cmu-net-site-govfor-command
+  networks:
+  - CMUNetPublic
+  root: /ServerInfo/CMU14/ExtraNet/Boards/Govfor/
+  style:
+    background: "#1B2214"
+    text: "#C9D6A3"
+    heading: "#E8E2B0"
+    link: "#9FC46A"
+    font: Terminal
+  pages:
+    "": index.xml
+  board:
+    postLabel: cmu-net-board-govfor-post
+    empty: cmu-net-board-govfor-empty
+    posters:
+    - AU14JobGOVFORPlatCo
+    - AU14JobGOVFORPlatCoCMBCIU
+    - AU14JobGOVFORPlatCoRMC
+    - AU14JobGOVFORPlatCoUPP
+    - AU14JobGOVFORPlatCoWYPMC
+    - AU14JobGOVFORAdjutant
+    - AU14JobGOVFORAdjutantCMBCIU
+    - AU14JobGOVFORAdjutantRMC
+    - AU14JobGOVFORAdjutantUPP
+    - AU14JobGOVFORAdjutantWYPMC
+    - AU14JobGOVFORPlatOp
+    - AU14JobGOVFORPlatOpRMC
+    - AU14JobGOVFORPlatOpUPP
+    - AU14JobGOVFORPlatOpWYPMC
+
+- type: cmuNetSite
+  id: CMUNetSiteEmbassyUPP
+  address: embassy.upp
+  title: cmu-net-site-embassy-upp
+  networks:
+  - CMUNetPublic
+  root: /ServerInfo/CMU14/ExtraNet/Boards/EmbassyUPP/
+  style:
+    background: "#2A0A0A"
+    text: "#F0D9C4"
+    heading: "#FFCC33"
+    link: "#FF7A5C"
+    font: Display
+  pages:
+    "": index.xml
+  board:
+    postLabel: cmu-net-board-embassy-post
+    empty: cmu-net-board-embassy-empty
+    posters:
+    - AU14JobCivilianAmbassadorUPP
+
+- type: cmuNetSite
+  id: CMUNetSiteEmbassyTWE
+  address: embassy.twe
+  title: cmu-net-site-embassy-twe
+  networks:
+  - CMUNetPublic
+  root: /ServerInfo/CMU14/ExtraNet/Boards/EmbassyTWE/
+  style:
+    background: "#0C1638"
+    text: "#E6E9F2"
+    heading: "#E0403A"
+    link: "#9DB4FF"
+    font: Display
+  pages:
+    "": index.xml
+  board:
+    postLabel: cmu-net-board-embassy-post
+    empty: cmu-net-board-embassy-empty
+    posters:
+    - AU14JobCivilianAmbassadorTWE
+
+- type: cmuNetSite
+  id: CMUNetSiteEmbassyUA
+  address: embassy.ua
+  title: cmu-net-site-embassy-ua
+  networks:
+  - CMUNetPublic
+  root: /ServerInfo/CMU14/ExtraNet/Boards/EmbassyUA/
+  style:
+    background: "#0B2545"
+    text: "#EEF4ED"
+    heading: "#F4D35E"
+    link: "#8DA9C4"
+    font: Sans
+  pages:
+    "": index.xml
+  board:
+    postLabel: cmu-net-board-embassy-post
+    empty: cmu-net-board-embassy-empty
+    posters:
+    - AU14JobCivilianAmbassadorUA
+
+- type: cmuNetSite
+  id: CMUNetSiteEmbassyICSC
+  address: embassy.icsc
+  title: cmu-net-site-embassy-icsc
+  networks:
+  - CMUNetPublic
+  root: /ServerInfo/CMU14/ExtraNet/Boards/EmbassyICSC/
+  style:
+    background: "#10261F"
+    text: "#D7EDE3"
+    heading: "#6FD3A8"
+    link: "#BFE8D7"
+    font: Mono
+  pages:
+    "": index.xml
+  board:
+    postLabel: cmu-net-board-embassy-post
+    empty: cmu-net-board-embassy-empty
+    posters:
+    - AU14JobCivilianAmbassadorICSC
+
+- type: cmuNetSite
+  id: CMUNetSiteEmbassyCCA
+  address: embassy.cca
+  title: cmu-net-site-embassy-cca
+  networks:
+  - CMUNetPublic
+  root: /ServerInfo/CMU14/ExtraNet/Boards/EmbassyCCA/
+  style:
+    background: "#2B2118"
+    text: "#EFE4D2"
+    heading: "#D9A441"
+    link: "#E8C27A"
+    font: Sans
+  pages:
+    "": index.xml
+  board:
+    postLabel: cmu-net-board-embassy-post
+    empty: cmu-net-board-embassy-empty
+    posters:
+    - AU14JobCivilianAmbassadorCCA

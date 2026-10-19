@@ -83,7 +83,9 @@ public sealed class CMUComputerBootSplash : Control
     protected override void FrameUpdate(FrameEventArgs args)
     {
         base.FrameUpdate(args);
-        _time += args.DeltaSeconds;
+        // Opening the terminal loads fonts and textures, and that hitch arrives as one long first frame.
+        // Capped, it slows the sequence down instead of skipping it.
+        _time += MathF.Min(args.DeltaSeconds, 0.1f);
         if (_time >= _end)
             Finish();
     }

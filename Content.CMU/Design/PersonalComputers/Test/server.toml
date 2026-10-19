@@ -1,0 +1,42 @@
+# Personal computer test server: Stable Garrison, no lobby, every player spawns as the colony journalist
+# (so the Herald's composer shows) with a colony desktop and a corporate desktop beside them.
+# Run from the repo root:
+#   dotnet run --project Content.Server -- --config-file Content.CMU/Design/PersonalComputers/Test/server.toml
+#   dotnet run --project Content.Client
+# Local players are admins: admins publish on every board and see Delete. Run "deadmin" to see a visitor's view.
+
+[net]
+bindto = "127.0.0.1"
+port = 1212
+upnp = false
+
+[status]
+enabled = true
+
+[hub]
+advertise = false
+
+[auth]
+allowlocal = true
+
+[console]
+loginlocal = true
+
+[game]
+hostname = "CMU Personal Computer Test"
+lobbyenabled = false
+map = "StableGarrisonRedux"
+defaultpreset = "Sandbox"
+role_timers = false
+role_whitelist = false
+
+# Content.CMU/Server/PersonalComputers/CMUPersonalComputerDevSystem.cs
+[cmu.pc]
+dev_desks = true
+dev_job = "AU14JobCivilianJournalist"
+
+[events]
+enabled = false
+
+[log]
+enabled = true

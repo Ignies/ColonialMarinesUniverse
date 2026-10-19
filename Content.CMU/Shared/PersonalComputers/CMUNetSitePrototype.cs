@@ -38,6 +38,10 @@ public sealed partial class CMUNetSitePrototype : IPrototype
     [DataField]
     public CMUNetPageStyle? Style;
 
+    /// <summary>Makes the site a board of round postings shown under its index page.</summary>
+    [DataField]
+    public CMUNetBoardDefinition? Board;
+
     /// <summary>Hidden sites still resolve but are left out of directory listings.</summary>
     [DataField]
     public bool Unlisted;

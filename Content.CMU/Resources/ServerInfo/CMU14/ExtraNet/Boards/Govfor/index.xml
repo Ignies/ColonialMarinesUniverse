@@ -1,0 +1,10 @@
+<Document>
+  # GARRISON COMMAND
+  [bold]Public bulletins of the garrison command.[/bold]
+
+  Bulletins are issued by the commanding officer and staff. Civilians are to comply with posted security measures. Report suspicious activity to the nearest patrol.
+
+  <CMUNetBlink Rate="0.7">
+    [color=#E8E2B0]>> MONITORED CHANNEL[/color]
+  </CMUNetBlink>
+</Document>

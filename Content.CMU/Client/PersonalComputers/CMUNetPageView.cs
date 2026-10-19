@@ -22,11 +22,13 @@ public sealed partial class CMUNetPageView : Control
     private readonly TextureRect _backgroundImage;
     private readonly ScrollContainer _scroll;
     private readonly BoxContainer _page;
+    private CMUNetPageStyle _style;
 
     public CMUNetPageView(CMUComputerTheme theme)
     {
         IoCManager.InjectDependencies(this);
         _theme = theme;
+        _style = theme.DefaultPageStyle;
         HorizontalExpand = true;
         VerticalExpand = true;
 
@@ -80,6 +82,13 @@ public sealed partial class CMUNetPageView : Control
         Finish(style);
     }
 
+    /// <summary>Adds a control under the page in the page's style, e.g. a board's postings.</summary>
+    public void Append(Func<CMUNetPageStyle, Control> build)
+    {
+        _page.AddChild(build(_style));
+        Finish(_style);
+    }
+
     private void Parse(Control target, string text, CMUNetPageStyle style)
     {
         var previous = DocumentParsingManager.CMUTextColor;
@@ -96,6 +105,7 @@ public sealed partial class CMUNetPageView : Control
 
     private void Clear(CMUNetPageStyle style)
     {
+        _style = style;
         _page.RemoveAllChildren();
         _page.Stylesheet = BuildStylesheet(style);
         _scroll.SetScrollValue(Vector2.Zero);
@@ -139,7 +149,41 @@ public sealed partial class CMUNetPageView : Control
             Rule(typeof(Label), "LabelHeadingBigger", _theme.GetFont(font, 20, true), heading),
             Rule(typeof(Label), "LabelHeading", _theme.GetFont(font, 16, true), heading),
             Rule(typeof(Label), "LabelKeyText", _theme.GetFont(font, 13, true), heading),
+            FieldRule(typeof(LineEdit), style, true),
+            FieldRule(typeof(TextEdit), style, false),
+            new StyleRule(new SelectorElement(typeof(LineEdit), null, null, new[] { LineEdit.StylePseudoClassPlaceholder }),
+                new[] { new StyleProperty("font-color", text.WithAlpha(0.45f)) }),
+            new StyleRule(new SelectorElement(typeof(TextEdit), null, null, new[] { TextEdit.StylePseudoClassPlaceholder }),
+                new[] { new StyleProperty("font-color", text.WithAlpha(0.45f)) }),
         });
+    }
+
+    /// <summary>Text fields on a page, which otherwise lose their look under the page's own stylesheet.</summary>
+    private StyleRule FieldRule(Type type, CMUNetPageStyle style, bool boxed)
+    {
+        var text = style.Text ?? Color.White;
+        var properties = new List<StyleProperty>
+        {
+            new("font", _theme.GetFont(CMUNetFont.Mono, 12)),
+            new("font-color", text),
+            new("cursor-color", style.Link ?? text),
+            new("selection-color", (style.Link ?? text).WithAlpha(0.35f)),
+        };
+        if (boxed)
+        {
+            properties.Add(new StyleProperty(LineEdit.StylePropertyStyleBox, new StyleBoxFlat
+            {
+                BackgroundColor = style.Background ?? _theme.Background,
+                BorderColor = (style.Link ?? text).WithAlpha(0.6f),
+                BorderThickness = new Thickness(1),
+                ContentMarginLeftOverride = 5,
+                ContentMarginRightOverride = 5,
+                ContentMarginTopOverride = 3,
+                ContentMarginBottomOverride = 3,
+            }));
+        }
+
+        return new StyleRule(new SelectorElement(type, null, null, null), properties);
     }
 
     private static StyleRule Rule(Type type, string? styleClass, Font font, Color? color = null)
