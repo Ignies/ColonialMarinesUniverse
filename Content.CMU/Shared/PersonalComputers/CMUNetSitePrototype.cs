@@ -3,6 +3,18 @@ using Robust.Shared.Utility;
 
 namespace Content.Shared.CMU14.PersonalComputers;
 
+/// <summary>One entry in a site's tab strip.</summary>
+[DataDefinition]
+public sealed partial class CMUNetTab
+{
+    [DataField(required: true)]
+    public LocId Title;
+
+    /// <summary>Page path on the site, as listed in its pages; empty for the index.</summary>
+    [DataField]
+    public string Path = string.Empty;
+}
+
 /// <summary>
 /// A site on the ExtraNet: an address and the guidebook style documents served under it.
 /// </summary>
@@ -37,6 +49,10 @@ public sealed partial class CMUNetSitePrototype : IPrototype
     /// <summary>Default look of every page on the site. Pages override it with a CMUNetStyle tag.</summary>
     [DataField]
     public CMUNetPageStyle? Style;
+
+    /// <summary>Tab strip shown above every page of the site, in order.</summary>
+    [DataField]
+    public List<CMUNetTab> Tabs = new();
 
     /// <summary>Makes the site a board of round postings shown under its index page.</summary>
     [DataField]

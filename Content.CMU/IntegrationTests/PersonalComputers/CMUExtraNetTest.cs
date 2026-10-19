@@ -58,6 +58,12 @@ public sealed class CMUExtraNetTest : GameTest
         Assert.That(site.Pages.Keys.Any(k => k.Trim('/').Length == 0),
             "Every site needs an index page listed under \"\".");
 
+        foreach (var tab in site.Tabs)
+        {
+            Assert.That(CMUExtraNetSystem.TryGetPageFile(site, tab.Path.Trim('/').ToLowerInvariant(), out _),
+                $"Tab {tab.Title} on {site.Address} points to {tab.Path}, which is not one of its pages.");
+        }
+
         var links = 0;
         foreach (var (_, file) in site.Pages)
             links += ValidateDocument(site.Root / file, resMan, parser, net);

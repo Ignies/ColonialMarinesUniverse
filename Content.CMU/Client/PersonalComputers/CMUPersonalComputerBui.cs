@@ -54,9 +54,9 @@ public sealed partial class CMUPersonalComputerBui : BoundUserInterface, ICMUNet
         SendMessage(new CMUNetBoardRequestMessage(site));
     }
 
-    public void Post(ProtoId<CMUNetSitePrototype> site, string title, string body)
+    public void Post(ProtoId<CMUNetSitePrototype> site, string title, string body, bool attachPhoto)
     {
-        SendMessage(new CMUNetBoardPostMessage(site, title, body));
+        SendMessage(new CMUNetBoardPostMessage(site, title, body, attachPhoto));
     }
 
     public void Comment(ProtoId<CMUNetSitePrototype> site, int post, string body)

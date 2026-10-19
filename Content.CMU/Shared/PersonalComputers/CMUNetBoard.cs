@@ -41,7 +41,8 @@ public sealed class CMUNetBoardPost(
     string author,
     string role,
     TimeSpan time,
-    List<CMUNetBoardComment> comments)
+    List<CMUNetBoardComment> comments,
+    int? photo = null)
 {
     public readonly int Id = id;
     public readonly string Title = title;
@@ -50,6 +51,9 @@ public sealed class CMUNetBoardPost(
     public readonly string Role = role;
     public readonly TimeSpan Time = time;
     public readonly List<CMUNetBoardComment> Comments = comments;
+
+    /// <summary>A photo print's id, shown above the body.</summary>
+    public readonly int? Photo = photo;
 }
 
 /// <summary>Asks the server for a board's postings; it answers with <see cref="CMUNetBoardStateMessage"/>.</summary>
@@ -59,13 +63,15 @@ public sealed class CMUNetBoardRequestMessage(ProtoId<CMUNetSitePrototype> site)
     public readonly ProtoId<CMUNetSitePrototype> Site = site;
 }
 
+/// <summary>Publishes a posting; with <see cref="AttachPhoto"/> the photo print the poster holds goes with it.</summary>
 [Serializable, NetSerializable]
-public sealed class CMUNetBoardPostMessage(ProtoId<CMUNetSitePrototype> site, string title, string body)
+public sealed class CMUNetBoardPostMessage(ProtoId<CMUNetSitePrototype> site, string title, string body, bool attachPhoto = false)
     : BoundUserInterfaceMessage
 {
     public readonly ProtoId<CMUNetSitePrototype> Site = site;
     public readonly string Title = title;
     public readonly string Body = body;
+    public readonly bool AttachPhoto = attachPhoto;
 }
 
 [Serializable, NetSerializable]

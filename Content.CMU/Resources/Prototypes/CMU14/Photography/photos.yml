@@ -1,0 +1,18 @@
+- type: entity
+  parent: BaseItem
+  id: CMUPhoto
+  name: photograph
+  description: A glossy print, still warm from the camera.
+  components:
+  - type: Sprite
+    sprite: Objects/Misc/photograph.rsi
+    state: black
+  - type: Item
+    size: Tiny
+  - type: CMUPhoto
+  - type: ActivatableUI
+    key: enum.CMUPhotoUiKey.Key
+  - type: UserInterface
+    interfaces:
+      enum.CMUPhotoUiKey.Key:
+        type: CMUPhotoBui

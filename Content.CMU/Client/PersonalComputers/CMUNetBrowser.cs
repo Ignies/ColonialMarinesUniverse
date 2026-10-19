@@ -27,6 +27,7 @@ public sealed partial class CMUNetBrowser : BoxContainer, ILinkClickHandler
     private readonly Button _back;
     private readonly Button _forward;
     private readonly CMUNetPageView _view;
+    private readonly BoxContainer _tabs;
     private readonly Label _status;
 
     private readonly List<string> _history = new();
@@ -78,6 +79,13 @@ public sealed partial class CMUNetBrowser : BoxContainer, ILinkClickHandler
         go.OnPressed += _ => Click(_address.Text);
 
         _view = new CMUNetPageView(theme);
+        _tabs = new BoxContainer
+        {
+            Orientation = LayoutOrientation.Horizontal,
+            SeparationOverride = 2,
+            Margin = new Thickness(4, 3, 4, 0),
+            Visible = false,
+        };
         _status = theme.Label(string.Empty, theme.Small, theme.Dim);
 
         AddChild(new BoxContainer
@@ -88,6 +96,7 @@ public sealed partial class CMUNetBrowser : BoxContainer, ILinkClickHandler
             Children = { _back, _forward, homeButton, directory, _address, go },
         });
         AddChild(new CMUTerminalRule { Color = theme.Phosphor.WithAlpha(0.6f) });
+        AddChild(_tabs);
         AddChild(_view);
         AddChild(new CMUTerminalRule { Color = theme.Phosphor.WithAlpha(0.6f) });
         AddChild(new BoxContainer
@@ -141,6 +150,7 @@ public sealed partial class CMUNetBrowser : BoxContainer, ILinkClickHandler
 
         if (address.Equals(DirectoryAddress, StringComparison.OrdinalIgnoreCase))
         {
+            _tabs.Visible = false;
             _address.Text = DirectoryAddress;
             ShowDirectory();
             SetStatus(Loc.GetString("cmu-pc-browser-directory-title"), "cmu-pc-browser-status-done");
@@ -149,6 +159,7 @@ public sealed partial class CMUNetBrowser : BoxContainer, ILinkClickHandler
 
         var page = _net.Resolve(address, _networks);
         _address.Text = page.Address;
+        ShowTabs(page);
         var siteTitle = page.Site == null ? string.Empty : Loc.GetString(page.Site.Title);
 
         switch (page.Result)
@@ -186,6 +197,32 @@ public sealed partial class CMUNetBrowser : BoxContainer, ILinkClickHandler
                 ShowSystemPage("cmu-pc-browser-unknown-host-title", "cmu-pc-browser-unknown-host-body", page.Address);
                 SetStatus(string.Empty, "cmu-pc-browser-status-error");
                 break;
+        }
+    }
+
+    /// <summary>The site's tab strip in its own colours, the open page's tab filled.</summary>
+    private void ShowTabs(CMUNetPage page)
+    {
+        _tabs.RemoveAllChildren();
+        _tabs.Visible = page.Site is { Tabs.Count: > 0 } && page.Result != CMUNetResolveResult.AccessDenied;
+        if (!_tabs.Visible)
+            return;
+
+        var site = page.Site!;
+        var style = (site.Style ?? new CMUNetPageStyle()).Over(_theme.DefaultPageStyle);
+        var link = style.Link ?? _theme.Phosphor;
+        var background = style.Background ?? _theme.Background;
+        var open = CMUExtraNetSystem.Split(page.Address).Path;
+
+        foreach (var tab in site.Tabs)
+        {
+            var path = tab.Path.Trim('/').ToLowerInvariant();
+            var active = path == open;
+            var button = _theme.Button(Loc.GetString(tab.Title));
+            button.StyleBoxOverride = _theme.ButtonBox(active ? link : background, link);
+            button.Label.FontColorOverride = active ? background : link;
+            button.OnPressed += _ => Click(path.Length == 0 ? site.Address : $"{site.Address}/{path}");
+            _tabs.AddChild(button);
         }
     }
 

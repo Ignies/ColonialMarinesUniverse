@@ -45,3 +45,6 @@
     sourceKinds: Rmc
   - type: Corrodible
     isCorrodible: false
+  # CMU14 Photography Begin: prints photos of a clicked square of tiles
+  - type: CMUPhotoCamera
+  # CMU14 End

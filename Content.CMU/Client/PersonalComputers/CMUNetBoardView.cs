@@ -1,3 +1,4 @@
+using Content.Client.CMU14.Photography;
 using Content.Shared.CMU14.PersonalComputers;
 using Robust.Client.UserInterface;
 using Robust.Client.UserInterface.Controls;
@@ -16,7 +17,7 @@ public interface ICMUNetBoardHost
 
     void Request(ProtoId<CMUNetSitePrototype> site);
 
-    void Post(ProtoId<CMUNetSitePrototype> site, string title, string body);
+    void Post(ProtoId<CMUNetSitePrototype> site, string title, string body, bool attachPhoto);
 
     void Comment(ProtoId<CMUNetSitePrototype> site, int post, string body);
 
@@ -132,6 +133,12 @@ public sealed class CMUNetBoardView : BoxContainer
 
         var publish = PageButton(label);
         var cancel = PageButton(Loc.GetString("cmu-net-board-cancel"));
+        var attach = new CheckBox
+        {
+            Text = Loc.GetString("cmu-net-board-attach-photo"),
+            ToolTip = Loc.GetString("cmu-net-board-attach-photo-tooltip"),
+        };
+        attach.Label.FontColorOverride = Link;
         publish.OnPressed += _ =>
         {
             var text = Rope.Collapse(body.TextRope);
@@ -139,7 +146,7 @@ public sealed class CMUNetBoardView : BoxContainer
                 return;
 
             OnClicked?.Invoke();
-            _host?.Post(_site.ID, title.Text, text);
+            _host?.Post(_site.ID, title.Text, text, attach.Pressed);
             _composerOpen = false;
             BuildComposer(true);
         };
@@ -168,7 +175,7 @@ public sealed class CMUNetBoardView : BoxContainer
                         {
                             Orientation = LayoutOrientation.Horizontal,
                             SeparationOverride = 6,
-                            Children = { publish, cancel },
+                            Children = { publish, cancel, attach },
                         },
                     },
                 },
@@ -199,6 +206,17 @@ public sealed class CMUNetBoardView : BoxContainer
             Text = Loc.GetString("cmu-net-board-byline", ("author", post.Author), ("role", Role(post.Role)), ("time", Clock(post.Time))),
             FontColorOverride = Text.WithAlpha(0.65f),
         });
+        if (post.Photo is { } photo)
+        {
+            box.AddChild(new PanelContainer
+            {
+                PanelOverride = _theme.Box(Color.Black, Link.WithAlpha(0.6f)),
+                HorizontalAlignment = HAlignment.Left,
+                Margin = new Thickness(0, 4),
+                Children = { new CMUPhotoView(photo, 2) { Margin = new Thickness(3) } },
+            });
+        }
+
         box.AddChild(Plain(post.Body, Text));
 
         var comments = new BoxContainer { Orientation = LayoutOrientation.Vertical, Margin = new Thickness(16, 4, 0, 0), SeparationOverride = 3 };

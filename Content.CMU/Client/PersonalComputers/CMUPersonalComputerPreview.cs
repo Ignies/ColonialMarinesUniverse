@@ -44,6 +44,14 @@ public sealed class CMUPersonalComputerPreview
             ("seegson-govfor", 3f, () => _window?.Desktop?.Browser?.Navigate("command.govfor.mil")),
             ("seegson-embassy-upp", 3f, () => _window?.Desktop?.Browser?.Navigate("embassy.upp")),
             ("seegson-embassy-twe", 3f, () => _window?.Desktop?.Browser?.Navigate("embassy.twe")),
+            ("seegson-embassy-ua", 3f, () => _window?.Desktop?.Browser?.Navigate("embassy.ua")),
+            ("seegson-embassy-icsc", 3f, () => _window?.Desktop?.Browser?.Navigate("embassy.icsc")),
+            ("seegson-embassy-cca", 3f, () => _window?.Desktop?.Browser?.Navigate("embassy.cca")),
+            ("seegson-herald-history", 3f, () => _window?.Desktop?.Browser?.Navigate("herald.colony.news/history")),
+            ("seegson-herald-classifieds", 3f, () => _window?.Desktop?.Browser?.Navigate("herald.colony.news/classifieds")),
+            ("seegson-administration-charter", 3f, () => _window?.Desktop?.Browser?.Navigate("admin.colony.gov/charter")),
+            ("seegson-govfor-garrison", 3f, () => _window?.Desktop?.Browser?.Navigate("command.govfor.mil/garrison")),
+            ("seegson-upp-about", 3f, () => _window?.Desktop?.Browser?.Navigate("embassy.upp/about")),
             ("seegson-pop-out", 3f, () => _window?.PopOut()),
             ("seegson-pop-in", 2f, () => _window?.ReturnPopOut()),
             ("seegson-files", 2.5f, () => _window?.Desktop?.Open(CMUComputerApp.Files)),
@@ -125,7 +133,7 @@ public sealed class CMUPersonalComputerPreview
             StateReceived?.Invoke(new CMUNetBoardStateMessage(site, list ?? new List<CMUNetBoardPost>(), true, true, true));
         }
 
-        public void Post(ProtoId<CMUNetSitePrototype> site, string title, string body)
+        public void Post(ProtoId<CMUNetSitePrototype> site, string title, string body, bool attachPhoto)
         {
             Add(site, title, body, "Preview", "Journalist", TimeSpan.Zero, new List<CMUNetBoardComment>());
             Request(site);

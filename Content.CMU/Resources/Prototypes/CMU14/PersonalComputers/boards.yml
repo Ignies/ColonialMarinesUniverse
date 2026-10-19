@@ -16,6 +16,17 @@
     font: Sans
   pages:
     "": index.xml
+    about: about.xml
+    history: history.xml
+    classifieds: classifieds.xml
+  tabs:
+  - title: cmu-net-tab-herald-front
+  - title: cmu-net-tab-herald-about
+    path: about
+  - title: cmu-net-tab-herald-history
+    path: history
+  - title: cmu-net-tab-herald-classifieds
+    path: classifieds
   board:
     postLabel: cmu-net-board-herald-post
     empty: cmu-net-board-herald-empty
@@ -37,6 +48,17 @@
     font: Sans
   pages:
     "": index.xml
+    charter: charter.xml
+    departments: departments.xml
+    emergency: emergency.xml
+  tabs:
+  - title: cmu-net-tab-administration-notices
+  - title: cmu-net-tab-administration-charter
+    path: charter
+  - title: cmu-net-tab-administration-departments
+    path: departments
+  - title: cmu-net-tab-administration-emergency
+    path: emergency
   board:
     postLabel: cmu-net-board-administration-post
     empty: cmu-net-board-administration-empty
@@ -59,6 +81,17 @@
     font: Terminal
   pages:
     "": index.xml
+    guidance: guidance.xml
+    garrison: garrison.xml
+    zones: zones.xml
+  tabs:
+  - title: cmu-net-tab-govfor-bulletins
+  - title: cmu-net-tab-govfor-guidance
+    path: guidance
+  - title: cmu-net-tab-govfor-garrison
+    path: garrison
+  - title: cmu-net-tab-govfor-zones
+    path: zones
   board:
     postLabel: cmu-net-board-govfor-post
     empty: cmu-net-board-govfor-empty
@@ -93,6 +126,17 @@
     font: Display
   pages:
     "": index.xml
+    about: about.xml
+    consular: consular.xml
+    relations: relations.xml
+  tabs:
+  - title: cmu-net-tab-embassy-upp-communiques
+  - title: cmu-net-tab-embassy-upp-about
+    path: about
+  - title: cmu-net-tab-embassy-upp-consular
+    path: consular
+  - title: cmu-net-tab-embassy-upp-relations
+    path: relations
   board:
     postLabel: cmu-net-board-embassy-post
     empty: cmu-net-board-embassy-empty
@@ -114,6 +158,17 @@
     font: Display
   pages:
     "": index.xml
+    about: about.xml
+    consular: consular.xml
+    relations: relations.xml
+  tabs:
+  - title: cmu-net-tab-embassy-twe-communiques
+  - title: cmu-net-tab-embassy-twe-about
+    path: about
+  - title: cmu-net-tab-embassy-twe-consular
+    path: consular
+  - title: cmu-net-tab-embassy-twe-relations
+    path: relations
   board:
     postLabel: cmu-net-board-embassy-post
     empty: cmu-net-board-embassy-empty
@@ -135,6 +190,17 @@
     font: Sans
   pages:
     "": index.xml
+    about: about.xml
+    consular: consular.xml
+    relations: relations.xml
+  tabs:
+  - title: cmu-net-tab-embassy-ua-communiques
+  - title: cmu-net-tab-embassy-ua-about
+    path: about
+  - title: cmu-net-tab-embassy-ua-consular
+    path: consular
+  - title: cmu-net-tab-embassy-ua-relations
+    path: relations
   board:
     postLabel: cmu-net-board-embassy-post
     empty: cmu-net-board-embassy-empty
@@ -156,6 +222,17 @@
     font: Mono
   pages:
     "": index.xml
+    about: about.xml
+    consular: consular.xml
+    relations: relations.xml
+  tabs:
+  - title: cmu-net-tab-embassy-icsc-notices
+  - title: cmu-net-tab-embassy-icsc-about
+    path: about
+  - title: cmu-net-tab-embassy-icsc-consular
+    path: consular
+  - title: cmu-net-tab-embassy-icsc-relations
+    path: relations
   board:
     postLabel: cmu-net-board-embassy-post
     empty: cmu-net-board-embassy-empty
@@ -177,6 +254,17 @@
     font: Sans
   pages:
     "": index.xml
+    about: about.xml
+    consular: consular.xml
+    relations: relations.xml
+  tabs:
+  - title: cmu-net-tab-embassy-cca-releases
+  - title: cmu-net-tab-embassy-cca-about
+    path: about
+  - title: cmu-net-tab-embassy-cca-consular
+    path: consular
+  - title: cmu-net-tab-embassy-cca-relations
+    path: relations
   board:
     postLabel: cmu-net-board-embassy-post
     empty: cmu-net-board-embassy-empty
