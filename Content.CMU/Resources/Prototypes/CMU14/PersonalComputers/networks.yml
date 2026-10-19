@@ -1,0 +1,15 @@
+- type: cmuNetwork
+  id: CMUNetPublic
+  name: cmu-net-network-public
+
+- type: cmuNetwork
+  id: CMUNetSeegson
+  name: cmu-net-network-seegson
+
+- type: cmuNetwork
+  id: CMUNetWeylandYutani
+  name: cmu-net-network-weyland-yutani
+
+- type: cmuNetwork
+  id: CMUNetUSCM
+  name: cmu-net-network-uscm

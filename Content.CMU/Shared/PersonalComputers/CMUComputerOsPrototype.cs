@@ -1,0 +1,75 @@
+using Robust.Shared.Audio;
+using Robust.Shared.Prototypes;
+using Robust.Shared.Utility;
+
+namespace Content.Shared.CMU14.PersonalComputers;
+
+/// <summary>
+/// The operating system a personal computer boots: branding, palette, sounds and default networks.
+/// </summary>
+[Prototype("cmuComputerOs")]
+public sealed partial class CMUComputerOsPrototype : IPrototype
+{
+    [IdDataField]
+    public string ID { get; private set; } = default!;
+
+    /// <summary>Product name, e.g. "SEEGSON SYSTEM/3".</summary>
+    [DataField(required: true)]
+    public LocId Name;
+
+    /// <summary>Lines printed one by one while the computer boots.</summary>
+    [DataField]
+    public List<LocId> BootLines = new();
+
+    /// <summary>Address the browser opens on.</summary>
+    [DataField(required: true)]
+    public string HomePage = string.Empty;
+
+    /// <summary>Networks reached by computers that don't override them.</summary>
+    [DataField(required: true)]
+    public HashSet<ProtoId<CMUNetworkPrototype>> Networks = new();
+
+    /// <summary>Phosphor colour: default text, links and window chrome.</summary>
+    [DataField]
+    public Color Phosphor = Color.FromHex("#46FF8E");
+
+    [DataField]
+    public Color Background = Color.FromHex("#040805");
+
+    /// <summary>Taskbar, window frames and selection highlight. Defaults to the phosphor colour.</summary>
+    [DataField]
+    public Color? Accent;
+
+    /// <summary>
+    /// Boot splash logos, shown in order; the boot log runs under the last. A PNG is revealed with the CRT
+    /// warm up animation; an RSI plays its <see cref="LogoState"/>. A missing file is skipped, and with none
+    /// the OS name is animated instead, so a logo can be dropped in later. Strings rather than ResPaths so
+    /// the YAML linter accepts a logo that has not been drawn yet.
+    /// </summary>
+    [DataField]
+    public List<string> Logos = new();
+
+    [DataField]
+    public string LogoState = "logo";
+
+    /// <summary>Short brand shown on the start button.</summary>
+    [DataField(required: true)]
+    public LocId StartLabel;
+
+    /// <summary>Optional desktop wallpaper texture. Without one the desktop is a flat field with the OS name.</summary>
+    [DataField]
+    public ResPath? Wallpaper;
+
+    /// <summary>Documents every computer running this OS has in Files.</summary>
+    [DataField]
+    public List<CMUComputerDocument> Documents = new();
+
+    [DataField]
+    public SoundSpecifier? BootSound;
+
+    [DataField]
+    public SoundSpecifier? KeySound;
+
+    [DataField]
+    public SoundSpecifier? ClickSound;
+}

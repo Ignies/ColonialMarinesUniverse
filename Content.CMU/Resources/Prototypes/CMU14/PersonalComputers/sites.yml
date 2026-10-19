@@ -1,0 +1,40 @@
+# ExtraNet sites. Add a page: write the document under the site's root, then list it in pages.
+# Link between pages with [netlink="Text" link="host/path"]. A site style sets the default look of its pages.
+# See Content.CMU/Docs/personal-computers.md for every tag.
+
+- type: cmuNetSite
+  id: CMUNetSiteSeegsonColony
+  address: colony.seegson.net
+  title: cmu-net-site-seegson-colony
+  networks:
+  - CMUNetPublic
+  root: /ServerInfo/CMU14/ExtraNet/Seegson/Colony/
+  pages:
+    "": index.xml
+    notices: notices.xml
+    housing: housing.xml
+    radio: radio.xml
+
+- type: cmuNetSite
+  id: CMUNetSiteSeegsonSupport
+  address: support.seegson.net
+  title: cmu-net-site-seegson-support
+  networks:
+  - CMUNetSeegson
+  root: /ServerInfo/CMU14/ExtraNet/Seegson/Support/
+  pages:
+    "": index.xml
+
+- type: cmuNetSite
+  id: CMUNetSiteWeylandIntranet
+  address: intranet.wy
+  title: cmu-net-site-weyland-intranet
+  networks:
+  - CMUNetWeylandYutani
+  root: /ServerInfo/CMU14/ExtraNet/WeylandYutani/Intranet/
+  style:
+    font: Display
+  pages:
+    "": index.xml
+    handbook: handbook.xml
+    memo: memo.xml

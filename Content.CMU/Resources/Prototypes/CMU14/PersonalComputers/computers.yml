@@ -1,0 +1,9 @@
+- type: entity
+  parent: RMCPersonalDesktop
+  id: CMUPersonalDesktopWeyland
+  name: corporate desktop
+  description: A Weyland-Yutani workstation wired into the corporate intranet.
+  suffix: Weyland-Yutani
+  components:
+  - type: CMUPersonalComputer
+    os: CMUOsWeyland

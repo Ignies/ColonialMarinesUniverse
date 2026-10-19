@@ -17,6 +17,9 @@ public sealed partial class DocumentParsingManager
 {
     private const string ListBullet = "  › ";
 
+    /// <summary>CMU14: base text colour for documents parsed next; ExtraNet pages set it per page style.</summary>
+    public static Color CMUTextColor = Color.White;
+
     private static readonly Type[] GuidebookRichTextTags =
     [
         typeof(BoldItalicTag),
@@ -28,6 +31,7 @@ public sealed partial class DocumentParsingManager
         typeof(RichText.TextLinkTag),
         typeof(Richtext.KeyBindTag),
         typeof(RichText.ProtodataTag),
+        typeof(CMU14.PersonalComputers.CMUNetLinkTag), // CMU14: ExtraNet page links
     ];
 
     // Parser that consumes a - and then just parses normal rich text with some prefix text (a bullet point).
@@ -85,7 +89,7 @@ public sealed partial class DocumentParsingManager
                     var msg = new FormattedMessage();
                     // THANK YOU RICHTEXT VERY COOL
                     // (text doesn't default to white).
-                    msg.PushColor(Color.White);
+                    msg.PushColor(CMUTextColor); // CMU14: was Color.White
 
                     // If the parsing fails, don't throw an error and instead make an inline error message
                     string? error;

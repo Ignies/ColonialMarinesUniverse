@@ -2,6 +2,7 @@ using System;
 using System.Numerics;
 using Content.Client.CMU14.ColonyEconomy;
 using Content.Client.CMU14.Lobby;
+using Content.Client.CMU14.PersonalComputers;
 using Content.Client._RMC14.Mentor;
 using Content.Client.Administration.UI.Bwoink;
 using Content.Client.Lobby.UI;
@@ -53,11 +54,14 @@ public sealed partial class CmuPanelPreviewSystem : EntitySystem
     /// <summary>The ATM preview steps through a scripted session, so it needs ticking after it opens.</summary>
     private ColonyAtmPreview? _atm;
 
+    private CMUPersonalComputerPreview? _pc;
+
     public override void FrameUpdate(float frameTime)
     {
         base.FrameUpdate(frameTime);
 
         _atm?.Update(frameTime);
+        _pc?.Update(frameTime);
 
         if (_done)
             return;
@@ -107,6 +111,9 @@ public sealed partial class CmuPanelPreviewSystem : EntitySystem
                 case "atm":
                     _atm = new ColonyAtmPreview();
                     _atm.Open();
+                    break;
+                case "pc":
+                    _pc = new CMUPersonalComputerPreview();
                     break;
             }
         }

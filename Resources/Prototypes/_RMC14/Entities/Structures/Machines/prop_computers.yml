@@ -65,6 +65,15 @@
   components:
   - type: Sprite
     state: terminal1
+  # CMU14 PersonalComputers Begin: boots the ExtraNet browser
+  - type: CMUPersonalComputer
+  - type: ActivatableUI
+    key: enum.CMUPersonalComputerUiKey.Key
+  - type: UserInterface
+    interfaces:
+      enum.CMUPersonalComputerUiKey.Key:
+        type: CMUPersonalComputerBui
+  # CMU14 End
 
 - type: entity
   parent: RMCPropComputerBase
