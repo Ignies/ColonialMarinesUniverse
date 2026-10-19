@@ -12,6 +12,7 @@ public enum CMUComputerApp : byte
     Files,
     System,
     Deeps,
+    Mail,
 }
 
 /// <summary>

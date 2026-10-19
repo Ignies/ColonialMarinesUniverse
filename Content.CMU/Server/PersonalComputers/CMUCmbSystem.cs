@@ -9,6 +9,7 @@ using Content.Shared.Security;
 using Content.Shared.StationRecords;
 using Content.Shared.StationRecords.Systems;
 using Robust.Server.GameObjects;
+using Robust.Shared.Configuration;
 using Robust.Shared.Map.Components;
 using Robust.Shared.Prototypes;
 using Robust.Shared.Timing;
@@ -30,6 +31,7 @@ public sealed partial class CMUCmbSystem : EntitySystem
     private const int MaxAlerts = 60;
     private const int MaxFaxes = 60;
 
+    [Dependency] private IConfigurationManager _cfg = default!;
     [Dependency] private IGameTiming _timing = default!;
     [Dependency] private CMUExtraNetSystem _net = default!;
     [Dependency] private CMUUniversalRecordsSystem _universalRecords = default!;
@@ -41,6 +43,7 @@ public sealed partial class CMUCmbSystem : EntitySystem
     private readonly List<CMUCmbAlert> _alerts = new();
     private readonly HashSet<int> _alerted = new();
     private readonly List<CMUCmbFax> _faxes = new();
+    private readonly Dictionary<EntityUid, TimeSpan> _traceCooldowns = new();
 
     public override void Initialize()
     {
@@ -50,16 +53,21 @@ public sealed partial class CMUCmbSystem : EntitySystem
             _alerts.Clear();
             _alerted.Clear();
             _faxes.Clear();
+            _traceCooldowns.Clear();
         });
         SubscribeLocalEvent<CMUFaxReceivedEvent>(OnFaxReceived);
         Subs.BuiEvents<CMUPersonalComputerComponent>(CMUPersonalComputerUiKey.Key, subs =>
         {
             subs.Event<CMUCmbRequestMessage>(OnRequest);
+            subs.Event<CMUCmbTraceMessage>(OnTrace);
         });
     }
 
     public void Alert(Entity<CMUPersonalComputerComponent> terminal, string address, string location)
     {
+        if (!_cfg.GetCVar(CMUPersonalComputerCVars.Cmb))
+            return;
+
         _alerts.Insert(0, new CMUCmbAlert(_timing.CurTime, terminal.Comp.TerminalId, address, location));
         if (_alerts.Count > MaxAlerts)
             _alerts.RemoveAt(_alerts.Count - 1);
@@ -68,6 +76,59 @@ public sealed partial class CMUCmbSystem : EntitySystem
     }
 
     public IReadOnlyList<CMUCmbAlert> Alerts => _alerts;
+
+    /// <summary>
+    /// A Marshal picks a terminal on the map and starts a trace. Whoever is at that terminal sees the trace
+    /// climb on their screen; if they are still logged in when it finishes, their name goes on the alerts.
+    /// </summary>
+    private void OnTrace(Entity<CMUPersonalComputerComponent> ent, ref CMUCmbTraceMessage args)
+    {
+        if (!_cfg.GetCVar(CMUPersonalComputerCVars.Cmb)
+            || !_cfg.GetCVar(CMUPersonalComputerCVars.Trace)
+            || !_net.GetNetworks(ent).Contains(CmbNetwork)
+            || !TryGetEntity(args.Terminal, out var target)
+            || !TryComp(target, out CMUPersonalComputerComponent? terminal))
+            return;
+
+        StartTrace((target.Value, terminal));
+    }
+
+    public bool StartTrace(Entity<CMUPersonalComputerComponent> terminal)
+    {
+        var now = _timing.CurTime;
+        if (terminal.Comp.TraceEnds > now
+            || _traceCooldowns.TryGetValue(terminal, out var ready) && now < ready)
+            return false;
+
+        terminal.Comp.TraceStarted = now;
+        terminal.Comp.TraceEnds = now + CMUComputerLimits.TraceTime;
+        _traceCooldowns[terminal] = terminal.Comp.TraceEnds + CMUComputerLimits.TraceCooldown;
+        Dirty(terminal);
+        return true;
+    }
+
+    public override void Update(float frameTime)
+    {
+        base.Update(frameTime);
+        var now = _timing.CurTime;
+        var query = EntityQueryEnumerator<CMUPersonalComputerComponent>();
+        while (query.MoveNext(out var uid, out var terminal))
+        {
+            if (terminal.TraceEnds == TimeSpan.Zero || now < terminal.TraceEnds)
+                continue;
+
+            terminal.TraceEnds = TimeSpan.Zero;
+            terminal.TraceStarted = TimeSpan.Zero;
+            Dirty(uid, terminal);
+
+            var result = terminal.SessionUser is { } user
+                ? Loc.GetString("cmu-cmb-trace-found", ("name", user))
+                : Loc.GetString("cmu-cmb-trace-lost");
+            _alerts.Insert(0, new CMUCmbAlert(now, terminal.TerminalId, string.Empty, Name(uid), result));
+            if (_alerts.Count > MaxAlerts)
+                _alerts.RemoveAt(_alerts.Count - 1);
+        }
+    }
 
     public IReadOnlyList<CMUCmbFax> Faxes => _faxes;
 
@@ -83,7 +144,7 @@ public sealed partial class CMUCmbSystem : EntitySystem
 
     private void OnRequest(Entity<CMUPersonalComputerComponent> ent, ref CMUCmbRequestMessage args)
     {
-        if (!_net.GetNetworks(ent).Contains(CmbNetwork))
+        if (!_cfg.GetCVar(CMUPersonalComputerCVars.Cmb) || !_net.GetNetworks(ent).Contains(CmbNetwork))
             return;
 
         var alerts = new List<CMUCmbAlert>();

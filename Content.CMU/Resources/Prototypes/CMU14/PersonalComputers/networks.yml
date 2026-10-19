@@ -18,3 +18,10 @@
 - type: cmuNetwork
   id: CMUNetCMB
   name: cmu-net-network-cmb
+
+# The answers SpaceGPT's ghosts choose from. Add lines to the locale file and raise the count to add more.
+- type: localizedDataset
+  id: CMUSpaceGptAnswers
+  values:
+    prefix: cmu-spacegpt-answer-
+    count: 40

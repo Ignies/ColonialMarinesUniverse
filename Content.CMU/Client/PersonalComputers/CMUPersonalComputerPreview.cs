@@ -144,6 +144,77 @@ public sealed class CMUPersonalComputerPreview
         public string? SessionUser => "Preview";
         public string? SessionJob => "Journalist";
         public bool RequireLogin => false;
+        public TimeSpan TraceStarted => TimeSpan.Zero;
+        public TimeSpan TraceEnds => TimeSpan.Zero;
+
+        public void Trace(NetEntity terminal)
+        {
+        }
+
+        private readonly List<CMUComputerNote> _notes = new();
+
+        public event Action<CMUMailStateMessage>? MailReceived;
+        public event Action<CMUSpaceGptAnswerMessage>? SpaceGptAnswered;
+        public event Action<CMUArcadeStateMessage>? ArcadeReceived;
+        public event Action<CMUBetStateMessage>? BetsReceived;
+
+        public void RequestArcade(CMUArcadeGame game)
+        {
+            ArcadeReceived?.Invoke(new CMUArcadeStateMessage(game, new List<CMUArcadeScore> { new("Ann Kowalski", 340), new("Preview", 120) }));
+        }
+
+        public void SubmitScore(CMUArcadeGame game, int score)
+        {
+        }
+
+        public void RequestBets()
+        {
+            BetsReceived?.Invoke(new CMUBetStateMessage(new List<CMUBetMatch>
+            {
+                new(2, "Gateway Comets", "Titan Dockers", 1.8f, 2.4f, TimeSpan.FromHours(1), null),
+                new(1, "Hadley Hawks", "Sol Strikers", 2.1f, 1.6f, TimeSpan.Zero, "3 - 1"),
+            }, new List<string>()));
+        }
+
+        public void PlaceBet(int match, bool home, int amount)
+        {
+        }
+
+        public void AskSpaceGpt(string question)
+        {
+            SpaceGptAnswered?.Invoke(new CMUSpaceGptAnswerMessage(question, "The signs point to yes.", 3));
+        }
+
+        public IReadOnlyList<CMUComputerNote> Notes => _notes;
+
+        public ProtoId<CMUWallpaperPrototype>? Wallpaper { get; private set; }
+
+        public void RequestMail()
+        {
+            MailReceived?.Invoke(new CMUMailStateMessage(new List<CMUMailMessage>
+            {
+                new(1, "W-Y Human Resources", "Preview", "Welcome to your colony mailbox", "Your mailbox is ready.", TimeSpan.Zero),
+            }, new List<CMUMailMessage>(), new List<string> { "Ann Kowalski", "Simon Hartley" }));
+        }
+
+        public void SendMail(string to, string subject, string body)
+        {
+        }
+
+        public void SaveNote(string name, string text)
+        {
+            _notes.Add(new CMUComputerNote { Name = name, Author = "Preview", Text = text });
+        }
+
+        public void DeleteNote(int index)
+        {
+            _notes.RemoveAt(index);
+        }
+
+        public void SetWallpaper(ProtoId<CMUWallpaperPrototype>? wallpaper)
+        {
+            Wallpaper = wallpaper;
+        }
 
         public event Action<CMUCmbStateMessage>? CmbReceived;
 
@@ -168,6 +239,33 @@ public sealed class CMUPersonalComputerPreview
         public IReadOnlyList<CMUNetShortcut> Shortcuts => _shortcuts;
 
         public event Action<CMUDeepPageMessage>? PageReceived;
+        public event Action<CMUMarketStateMessage>? MarketReceived;
+        public event Action<CMUDeepToolResultMessage>? ToolResult;
+
+        public void RequestMarket()
+        {
+            MarketReceived?.Invoke(new CMUMarketStateMessage(new List<CMUMarketListing>
+            {
+                new(1, "greywire", "Spare ID card, blank", "Clean, never swiped.", 400),
+            }, new List<CMUMarketPurchase>(), true));
+        }
+
+        public void ListItem(string title, string description, int price, string drop)
+        {
+        }
+
+        public void Buy(int listing)
+        {
+        }
+
+        public void Sniff(int terminal)
+        {
+            ToolResult?.Invoke(new CMUDeepToolResultMessage($"Terminal #{terminal}", new List<string> { "Opened herald.colony.news" }));
+        }
+
+        public void Loop(string network)
+        {
+        }
 
         public void Scan()
         {
@@ -284,7 +382,15 @@ public sealed class CMUPersonalComputerPreview
             StateReceived?.Invoke(new CMUNetBoardStateMessage(site, list ?? new List<CMUNetBoardPost>(), true, true, true, hijack));
         }
 
-        public void Post(ProtoId<CMUNetSitePrototype> site, string title, string body)
+        public void Payout(ProtoId<CMUNetSitePrototype> site, int post, int comment)
+        {
+        }
+
+        public void Withdraw(ProtoId<CMUNetSitePrototype> site, int post)
+        {
+        }
+
+        public void Post(ProtoId<CMUNetSitePrototype> site, string title, string body, int reward)
         {
             Add(site, title, body, "Preview", "Journalist", TimeSpan.Zero, new List<CMUNetBoardComment>());
             Request(site);

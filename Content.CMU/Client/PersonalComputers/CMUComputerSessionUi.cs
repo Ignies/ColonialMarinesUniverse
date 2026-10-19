@@ -5,6 +5,7 @@ using Robust.Client.Graphics;
 using Robust.Client.UserInterface;
 using Robust.Client.UserInterface.Controls;
 using Robust.Client.UserInterface.CustomControls;
+using Robust.Shared.Configuration;
 using Robust.Shared.Timing;
 using Robust.Shared.Utility;
 
@@ -59,12 +60,13 @@ public sealed class CMUComputerToolBui : BoundUserInterface
         base.Open();
         _menu = this.CreateWindow<SimpleRadialMenu>();
         _menu.Track(Owner);
-        var options = new List<RadialMenuOptionBase>
-        {
-            Option(CMUComputerToolAction.Logs, "cmu-pc-tool-logs", new SpriteSpecifier.Texture(new ResPath("/Textures/Interface/VerbIcons/examine.svg.192dpi.png"))),
-        };
+        var cfg = IoCManager.Resolve<IConfigurationManager>();
+        var options = new List<RadialMenuOptionBase>();
+        if (cfg.GetCVar(CMUPersonalComputerCVars.Logs))
+            options.Add(Option(CMUComputerToolAction.Logs, "cmu-pc-tool-logs", new SpriteSpecifier.Texture(new ResPath("/Textures/Interface/VerbIcons/examine.svg.192dpi.png"))));
 
-        if (EntMan.HasComponent<Shared.CMU14.PersonalComputers.DeepWeb.CMUDeepWebHackableComponent>(Owner))
+        if (cfg.GetCVar(CMUPersonalComputerCVars.DeepWeb)
+            && EntMan.HasComponent<Shared.CMU14.PersonalComputers.DeepWeb.CMUDeepWebHackableComponent>(Owner))
             options.Add(Option(CMUComputerToolAction.Hack, "cmu-pc-tool-hack", new SpriteSpecifier.Texture(new ResPath("/Textures/Interface/VerbIcons/zap.svg.192dpi.png"))));
 
         _menu.SetButtons(options);
@@ -81,11 +83,15 @@ public sealed class CMUComputerToolBui : BoundUserInterface
     }
 }
 
-/// <summary>A terminal's maintenance log, newest last, in a plain terminal window.</summary>
+/// <summary>
+/// A terminal's maintenance log, newest last, in a plain terminal window. Skilled engineers also get to wipe it,
+/// which leaves its own line, or slip a made up line into it.
+/// </summary>
 public sealed class CMUComputerLogBui : BoundUserInterface
 {
     private DefaultWindow? _window;
     private BoxContainer? _lines;
+    private BoxContainer? _tools;
 
     public CMUComputerLogBui(EntityUid owner, Enum uiKey) : base(owner, uiKey)
     {
@@ -97,11 +103,49 @@ public sealed class CMUComputerLogBui : BoundUserInterface
         _window = this.CreateWindow<DefaultWindow>();
         _window.MinSize = new Vector2(520, 420);
         _lines = new BoxContainer { Orientation = BoxContainer.LayoutOrientation.Vertical, Margin = new Thickness(10), SeparationOverride = 2 };
+        _tools = BuildTools();
         _window.Contents.AddChild(new PanelContainer
         {
             PanelOverride = new StyleBoxFlat { BackgroundColor = Color.FromHex("#050A06") },
-            Children = { new ScrollContainer { HScrollEnabled = false, Children = { _lines } } },
+            Children =
+            {
+                new BoxContainer
+                {
+                    Orientation = BoxContainer.LayoutOrientation.Vertical,
+                    Children =
+                    {
+                        new ScrollContainer { HScrollEnabled = false, VerticalExpand = true, Children = { _lines } },
+                        _tools,
+                    },
+                },
+            },
         });
+    }
+
+    private BoxContainer BuildTools()
+    {
+        var wipe = new Button { Text = Loc.GetString("cmu-pc-logs-wipe") };
+        wipe.OnPressed += _ => SendMessage(new CMUComputerLogWipeMessage());
+        var line = new LineEdit { HorizontalExpand = true, PlaceHolder = Loc.GetString("cmu-pc-logs-forge-placeholder") };
+        line.IsValid = text => text.Length <= CMUComputerLimits.ForgedLength;
+        var forge = new Button { Text = Loc.GetString("cmu-pc-logs-forge") };
+        forge.OnPressed += _ =>
+        {
+            if (line.Text.Trim().Length == 0)
+                return;
+
+            SendMessage(new CMUComputerLogForgeMessage(line.Text));
+            line.Text = string.Empty;
+        };
+
+        return new BoxContainer
+        {
+            Orientation = BoxContainer.LayoutOrientation.Horizontal,
+            Margin = new Thickness(10, 4),
+            SeparationOverride = 6,
+            Visible = false,
+            Children = { wipe, line, forge },
+        };
     }
 
     protected override void UpdateState(BoundUserInterfaceState state)
@@ -111,6 +155,8 @@ public sealed class CMUComputerLogBui : BoundUserInterface
             return;
 
         _window.Title = Loc.GetString("cmu-pc-logs-title", ("id", log.TerminalId));
+        if (_tools != null)
+            _tools.Visible = log.CanTamper;
         _lines.RemoveAllChildren();
         if (log.Entries.Count == 0)
             _lines.AddChild(new Label { Text = Loc.GetString("cmu-pc-logs-empty"), FontColorOverride = Color.FromHex("#3FE05A") });

@@ -6,6 +6,7 @@ using Robust.Client.ResourceManagement;
 using Robust.Client.Graphics;
 using Robust.Client.UserInterface;
 using Robust.Client.UserInterface.Controls;
+using Robust.Shared.Configuration;
 using Robust.Shared.Input;
 using Robust.Shared.Prototypes;
 using Robust.Shared.Timing;
@@ -19,6 +20,7 @@ public sealed partial class CMUComputerDesktop : BoxContainer
 {
     [Dependency] private IGameTiming _timing = default!;
     [Dependency] private IPrototypeManager _prototype = default!;
+    [Dependency] private IConfigurationManager _cfg = default!;
 
     private readonly CMUComputerTheme _theme;
     private readonly HashSet<ProtoId<CMUNetworkPrototype>> _networks;
@@ -33,6 +35,7 @@ public sealed partial class CMUComputerDesktop : BoxContainer
     private readonly ProtoId<CMUNetworkPrototype> _deepNetwork = "CMUNetDeep";
 
     private readonly LayoutContainer _area;
+    private readonly Label _trace;
     private readonly BoxContainer _tasks;
     private readonly Label _clock;
     private readonly PanelContainer _startMenu;
@@ -44,6 +47,8 @@ public sealed partial class CMUComputerDesktop : BoxContainer
     private readonly Dictionary<CMUDesktopWindow, Button> _taskButtons = new();
     private readonly TimeSpan _bootedAt;
     private readonly Texture? _wallpaper;
+    private Texture? _foundWallpaper;
+    private ProtoId<CMUWallpaperPrototype>? _shownWallpaper;
 
     public event Action? OnKeyTyped;
     public event Action? OnClicked;
@@ -96,6 +101,17 @@ public sealed partial class CMUComputerDesktop : BoxContainer
         _area.AddChild(_iconGrid);
         LayoutContainer.SetPosition(_iconGrid, new Vector2(10, 10));
 
+        _trace = new Label
+        {
+            Visible = false,
+            FontOverride = theme.Bold,
+            FontColorOverride = Color.FromHex("#FF4040"),
+            HorizontalAlignment = HAlignment.Center,
+        };
+        _area.AddChild(_trace);
+        LayoutContainer.SetAnchorPreset(_trace, LayoutContainer.LayoutPreset.CenterTop);
+        LayoutContainer.SetGrowHorizontal(_trace, LayoutContainer.GrowDirection.Both);
+
         _startMenu = BuildStartMenu();
         _area.AddChild(_startMenu);
         // Anchored to the bottom left and grown upwards, so it sits on the taskbar whatever its height.
@@ -146,6 +162,8 @@ public sealed partial class CMUComputerDesktop : BoxContainer
         AddIcon(CMUComputerApp.Browser, "cmu-pc-app-browser");
         AddIcon(CMUComputerApp.Files, "cmu-pc-app-files");
         AddIcon(CMUComputerApp.System, "cmu-pc-app-system");
+        if (_shortcuts != null && _cfg.GetCVar(CMUPersonalComputerCVars.Mail))
+            AddIcon(CMUComputerApp.Mail, "cmu-pc-app-mail");
         if (_deep != null)
             AddIcon(CMUComputerApp.Deeps, "cmu-pc-app-deeps");
 
@@ -272,9 +290,44 @@ public sealed partial class CMUComputerDesktop : BoxContainer
     {
         base.FrameUpdate(args);
         RefreshShortcuts(args.DeltaSeconds);
+        RefreshWallpaper();
+        UpdateTrace();
         // Shift clock: the round starts at 06:00 colony time.
         var time = TimeSpan.FromHours(6) + _timing.CurTime;
         _clock.Text = $"{time.Hours:00}:{time.Minutes:00}";
+    }
+
+    /// <summary>A wallpaper someone found on the ExtraNet takes over from the OS one.</summary>
+    private void RefreshWallpaper()
+    {
+        var wanted = _shortcuts?.Wallpaper;
+        if (wanted == _shownWallpaper)
+            return;
+
+        _shownWallpaper = wanted;
+        _foundWallpaper = wanted is { } id
+            && _cfg.GetCVar(CMUPersonalComputerCVars.Wallpapers)
+            && _prototype.TryIndex(id, out var proto)
+            && _theme.TryGetTexture(proto.Path, out var texture)
+                ? texture
+                : null;
+    }
+
+    /// <summary>A blinking warning while the Marshals trace this terminal, so whoever is on it can log off in time.</summary>
+    private void UpdateTrace()
+    {
+        var now = _timing.CurTime;
+        if (_shortcuts is not { } host || host.TraceEnds <= now)
+        {
+            _trace.Visible = false;
+            return;
+        }
+
+        var total = (host.TraceEnds - host.TraceStarted).TotalSeconds;
+        var done = total <= 0 ? 0 : (now - host.TraceStarted).TotalSeconds / total;
+        _trace.Text = Loc.GetString("cmu-pc-trace-banner", ("percent", (int) (Math.Clamp(done, 0, 1) * 100)));
+        _trace.Visible = now.TotalSeconds % 1 < 0.7;
+        _trace.SetPositionLast();
     }
 
     /// <summary>Rebuilds the icons when the saved links change, checked twice a second.</summary>
@@ -302,9 +355,9 @@ public sealed partial class CMUComputerDesktop : BoxContainer
     protected override void Draw(DrawingHandleScreen handle)
     {
         handle.DrawRect(PixelSizeBox, _theme.Background);
-        if (_wallpaper != null)
+        if ((_foundWallpaper ?? _wallpaper) is { } wallpaper)
         {
-            handle.DrawTextureRect(_wallpaper, PixelSizeBox);
+            handle.DrawTextureRect(wallpaper, PixelSizeBox);
             return;
         }
 
@@ -379,7 +432,16 @@ public sealed partial class CMUComputerDesktop : BoxContainer
                 AddWindow(app, Loc.GetString("cmu-pc-app-browser"), browser, new Vector2(640, 440));
                 break;
             case CMUComputerApp.Files:
-                AddWindow(app, Loc.GetString("cmu-pc-app-files"), BuildFiles(), new Vector2(560, 380));
+                var files = new CMUComputerFilesApp(_theme, _shortcuts, AllDocuments(), _cfg.GetCVar(CMUPersonalComputerCVars.Notes));
+                files.OnClicked += () => OnClicked?.Invoke();
+                files.OnKeyTyped += () => OnKeyTyped?.Invoke();
+                AddWindow(app, Loc.GetString("cmu-pc-app-files"), files, new Vector2(560, 380));
+                break;
+            case CMUComputerApp.Mail when _shortcuts != null:
+                var mail = new CMUComputerMailApp(_theme, _shortcuts);
+                mail.OnClicked += () => OnClicked?.Invoke();
+                mail.OnKeyTyped += () => OnKeyTyped?.Invoke();
+                AddWindow(app, Loc.GetString("cmu-pc-app-mail"), mail, new Vector2(620, 420));
                 break;
             case CMUComputerApp.Deeps when _deep != null:
                 var deeps = NewDeepsBrowser(_deep);
@@ -502,47 +564,11 @@ public sealed partial class CMUComputerDesktop : BoxContainer
         }
     }
 
-    private Control BuildFiles()
+    private List<CMUComputerDocument> AllDocuments()
     {
         var all = new List<CMUComputerDocument>(_theme.Os.Documents);
         all.AddRange(_documents);
-
-        var viewer = new CMUNetPageView(_theme);
-        var list = new BoxContainer { Orientation = LayoutOrientation.Vertical, Margin = new Thickness(4), SeparationOverride = 2 };
-        var resources = IoCManager.Resolve<Robust.Shared.ContentPack.IResourceManager>();
-
-        void Show(CMUComputerDocument document)
-        {
-            OnClicked?.Invoke();
-            using var reader = resources.ContentFileReadText(document.Path);
-            viewer.ShowDocument(reader.ReadToEnd(), null);
-        }
-
-        foreach (var document in all)
-        {
-            var button = _theme.Button(document.Name);
-            button.HorizontalExpand = true;
-            button.Label.HorizontalAlignment = HAlignment.Left;
-            button.OnPressed += _ => Show(document);
-            list.AddChild(button);
-        }
-
-        if (all.Count == 0)
-            list.AddChild(_theme.Label(Loc.GetString("cmu-pc-files-empty"), _theme.Font, _theme.Dim));
-        else
-            Show(all[0]);
-
-        return new BoxContainer
-        {
-            Orientation = LayoutOrientation.Horizontal,
-            VerticalExpand = true,
-            Children =
-            {
-                new ScrollContainer { MinWidth = 150, HScrollEnabled = false, Children = { list } },
-                new CMUTerminalRule { Color = _theme.Accent, MinWidth = 1, HorizontalExpand = false, VerticalExpand = true },
-                viewer,
-            },
-        };
+        return all;
     }
 
     private Control BuildSystem()

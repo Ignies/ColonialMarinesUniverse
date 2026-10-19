@@ -487,3 +487,60 @@ public sealed partial class CMUNetAd : Control, IDocumentTag
         handle.DrawRect(new UIBox2(PixelWidth - frame, 0, PixelWidth, PixelHeight), _accent);
     }
 }
+
+/// <summary>
+/// A wallpaper offered on a page: <c>&lt;CMUNetWallpaper Id="CMUWallpaperSynthwave"/&gt;</c>. Shows a preview
+/// and a button that puts it on the desktop of the terminal reading the page.
+/// </summary>
+[UsedImplicitly]
+public sealed partial class CMUNetWallpaper : BoxContainer, IDocumentTag
+{
+    [Dependency] private IPrototypeManager _prototypes = default!;
+    [Dependency] private IResourceCache _cache = default!;
+
+    private ProtoId<Content.Shared.CMU14.PersonalComputers.CMUWallpaperPrototype>? _id;
+
+    public CMUNetWallpaper()
+    {
+        IoCManager.InjectDependencies(this);
+        Orientation = LayoutOrientation.Vertical;
+        Margin = new Thickness(0, 6);
+        SeparationOverride = 4;
+    }
+
+    public bool TryParseTag(Dictionary<string, string> args, [NotNullWhen(true)] out Control? control)
+    {
+        control = null;
+        if (!args.TryGetValue("Id", out var id)
+            || !_prototypes.TryIndex<Content.Shared.CMU14.PersonalComputers.CMUWallpaperPrototype>(id, out var wallpaper)
+            || !_cache.TryGetResource<TextureResource>(wallpaper.Path, out var texture))
+            return false;
+
+        _id = wallpaper.ID;
+        AddChild(new TextureRect
+        {
+            Texture = texture.Texture,
+            Stretch = TextureRect.StretchMode.KeepAspectCentered,
+            SetSize = new Vector2(320, 200),
+            HorizontalAlignment = HAlignment.Left,
+        });
+        AddChild(new Label { Text = Loc.GetString(wallpaper.Name), StyleClasses = { "LabelKeyText" } });
+
+        var set = new Button { Text = Loc.GetString("cmu-wallpaper-set"), HorizontalAlignment = HAlignment.Left };
+        set.OnPressed += _ => Browser()?.Host?.SetWallpaper(_id);
+        AddChild(set);
+        control = this;
+        return true;
+    }
+
+    private CMUNetBrowser? Browser()
+    {
+        for (var parent = Parent; parent != null; parent = parent.Parent)
+        {
+            if (parent is CMUNetBrowser browser)
+                return browser;
+        }
+
+        return null;
+    }
+}

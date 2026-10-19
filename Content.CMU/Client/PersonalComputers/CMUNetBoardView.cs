@@ -1,6 +1,8 @@
+using System.Linq;
 using Content.Shared.CMU14.PersonalComputers;
 using Robust.Client.UserInterface;
 using Robust.Client.UserInterface.Controls;
+using Robust.Shared.Configuration;
 using Robust.Shared.Prototypes;
 using Robust.Shared.Timing;
 using Robust.Shared.Utility;
@@ -17,7 +19,11 @@ public interface ICMUNetBoardHost
 
     void Request(ProtoId<CMUNetSitePrototype> site);
 
-    void Post(ProtoId<CMUNetSitePrototype> site, string title, string body);
+    void Post(ProtoId<CMUNetSitePrototype> site, string title, string body, int reward);
+
+    void Payout(ProtoId<CMUNetSitePrototype> site, int post, int comment);
+
+    void Withdraw(ProtoId<CMUNetSitePrototype> site, int post);
 
     void Comment(ProtoId<CMUNetSitePrototype> site, int post, string body);
 
@@ -209,6 +215,12 @@ public sealed partial class CMUNetBoardView : BoxContainer
         };
         body.OnTextChanged += _ => OnKeyTyped?.Invoke();
 
+        // Bounty boards take a reward from the logged in account when the posting goes up.
+        var bounties = _site.Board.Bounties && IoCManager.Resolve<IConfigurationManager>().GetCVar(CMUPersonalComputerCVars.Bounties);
+        var reward = Field(Loc.GetString("cmu-net-board-reward-placeholder"), 6);
+        reward.IsValid = text => text.Length <= 6 && text.All(char.IsDigit);
+        reward.Visible = bounties;
+
         var publish = PageButton(label);
         var cancel = PageButton(Loc.GetString("cmu-net-board-cancel"));
         publish.OnPressed += _ =>
@@ -218,7 +230,7 @@ public sealed partial class CMUNetBoardView : BoxContainer
                 return;
 
             OnClicked?.Invoke();
-            _host?.Post(_site.ID, title.Text, text);
+            _host?.Post(_site.ID, title.Text, text, int.TryParse(reward.Text, out var amount) ? amount : 0);
             _composerOpen = false;
             BuildComposer(true);
         };
@@ -243,6 +255,7 @@ public sealed partial class CMUNetBoardView : BoxContainer
                         new Label { Text = label, StyleClasses = { "LabelKeyText" } },
                         title,
                         Framed(body),
+                        reward,
                         new BoxContainer
                         {
                             Orientation = LayoutOrientation.Horizontal,
@@ -258,9 +271,26 @@ public sealed partial class CMUNetBoardView : BoxContainer
     private Control BuildPost(CMUNetBoardPost post, CMUNetBoardStateMessage state)
     {
         var box = new BoxContainer { Orientation = LayoutOrientation.Vertical, HorizontalExpand = true, SeparationOverride = 4 };
+        var mine = state.OwnPosts.Contains(post.Id);
 
-        var header = new BoxContainer { Orientation = LayoutOrientation.Horizontal, HorizontalExpand = true };
+        var header = new BoxContainer { Orientation = LayoutOrientation.Horizontal, HorizontalExpand = true, SeparationOverride = 6 };
         header.AddChild(new Label { Text = post.Title, StyleClasses = { "LabelHeading" }, HorizontalExpand = true, ClipText = true });
+        if (post.Reward > 0)
+            header.AddChild(Badge(Loc.GetString("cmu-net-board-bounty", ("amount", post.Reward))));
+        else if (post.PaidTo != null)
+            header.AddChild(Badge(Loc.GetString("cmu-net-board-bounty-paid", ("name", post.PaidTo))));
+
+        if (mine && post.Reward > 0)
+        {
+            var withdraw = PageButton(Loc.GetString("cmu-net-board-withdraw"));
+            withdraw.OnPressed += _ =>
+            {
+                OnClicked?.Invoke();
+                _host?.Withdraw(_site.ID, post.Id);
+            };
+            header.AddChild(withdraw);
+        }
+
         if (state.CanModerate)
         {
             var delete = PageButton(Loc.GetString("cmu-net-board-delete"));
@@ -275,26 +305,41 @@ public sealed partial class CMUNetBoardView : BoxContainer
         box.AddChild(header);
         box.AddChild(new Label
         {
-            Text = Loc.GetString("cmu-net-board-byline", ("author", post.Author), ("role", Role(post.Role)), ("time", Clock(post.Time))),
+            Text = Byline("cmu-net-board-byline", post.Author, post.Role, post.Time, post.Terminal),
             FontColorOverride = Text.WithAlpha(0.65f),
         });
         box.AddChild(Plain(post.Body, Text));
 
         var comments = new BoxContainer { Orientation = LayoutOrientation.Vertical, Margin = new Thickness(16, 4, 0, 0), SeparationOverride = 3 };
-        foreach (var comment in post.Comments)
+        for (var i = 0; i < post.Comments.Count; i++)
         {
+            var comment = post.Comments[i];
+            var line = new BoxContainer { Orientation = LayoutOrientation.Horizontal, SeparationOverride = 6 };
+            line.AddChild(new Label
+            {
+                Text = Byline("cmu-net-board-comment-byline", comment.Author, comment.Role, comment.Time, comment.Terminal),
+                FontColorOverride = Heading.WithAlpha(0.8f),
+                HorizontalExpand = true,
+                ClipText = true,
+            });
+
+            // The poster picks who earned the bounty.
+            if (mine && post.Reward > 0)
+            {
+                var index = i;
+                var pay = PageButton(Loc.GetString("cmu-net-board-pay"));
+                pay.OnPressed += _ =>
+                {
+                    OnClicked?.Invoke();
+                    _host?.Payout(_site.ID, post.Id, index);
+                };
+                line.AddChild(pay);
+            }
+
             comments.AddChild(new BoxContainer
             {
                 Orientation = LayoutOrientation.Vertical,
-                Children =
-                {
-                    new Label
-                    {
-                        Text = Loc.GetString("cmu-net-board-comment-byline", ("author", comment.Author), ("role", Role(comment.Role)), ("time", Clock(comment.Time))),
-                        FontColorOverride = Heading.WithAlpha(0.8f),
-                    },
-                    Plain(comment.Body, Text),
-                },
+                Children = { line, Plain(comment.Body, Text) },
             });
         }
 
@@ -304,6 +349,24 @@ public sealed partial class CMUNetBoardView : BoxContainer
         box.AddChild(comments);
         box.AddChild(new CMUTerminalRule { Color = Link.WithAlpha(0.25f), Margin = new Thickness(0, 6, 0, 0) });
         return box;
+    }
+
+    /// <summary>Who wrote it and when, and on boards that show them, from which terminal.</summary>
+    private string Byline(string key, string author, string role, TimeSpan time, int terminal)
+    {
+        var byline = Loc.GetString(key, ("author", author), ("role", Role(role)), ("time", Clock(time)));
+        return _site.Board!.ShowTerminals && terminal > 0
+            ? Loc.GetString("cmu-net-board-from-terminal", ("byline", byline), ("terminal", terminal))
+            : byline;
+    }
+
+    private Control Badge(string text)
+    {
+        return new PanelContainer
+        {
+            PanelOverride = _theme.Box(Link, Link),
+            Children = { new Label { Text = text, FontColorOverride = Background, Margin = new Thickness(4, 0) } },
+        };
     }
 
     private Control CommentLine(int post)

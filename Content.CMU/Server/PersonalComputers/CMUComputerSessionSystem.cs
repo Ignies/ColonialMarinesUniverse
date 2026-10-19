@@ -10,8 +10,10 @@ using Content.Shared.Database;
 using Content.Shared.GameTicking;
 using Content.Shared.Interaction;
 using Content.Shared.Popups;
+using Content.Shared.UserInterface;
 using Content.Shared.Verbs;
 using Robust.Server.GameObjects;
+using Robust.Shared.Configuration;
 using Robust.Shared.Prototypes;
 using Robust.Shared.Timing;
 
@@ -27,8 +29,10 @@ public sealed partial class CMUComputerSessionSystem : EntitySystem
 {
     private static readonly EntProtoId<SkillDefinitionComponent> EngineerSkill = "RMCSkillEngineer";
     private const int LogSkill = 1;
+    private const int TamperSkill = 3;
 
     [Dependency] private IAdminLogManager _adminLog = default!;
+    [Dependency] private IConfigurationManager _cfg = default!;
     [Dependency] private IGameTiming _timing = default!;
     [Dependency] private AreaSystem _areas = default!;
     [Dependency] private CMUCmbSystem _cmb = default!;
@@ -47,6 +51,7 @@ public sealed partial class CMUComputerSessionSystem : EntitySystem
         SubscribeLocalEvent<RoundRestartCleanupEvent>(_ => _nextTerminal = 1);
         SubscribeLocalEvent<CMUPersonalComputerComponent, InteractUsingEvent>(OnInteractUsing);
         SubscribeLocalEvent<CMUPersonalComputerComponent, GetVerbsEvent<AlternativeVerb>>(OnGetVerbs);
+        SubscribeLocalEvent<CMUPersonalComputerComponent, ActivatableUIOpenAttemptEvent>(OnOpenAttempt);
         Subs.BuiEvents<CMUPersonalComputerComponent>(CMUPersonalComputerUiKey.Key, subs =>
         {
             subs.Event<CMUNetVisitMessage>(OnVisit);
@@ -55,6 +60,11 @@ public sealed partial class CMUComputerSessionSystem : EntitySystem
         Subs.BuiEvents<CMUPersonalComputerComponent>(CMUComputerToolUiKey.Key, subs =>
         {
             subs.Event<CMUComputerToolMessage>(OnTool);
+        });
+        Subs.BuiEvents<CMUPersonalComputerComponent>(CMUComputerLogUiKey.Key, subs =>
+        {
+            subs.Event<CMUComputerLogWipeMessage>(OnWipe);
+            subs.Event<CMUComputerLogForgeMessage>(OnForge);
         });
     }
 
@@ -72,9 +82,19 @@ public sealed partial class CMUComputerSessionSystem : EntitySystem
             log.RemoveAt(0);
     }
 
+    /// <summary>With computers switched off, terminals show as offline.</summary>
+    private void OnOpenAttempt(Entity<CMUPersonalComputerComponent> ent, ref ActivatableUIOpenAttemptEvent args)
+    {
+        if (_cfg.GetCVar(CMUPersonalComputerCVars.Enabled))
+            return;
+
+        args.Cancel();
+        _popup.PopupEntity(Loc.GetString("cmu-pc-offline"), ent, args.User);
+    }
+
     private void OnInteractUsing(Entity<CMUPersonalComputerComponent> ent, ref InteractUsingEvent args)
     {
-        if (args.Handled)
+        if (args.Handled || !_cfg.GetCVar(CMUPersonalComputerCVars.Enabled))
             return;
 
         if (HasComp<MultitoolComponent>(args.Used))
@@ -84,7 +104,7 @@ public sealed partial class CMUComputerSessionSystem : EntitySystem
             return;
         }
 
-        if (!_idCards.TryGetIdCard(args.Used, out var card))
+        if (!_cfg.GetCVar(CMUPersonalComputerCVars.Login) || !_idCards.TryGetIdCard(args.Used, out var card))
             return;
 
         args.Handled = true;
@@ -97,6 +117,7 @@ public sealed partial class CMUComputerSessionSystem : EntitySystem
 
         ent.Comp.SessionUser = name;
         ent.Comp.SessionJob = card.Comp.LocalizedJobTitle;
+        ent.Comp.SessionAccount = card.Comp.AccountNumber;
         Dirty(ent);
         AddLog(ent, Loc.GetString("cmu-pc-log-login", ("name", name)));
         _popup.PopupEntity(Loc.GetString("cmu-pc-login-popup", ("name", name)), ent, args.User);
@@ -115,13 +136,14 @@ public sealed partial class CMUComputerSessionSystem : EntitySystem
         AddLog(ent, Loc.GetString("cmu-pc-log-logout", ("name", name)));
         ent.Comp.SessionUser = null;
         ent.Comp.SessionJob = null;
+        ent.Comp.SessionAccount = 0;
         Dirty(ent);
         _popup.PopupEntity(Loc.GetString("cmu-pc-logout-popup"), ent, user);
     }
 
     private void OnGetVerbs(Entity<CMUPersonalComputerComponent> ent, ref GetVerbsEvent<AlternativeVerb> args)
     {
-        if (!ent.Comp.OpenVerb || !args.CanAccess || !args.CanInteract)
+        if (!ent.Comp.OpenVerb || !args.CanAccess || !args.CanInteract || !_cfg.GetCVar(CMUPersonalComputerCVars.Enabled))
             return;
 
         var user = args.User;
@@ -154,6 +176,43 @@ public sealed partial class CMUComputerSessionSystem : EntitySystem
             $"{ToPrettyString(args.Actor):player} looked up deep address {address} from unhacked terminal #{ent.Comp.TerminalId}");
     }
 
+    private bool CanTamper(EntityUid user)
+    {
+        return _cfg.GetCVar(CMUPersonalComputerCVars.LogTamper) && _skills.HasSkill(user, EngineerSkill, TamperSkill);
+    }
+
+    private void SendLog(Entity<CMUPersonalComputerComponent> ent, EntityUid user)
+    {
+        _ui.SetUiState(ent.Owner, CMUComputerLogUiKey.Key,
+            new CMUComputerLogState(ent.Comp.TerminalId, new List<CMUComputerLogEntry>(ent.Comp.Log), CanTamper(user)));
+    }
+
+    /// <summary>Clears the log. The wipe itself always leaves a line, so a wiped terminal still looks wiped.</summary>
+    private void OnWipe(Entity<CMUPersonalComputerComponent> ent, ref CMUComputerLogWipeMessage args)
+    {
+        if (!CanTamper(args.Actor))
+            return;
+
+        ent.Comp.Log.Clear();
+        AddLog(ent, Loc.GetString("cmu-pc-log-cleared"));
+        _adminLog.Add(LogType.Action, LogImpact.Low, $"{ToPrettyString(args.Actor):player} wiped the log of terminal #{ent.Comp.TerminalId}");
+        SendLog(ent, args.Actor);
+    }
+
+    private void OnForge(Entity<CMUPersonalComputerComponent> ent, ref CMUComputerLogForgeMessage args)
+    {
+        var text = args.Text.Trim().Replace('\n', ' ');
+        if (!CanTamper(args.Actor) || text.Length == 0)
+            return;
+
+        if (text.Length > CMUComputerLimits.ForgedLength)
+            text = text[..CMUComputerLimits.ForgedLength];
+
+        AddLog(ent, text);
+        _adminLog.Add(LogType.Action, LogImpact.Low, $"{ToPrettyString(args.Actor):player} forged a log line on terminal #{ent.Comp.TerminalId}: {text}");
+        SendLog(ent, args.Actor);
+    }
+
     private void OnTool(Entity<CMUPersonalComputerComponent> ent, ref CMUComputerToolMessage args)
     {
         var user = args.Actor;
@@ -161,6 +220,9 @@ public sealed partial class CMUComputerSessionSystem : EntitySystem
         switch (args.Action)
         {
             case CMUComputerToolAction.Logs:
+                if (!_cfg.GetCVar(CMUPersonalComputerCVars.Logs))
+                    return;
+
                 if (!_skills.HasSkill(user, EngineerSkill, LogSkill))
                 {
                     _popup.PopupEntity(Loc.GetString("cmu-pc-logs-no-skill"), ent, user, PopupType.SmallCaution);
@@ -169,8 +231,7 @@ public sealed partial class CMUComputerSessionSystem : EntitySystem
 
                 AddLog(ent, Loc.GetString("cmu-pc-log-read", ("name", Name(user))));
                 _ui.OpenUi(ent.Owner, CMUComputerLogUiKey.Key, user);
-                _ui.SetUiState(ent.Owner, CMUComputerLogUiKey.Key,
-                    new CMUComputerLogState(ent.Comp.TerminalId, new List<CMUComputerLogEntry>(ent.Comp.Log)));
+                SendLog(ent, user);
                 break;
             case CMUComputerToolAction.Hack:
                 if (TryComp(ent, out CMUDeepWebHackableComponent? hackable) && _deep.TryStartHack((ent.Owner, hackable), user))

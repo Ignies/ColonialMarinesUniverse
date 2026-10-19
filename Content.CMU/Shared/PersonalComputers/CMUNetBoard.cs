@@ -28,6 +28,17 @@ public sealed partial class CMUNetBoardDefinition
     [DataField(required: true)]
     public LocId Empty;
 
+    /// <summary>Shows which terminal each posting and comment came from, e.g. for classifieds where people meet up.</summary>
+    [DataField]
+    public bool ShowTerminals;
+
+    /// <summary>
+    /// Postings may carry a cash reward, taken from the poster's logged in account when posted and paid to a
+    /// commenter of the poster's choosing, or refunded if the poster withdraws it.
+    /// </summary>
+    [DataField]
+    public bool Bounties;
+
     /// <summary>A forum: anyone at a computer that reaches the site may post, not only the poster jobs.</summary>
     [DataField]
     public bool AnyonePosts;
@@ -52,12 +63,13 @@ public sealed class CMUNetBoardHijack(string faction, string title, string body,
 }
 
 [Serializable, NetSerializable]
-public sealed class CMUNetBoardComment(string author, string role, string body, TimeSpan time)
+public sealed class CMUNetBoardComment(string author, string role, string body, TimeSpan time, int terminal = 0)
 {
     public readonly string Author = author;
     public readonly string Role = role;
     public readonly string Body = body;
     public readonly TimeSpan Time = time;
+    public readonly int Terminal = terminal;
 }
 
 [Serializable, NetSerializable]
@@ -68,7 +80,9 @@ public sealed class CMUNetBoardPost(
     string author,
     string role,
     TimeSpan time,
-    List<CMUNetBoardComment> comments)
+    List<CMUNetBoardComment> comments,
+    int terminal = 0,
+    int reward = 0)
 {
     public readonly int Id = id;
     public readonly string Title = title;
@@ -77,6 +91,13 @@ public sealed class CMUNetBoardPost(
     public readonly string Role = role;
     public readonly TimeSpan Time = time;
     public readonly List<CMUNetBoardComment> Comments = comments;
+    public readonly int Terminal = terminal;
+
+    /// <summary>Cash held for this posting's bounty; zero once paid out or withdrawn.</summary>
+    public int Reward = reward;
+
+    /// <summary>Who the bounty went to, once paid.</summary>
+    public string? PaidTo;
 }
 
 /// <summary>Asks the server for a board's postings; it answers with <see cref="CMUNetBoardStateMessage"/>.</summary>
@@ -87,12 +108,30 @@ public sealed class CMUNetBoardRequestMessage(ProtoId<CMUNetSitePrototype> site)
 }
 
 [Serializable, NetSerializable]
-public sealed class CMUNetBoardPostMessage(ProtoId<CMUNetSitePrototype> site, string title, string body)
+public sealed class CMUNetBoardPostMessage(ProtoId<CMUNetSitePrototype> site, string title, string body, int reward = 0)
     : BoundUserInterfaceMessage
 {
     public readonly ProtoId<CMUNetSitePrototype> Site = site;
     public readonly string Title = title;
     public readonly string Body = body;
+    public readonly int Reward = reward;
+}
+
+/// <summary>The poster pays their bounty to the author of one of the posting's comments.</summary>
+[Serializable, NetSerializable]
+public sealed class CMUNetBoardPayoutMessage(ProtoId<CMUNetSitePrototype> site, int post, int comment) : BoundUserInterfaceMessage
+{
+    public readonly ProtoId<CMUNetSitePrototype> Site = site;
+    public readonly int Post = post;
+    public readonly int Comment = comment;
+}
+
+/// <summary>The poster withdraws their bounty and gets the money back.</summary>
+[Serializable, NetSerializable]
+public sealed class CMUNetBoardWithdrawMessage(ProtoId<CMUNetSitePrototype> site, int post) : BoundUserInterfaceMessage
+{
+    public readonly ProtoId<CMUNetSitePrototype> Site = site;
+    public readonly int Post = post;
 }
 
 [Serializable, NetSerializable]
@@ -127,9 +166,13 @@ public sealed class CMUNetBoardStateMessage(
     bool canPost,
     bool canComment,
     bool canModerate,
-    CMUNetBoardHijack? hijack = null) : BoundUserInterfaceMessage
+    CMUNetBoardHijack? hijack = null,
+    List<int>? ownPosts = null) : BoundUserInterfaceMessage
 {
     public readonly CMUNetBoardHijack? Hijack = hijack;
+
+    /// <summary>Postings by the viewer, who may pay out or withdraw their bounties.</summary>
+    public readonly List<int> OwnPosts = ownPosts ?? new List<int>();
     public readonly ProtoId<CMUNetSitePrototype> Site = site;
     public readonly List<CMUNetBoardPost> Posts = posts;
     public readonly bool CanPost = canPost;
@@ -146,6 +189,7 @@ public static class CMUNetBoardLimits
     public const int CommentsPerPost = 60;
     public static readonly TimeSpan PostCooldown = TimeSpan.FromSeconds(30);
     public static readonly TimeSpan CommentCooldown = TimeSpan.FromSeconds(5);
+    public const int MaxReward = 100000;
     public static readonly TimeSpan HijackLength = TimeSpan.FromMinutes(5);
     public static readonly TimeSpan HijackCooldown = TimeSpan.FromMinutes(12);
 }

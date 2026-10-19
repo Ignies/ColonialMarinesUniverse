@@ -770,3 +770,21 @@
     postLabel: cmu-net-board-deep-forum-blooded-post
     empty: cmu-net-board-deep-forum-blooded-empty
     anyonePosts: true
+
+# The insurgents' market: found by scan, its listings come live from the server.
+- type: cmuNetSite
+  id: CMUNetSiteDeepBlackline
+  address: blackline.deep
+  title: cmu-net-site-deep-blackline
+  unlisted: true
+  networks:
+  - CMUNetDeep
+  root: /ServerInfo/CMU14/ExtraNet/Deep/Blackline/
+  style:
+    background: "#0A0A0A"
+    text: "#C8C8C8"
+    heading: "#E0303A"
+    link: "#F2C230"
+    font: Mono
+  pages:
+    "": index.xml

@@ -1,7 +1,9 @@
+using System.Linq;
 using Content.Shared.CMU14.PersonalComputers;
 using Content.Shared.CMU14.PersonalComputers.DeepWeb;
 using Robust.Client.UserInterface;
 using Robust.Client.UserInterface.Controls;
+using Robust.Shared.Configuration;
 using Robust.Shared.Prototypes;
 using Robust.Shared.Timing;
 
@@ -34,6 +36,20 @@ public interface ICMUDeepHost
     void OpenCamera(string network);
 
     void Hijack(string title, string body);
+
+    event Action<CMUMarketStateMessage>? MarketReceived;
+
+    event Action<CMUDeepToolResultMessage>? ToolResult;
+
+    void RequestMarket();
+
+    void ListItem(string title, string description, int price, string drop);
+
+    void Buy(int listing);
+
+    void Sniff(int terminal);
+
+    void Loop(string network);
 }
 
 /// <summary>
@@ -54,6 +70,7 @@ public sealed partial class CMUDeepHome : BoxContainer
     private readonly Label _status;
     private readonly BoxContainer _found;
     private int _shown = -1;
+    private BoxContainer? _toolOutput;
 
     public event Action? OnClicked;
     public event Action? OnKeyTyped;
@@ -92,6 +109,84 @@ public sealed partial class CMUDeepHome : BoxContainer
 
         if (host.IsInsurgent)
             AddChild(BuildHijack());
+
+        if (IoCManager.Resolve<IConfigurationManager>().GetCVar(CMUPersonalComputerCVars.HackerTools))
+            AddChild(BuildTools());
+    }
+
+    /// <summary>The packet sniffer and the camera loop, with their last result under them.</summary>
+    private Control BuildTools()
+    {
+        var output = new BoxContainer { Orientation = LayoutOrientation.Vertical };
+        _toolOutput = output;
+
+        var terminal = new LineEdit { MinWidth = 80, PlaceHolder = Loc.GetString("cmu-deep-sniff-placeholder") };
+        terminal.IsValid = text => text.Length <= 4 && text.All(char.IsDigit);
+        var sniff = _theme.Button(Loc.GetString("cmu-deep-sniff"));
+        sniff.OnPressed += _ =>
+        {
+            if (!int.TryParse(terminal.Text, out var id))
+                return;
+
+            OnClicked?.Invoke();
+            _host.Sniff(id);
+        };
+
+        var loops = new BoxContainer { Orientation = LayoutOrientation.Horizontal, SeparationOverride = 6 };
+        foreach (var (network, label) in new[]
+                 {
+                     ("CMUSurveillanceCameraColonyGOVFOR", "cmu-deep-loop-govfor"),
+                     ("CMUSurveillanceCameraColonyWEYU", "cmu-deep-loop-weyu"),
+                     ("CMUSurveillanceCameraColonyCMB", "cmu-deep-loop-cmb"),
+                 })
+        {
+            var button = _theme.Button(Loc.GetString(label));
+            button.OnPressed += _ =>
+            {
+                OnClicked?.Invoke();
+                _host.Loop(network);
+            };
+            loops.AddChild(button);
+        }
+
+        return new BoxContainer
+        {
+            Orientation = LayoutOrientation.Vertical,
+            SeparationOverride = 4,
+            Margin = new Thickness(0, 14, 0, 0),
+            Children =
+            {
+                new CMUTerminalRule { Color = _theme.Phosphor.WithAlpha(0.6f) },
+                new Label { Text = Loc.GetString("cmu-deep-tools-heading"), StyleClasses = { "LabelHeading" } },
+                new BoxContainer { Orientation = LayoutOrientation.Horizontal, SeparationOverride = 6, Children = { terminal, sniff } },
+                new Label { Text = Loc.GetString("cmu-deep-loop-intro") },
+                loops,
+                output,
+            },
+        };
+    }
+
+    protected override void EnteredTree()
+    {
+        base.EnteredTree();
+        _host.ToolResult += OnToolResult;
+    }
+
+    protected override void ExitedTree()
+    {
+        base.ExitedTree();
+        _host.ToolResult -= OnToolResult;
+    }
+
+    private void OnToolResult(CMUDeepToolResultMessage result)
+    {
+        if (_toolOutput == null)
+            return;
+
+        _toolOutput.RemoveAllChildren();
+        _toolOutput.AddChild(new Label { Text = result.Title, StyleClasses = { "LabelKeyText" } });
+        foreach (var line in result.Lines)
+            _toolOutput.AddChild(new Label { Text = line });
     }
 
     /// <summary>The broadcast form: a headline and a message that cover the news front pages for a few minutes.</summary>

@@ -4,6 +4,7 @@ using Content.Shared.CMU14.PersonalComputers;
 using Content.Shared.CMU14.PersonalComputers.DeepWeb;
 using Robust.Client.UserInterface;
 using Robust.Client.UserInterface.Controls;
+using Robust.Shared.Configuration;
 using Robust.Shared.ContentPack;
 using Robust.Shared.Prototypes;
 using Robust.Shared.Utility;
@@ -20,6 +21,7 @@ public sealed partial class CMUNetBrowser : BoxContainer, ILinkClickHandler
     public const string DirectoryAddress = "sys://directory";
 
     [Dependency] private IEntityManager _entities = default!;
+    [Dependency] private IConfigurationManager _cfg = default!;
     [Dependency] private IResourceManager _resources = default!;
     [Dependency] private IPrototypeManager _prototype = default!;
 
@@ -89,7 +91,7 @@ public sealed partial class CMUNetBrowser : BoxContainer, ILinkClickHandler
         var go = theme.Button(Loc.GetString("cmu-pc-browser-go"));
         _save = theme.Button(Loc.GetString("cmu-pc-browser-save"), Loc.GetString("cmu-pc-browser-save-tooltip"));
         _save.Disabled = true;
-        _save.Visible = shortcuts != null;
+        _save.Visible = shortcuts != null && _cfg.GetCVar(CMUPersonalComputerCVars.Shortcuts);
         _save.OnPressed += _ => Save();
 
         _address = new LineEdit
@@ -418,6 +420,9 @@ public sealed partial class CMUNetBrowser : BoxContainer, ILinkClickHandler
 
     /// <summary>The computer this browser runs on, for page tags that talk to the server.</summary>
     public ICMUComputerHost? Host => _shortcuts;
+
+    /// <summary>The deep web side of the computer, when this is The deeps.exi.</summary>
+    public ICMUDeepHost? Deep => _deep;
 
     private void ShowSystemPage(string title, string body, string address)
     {

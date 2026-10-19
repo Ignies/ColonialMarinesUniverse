@@ -122,11 +122,10 @@ public sealed partial class CMUNetCmbPanel : BoxContainer, IDocumentTag
 
         foreach (var alert in alerts)
         {
-            AddChild(Plain(Loc.GetString("cmu-cmb-alert",
-                ("time", Clock(alert.Time)),
-                ("id", alert.TerminalId),
-                ("location", alert.Location),
-                ("address", alert.Address))));
+            var line = alert.Trace != null
+                ? Loc.GetString("cmu-cmb-trace-alert", ("time", Clock(alert.Time)), ("id", alert.TerminalId), ("location", alert.Location), ("result", alert.Trace))
+                : Loc.GetString("cmu-cmb-alert", ("time", Clock(alert.Time)), ("id", alert.TerminalId), ("location", alert.Location), ("address", alert.Address));
+            AddChild(Plain(line));
         }
     }
 
@@ -153,6 +152,12 @@ public sealed partial class CMUNetCmbPanel : BoxContainer, IDocumentTag
         }
 
         map.ForceNavMapUpdate();
+        map.TrackedEntitySelectedAction += terminal =>
+        {
+            if (terminal is { } picked)
+                _host?.Trace(picked);
+        };
+        AddChild(new Label { Text = Loc.GetString("cmu-cmb-map-hint") });
         AddChild(map);
 
         // The alerted terminals under the map, so the numbers can be read off.

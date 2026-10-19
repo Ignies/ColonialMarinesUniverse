@@ -12,6 +12,7 @@ using Content.Shared.Database;
 using Content.Shared.Dataset;
 using Content.Shared.Popups;
 using Robust.Server.GameObjects;
+using Robust.Shared.Configuration;
 using Robust.Shared.Prototypes;
 using Robust.Shared.Random;
 using Robust.Shared.Timing;
@@ -32,6 +33,7 @@ public sealed partial class CMUDeepWebSystem : EntitySystem
     private const float JunkChance = 0.25f;
 
     [Dependency] private IAdminLogManager _adminLog = default!;
+    [Dependency] private IConfigurationManager _cfg = default!;
     [Dependency] private CameraNetworkSystem _cameras = default!;
     [Dependency] private CMUDeepMazeSystem _maze = default!;
     [Dependency] private CMUDeepAliasSystem _aliases = default!;
@@ -63,6 +65,9 @@ public sealed partial class CMUDeepWebSystem : EntitySystem
     /// <summary>Opens the access tuner for someone who picked "hack terminal" on a computer's multitool menu.</summary>
     public bool TryStartHack(Entity<CMUDeepWebHackableComponent> ent, EntityUid user)
     {
+        if (!_cfg.GetCVar(CMUPersonalComputerCVars.DeepWeb))
+            return false;
+
         if (HasComp<CMUDeepWebAccessComponent>(ent))
         {
             _popup.PopupEntity(Loc.GetString("cmu-deep-hack-already"), ent, user);
@@ -225,7 +230,7 @@ public sealed partial class CMUDeepWebSystem : EntitySystem
 
     private void OnScan(Entity<CMUDeepWebAccessComponent> ent, ref CMUDeepScanMessage args)
     {
-        if (_timing.CurTime < ent.Comp.NextScan)
+        if (_timing.CurTime < ent.Comp.NextScan || !_cfg.GetCVar(CMUPersonalComputerCVars.DeepWeb))
             return;
 
         // Lore sites and the first ad page of each chain; hidden sites themselves are only found through the ads.
@@ -251,7 +256,8 @@ public sealed partial class CMUDeepWebSystem : EntitySystem
     private void OnCamera(Entity<CMUDeepWebAccessComponent> ent, ref CMUDeepCameraMessage args)
     {
         ProtoId<CameraNetworkPrototype> network = args.Network;
-        if (!ent.Comp.Unlocked.Contains(ent.Comp.CameraSite)
+        if (!_cfg.GetCVar(CMUPersonalComputerCVars.CameraTap)
+            || !ent.Comp.Unlocked.Contains(ent.Comp.CameraSite)
             || !ent.Comp.CameraNetworks.Contains(network)
             || !HasComp<CameraNetworkReceiverComponent>(ent))
             return;
@@ -265,6 +271,9 @@ public sealed partial class CMUDeepWebSystem : EntitySystem
     /// <summary>An insurgent seizes the colony's news front pages in the name of the round's insurgent faction.</summary>
     private void OnHijack(Entity<CMUDeepWebAccessComponent> ent, ref CMUDeepHijackMessage args)
     {
+        if (!_cfg.GetCVar(CMUPersonalComputerCVars.Hijack))
+            return;
+
         if (!HasComp<CLFMemberComponent>(args.Actor))
         {
             _popup.PopupEntity(Loc.GetString("cmu-deep-hijack-not-insurgent"), ent, args.Actor, PopupType.SmallCaution);

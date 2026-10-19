@@ -1,4 +1,5 @@
 using Content.Shared.CMU14.PersonalComputers;
+using Robust.Shared.Prototypes;
 
 namespace Content.Client.CMU14.PersonalComputers;
 
@@ -17,9 +18,27 @@ public interface ICMUComputerHost
 
     bool RequireLogin { get; }
 
+    /// <summary>A Marshal trace on this terminal, or zero when nobody is tracing it.</summary>
+    TimeSpan TraceStarted { get; }
+
+    TimeSpan TraceEnds { get; }
+
     IReadOnlyList<CMUNetShortcut> Shortcuts { get; }
 
     event Action<CMUCmbStateMessage>? CmbReceived;
+
+    event Action<CMUMailStateMessage>? MailReceived;
+
+    event Action<CMUSpaceGptAnswerMessage>? SpaceGptAnswered;
+
+    event Action<CMUArcadeStateMessage>? ArcadeReceived;
+
+    event Action<CMUBetStateMessage>? BetsReceived;
+
+    IReadOnlyList<CMUComputerNote> Notes { get; }
+
+    /// <summary>A wallpaper found on the ExtraNet and put on this desktop, or null for the OS one.</summary>
+    ProtoId<CMUWallpaperPrototype>? Wallpaper { get; }
 
     void SaveShortcut(string address, string title);
 
@@ -31,4 +50,26 @@ public interface ICMUComputerHost
     void Logout();
 
     void RequestCmb(CMUCmbPanel panel);
+
+    void Trace(NetEntity terminal);
+
+    void RequestMail();
+
+    void SendMail(string to, string subject, string body);
+
+    void SaveNote(string name, string text);
+
+    void DeleteNote(int index);
+
+    void SetWallpaper(ProtoId<CMUWallpaperPrototype>? wallpaper);
+
+    void AskSpaceGpt(string question);
+
+    void RequestArcade(CMUArcadeGame game);
+
+    void SubmitScore(CMUArcadeGame game, int score);
+
+    void RequestBets();
+
+    void PlaceBet(int match, bool home, int amount);
 }

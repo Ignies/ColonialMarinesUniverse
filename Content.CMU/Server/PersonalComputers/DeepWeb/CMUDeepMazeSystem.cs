@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Globalization;
 using System.Text.Json;
 using System.Text;
@@ -6,6 +7,7 @@ using Content.Shared.CMU14.PersonalComputers.DeepWeb;
 using Content.Shared.Dataset;
 using Content.Shared.GameTicking;
 using Robust.Server.GameObjects;
+using Robust.Shared.Configuration;
 using Robust.Shared.ContentPack;
 using Robust.Shared.Prototypes;
 using Robust.Shared.Random;
@@ -32,7 +34,11 @@ public sealed partial class CMUDeepMazeSystem : EntitySystem
     /// Ad art: every <c>banner_*.png</c> and <c>icon_*.png</c> in this folder is used, and every state of every
     /// RSI in it as an animation, so new art needs no code.
     /// </summary>
-    private static readonly ResPath ArtFolder = new("/Textures/CMU14/PersonalComputers/Sites/Ads/");
+    private static readonly ResPath[] ArtFolders =
+    {
+        new("/Textures/CMU14/PersonalComputers/Sites/Ads/"),
+        new("/Textures/CMU14/PersonalComputers/Retro/"),
+    };
 
     /// <summary>Ends the one link on a chain page that leads on. The deeps.exi home hints at it.</summary>
     public const string DoorMark = " ::";
@@ -50,6 +56,7 @@ public sealed partial class CMUDeepMazeSystem : EntitySystem
         ("#2B0033", "#F6D6FF", "#FFB000", "#00FFC8", "Display"),
     };
 
+    [Dependency] private IConfigurationManager _cfg = default!;
     [Dependency] private IPrototypeManager _prototype = default!;
     [Dependency] private CMUDeepAliasSystem _aliases = default!;
     [Dependency] private IResourceManager _resources = default!;
@@ -66,7 +73,7 @@ public sealed partial class CMUDeepMazeSystem : EntitySystem
     private readonly List<string> _banners = new();
     private readonly List<string> _icons = new();
     private readonly List<string> _ads = new();
-    private readonly List<(ResPath Rsi, string State)> _animations = new();
+    private readonly List<(ResPath Rsi, string State, int Scale)> _animations = new();
 
     public override void Initialize()
     {
@@ -122,7 +129,7 @@ public sealed partial class CMUDeepMazeSystem : EntitySystem
         _banners.Clear();
         _icons.Clear();
         _animations.Clear();
-        foreach (var file in _resources.ContentFindFiles(ArtFolder))
+        foreach (var file in ArtFolders.SelectMany(folder => _resources.ContentFindFiles(folder)))
         {
             if (file.Filename == "meta.json")
             {
@@ -171,7 +178,7 @@ public sealed partial class CMUDeepMazeSystem : EntitySystem
     private void OnRequest(Entity<CMUDeepWebAccessComponent> ent, ref CMUDeepPageRequestMessage args)
     {
         var host = args.Host.Trim().ToLowerInvariant();
-        if (!CMUDeepAddress.IsAd(host))
+        if (!CMUDeepAddress.IsAd(host) || !_cfg.GetCVar(CMUPersonalComputerCVars.DeepWeb))
             return;
 
         var markup = Generate(host);
@@ -221,9 +228,9 @@ public sealed partial class CMUDeepMazeSystem : EntitySystem
             page.AppendLine();
             if (_animations.Count > 0 && rng.NextDouble() < 0.3)
             {
-                var (rsi, state) = _animations[rng.Next(_animations.Count)];
+                var (rsi, state, scale) = _animations[rng.Next(_animations.Count)];
                 var align = rng.Next(3) switch { 0 => "Left", 1 => "Center", _ => "Right" };
-                page.AppendLine($"  <CMUNetSprite Rsi=\"{rsi}\" State=\"{state}\" Scale=\"2\" Align=\"{align}\"/>");
+                page.AppendLine($"  <CMUNetSprite Rsi=\"{rsi}\" State=\"{state}\" Scale=\"{scale}\" Align=\"{align}\"/>");
             }
 
             page.AppendLine($"  [netlink=\"{label}\" link=\"{address}\"]");
@@ -281,8 +288,12 @@ public sealed partial class CMUDeepMazeSystem : EntitySystem
         {
             using var stream = _resources.ContentFileRead(meta);
             using var json = JsonDocument.Parse(stream);
+
+            // Small badges are drawn twice their size, bigger art at its own size.
+            var width = json.RootElement.GetProperty("size").GetProperty("x").GetInt32();
+            var scale = width >= 64 && width < 96 ? 1 : 2;
             foreach (var state in json.RootElement.GetProperty("states").EnumerateArray())
-                _animations.Add((meta.Directory, state.GetProperty("name").GetString()!));
+                _animations.Add((meta.Directory, state.GetProperty("name").GetString()!, scale));
         }
         catch (Exception e) when (e is JsonException or KeyNotFoundException or InvalidOperationException)
         {

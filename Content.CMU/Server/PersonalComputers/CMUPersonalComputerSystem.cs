@@ -3,6 +3,7 @@ using Content.Server.Maps;
 using Content.Shared.CMU14.PersonalComputers;
 using Content.Shared.CMU14.PersonalComputers.DeepWeb;
 using Content.Shared.Maps;
+using Robust.Shared.Configuration;
 using Robust.Shared.Prototypes;
 
 namespace Content.Server.CMU14.PersonalComputers;
@@ -13,6 +14,7 @@ namespace Content.Server.CMU14.PersonalComputers;
 /// </summary>
 public sealed partial class CMUPersonalComputerSystem : EntitySystem
 {
+    [Dependency] private IConfigurationManager _cfg = default!;
     [Dependency] private IGameMapManager _gameMaps = default!;
     [Dependency] private IPrototypeManager _prototype = default!;
     [Dependency] private AuRoundSystem _round = default!;
@@ -28,13 +30,19 @@ public sealed partial class CMUPersonalComputerSystem : EntitySystem
         {
             subs.Event<CMUNetSaveShortcutMessage>(OnSaveShortcut);
             subs.Event<CMUNetRemoveShortcutMessage>(OnRemoveShortcut);
+            subs.Event<CMUNoteSaveMessage>(OnSaveNote);
+            subs.Event<CMUNoteDeleteMessage>(OnDeleteNote);
+            subs.Event<CMUNetSetWallpaperMessage>(OnSetWallpaper);
         });
     }
 
     private void OnSaveShortcut(Entity<CMUPersonalComputerComponent> ent, ref CMUNetSaveShortcutMessage args)
     {
         var address = args.Address.Trim();
-        if (address.Length == 0 || address.Length > CMUNetShortcutLimits.AddressLength || !CanSave(ent, address))
+        if (!_cfg.GetCVar(CMUPersonalComputerCVars.Shortcuts)
+            || address.Length == 0
+            || address.Length > CMUNetShortcutLimits.AddressLength
+            || !CanSave(ent, address))
             return;
 
         var title = args.Title.Trim().Replace('\n', ' ');
@@ -54,6 +62,50 @@ public sealed partial class CMUPersonalComputerSystem : EntitySystem
         var address = args.Address;
         if (ent.Comp.Shortcuts.RemoveAll(s => s.Address.Equals(address, StringComparison.OrdinalIgnoreCase)) > 0)
             Dirty(ent);
+    }
+
+    /// <summary>Saves a note in Files, or replaces the one with the same name. Signed by whoever is logged in.</summary>
+    private void OnSaveNote(Entity<CMUPersonalComputerComponent> ent, ref CMUNoteSaveMessage args)
+    {
+        if (!_cfg.GetCVar(CMUPersonalComputerCVars.Notes))
+            return;
+
+        var name = args.Name.Trim().Replace('\n', ' ');
+        var text = args.Text.Trim();
+        if (name.Length == 0 || text.Length == 0)
+            return;
+
+        if (name.Length > CMUNoteLimits.NameLength)
+            name = name[..CMUNoteLimits.NameLength];
+
+        if (text.Length > CMUNoteLimits.TextLength)
+            text = text[..CMUNoteLimits.TextLength];
+
+        ent.Comp.Notes.RemoveAll(n => n.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+        if (ent.Comp.Notes.Count >= CMUNoteLimits.Count)
+            ent.Comp.Notes.RemoveAt(0);
+
+        ent.Comp.Notes.Add(new CMUComputerNote { Name = name, Author = ent.Comp.SessionUser ?? string.Empty, Text = text });
+        Dirty(ent);
+    }
+
+    private void OnDeleteNote(Entity<CMUPersonalComputerComponent> ent, ref CMUNoteDeleteMessage args)
+    {
+        if (!_cfg.GetCVar(CMUPersonalComputerCVars.Notes) || args.Index < 0 || args.Index >= ent.Comp.Notes.Count)
+            return;
+
+        ent.Comp.Notes.RemoveAt(args.Index);
+        Dirty(ent);
+    }
+
+    private void OnSetWallpaper(Entity<CMUPersonalComputerComponent> ent, ref CMUNetSetWallpaperMessage args)
+    {
+        if (!_cfg.GetCVar(CMUPersonalComputerCVars.Wallpapers)
+            || args.Wallpaper is { } wallpaper && !_prototype.HasIndex(wallpaper))
+            return;
+
+        ent.Comp.Wallpaper = args.Wallpaper;
+        Dirty(ent);
     }
 
     /// <summary>Only pages this computer can open: its sites, and on a hacked one the deep home and ad pages.</summary>

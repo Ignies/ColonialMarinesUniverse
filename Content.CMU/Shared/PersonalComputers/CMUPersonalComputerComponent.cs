@@ -52,6 +52,17 @@ public sealed partial class CMUPersonalComputerComponent : Component
     [DataField, AutoNetworkedField]
     public string? SessionJob;
 
+    /// <summary>When a Marshal trace on this terminal completes; zero when nobody is tracing it. Shown on screen.</summary>
+    [DataField, AutoNetworkedField]
+    public TimeSpan TraceEnds;
+
+    [DataField, AutoNetworkedField]
+    public TimeSpan TraceStarted;
+
+    /// <summary>The bank account of the card that opened the session, for bounties and purchases. Server only.</summary>
+    [ViewVariables]
+    public int SessionAccount;
+
     /// <summary>Whether the desktop waits for an ID card. Off for kiosks.</summary>
     [DataField, AutoNetworkedField]
     public bool RequireLogin = true;
@@ -62,6 +73,14 @@ public sealed partial class CMUPersonalComputerComponent : Component
     /// </summary>
     [DataField]
     public bool OpenVerb;
+
+    /// <summary>Notes saved in this terminal's Files program. Anyone at the terminal can read or delete them.</summary>
+    [DataField, AutoNetworkedField]
+    public List<CMUComputerNote> Notes = new();
+
+    /// <summary>A wallpaper someone found on the ExtraNet and put on this desktop, over the OS one.</summary>
+    [DataField, AutoNetworkedField]
+    public ProtoId<CMUWallpaperPrototype>? Wallpaper;
 
     /// <summary>What happened at this terminal this round. Server only; engineers read it with a multitool.</summary>
     [ViewVariables]

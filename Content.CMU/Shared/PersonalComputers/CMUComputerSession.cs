@@ -51,15 +51,22 @@ public enum CMUComputerLogUiKey : byte
 }
 
 [Serializable, NetSerializable]
-public sealed class CMUComputerLogState(int terminalId, List<CMUComputerLogEntry> entries) : BoundUserInterfaceState
+public sealed class CMUComputerLogState(int terminalId, List<CMUComputerLogEntry> entries, bool canTamper = false)
+    : BoundUserInterfaceState
 {
     public readonly int TerminalId = terminalId;
     public readonly List<CMUComputerLogEntry> Entries = entries;
+
+    /// <summary>Whether the reader knows enough to wipe or forge the log.</summary>
+    public readonly bool CanTamper = canTamper;
 }
 
 public static class CMUComputerLimits
 {
     public const int LogEntries = 120;
+    public const int ForgedLength = 120;
+    public static readonly TimeSpan TraceTime = TimeSpan.FromSeconds(60);
+    public static readonly TimeSpan TraceCooldown = TimeSpan.FromMinutes(2);
 }
 
 /// <summary>A panel on the Colonial Marshal Bureau network.</summary>
@@ -74,12 +81,33 @@ public enum CMUCmbPanel : byte
 
 /// <summary>An unhacked terminal looked up a live deep web address.</summary>
 [Serializable, NetSerializable]
-public sealed class CMUCmbAlert(TimeSpan time, int terminalId, string address, string location)
+public sealed class CMUCmbAlert(TimeSpan time, int terminalId, string address, string location, string? trace = null)
 {
     public readonly TimeSpan Time = time;
     public readonly int TerminalId = terminalId;
     public readonly string Address = address;
     public readonly string Location = location;
+
+    /// <summary>For a finished trace: who was logged in, or that the session ended first. Null for lookups.</summary>
+    public readonly string? Trace = trace;
+}
+
+/// <summary>A Marshal starts tracing a terminal from the map.</summary>
+[Serializable, NetSerializable]
+public sealed class CMUCmbTraceMessage(NetEntity terminal) : BoundUserInterfaceMessage
+{
+    public readonly NetEntity Terminal = terminal;
+}
+
+/// <summary>Clears a terminal's log; the clearing itself is logged.</summary>
+[Serializable, NetSerializable]
+public sealed class CMUComputerLogWipeMessage : BoundUserInterfaceMessage;
+
+/// <summary>Adds a made up line to a terminal's log.</summary>
+[Serializable, NetSerializable]
+public sealed class CMUComputerLogForgeMessage(string text) : BoundUserInterfaceMessage
+{
+    public readonly string Text = text;
 }
 
 /// <summary>A terminal pinned on the Marshals' map, in the grid's own coordinates.</summary>

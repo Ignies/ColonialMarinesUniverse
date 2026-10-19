@@ -272,3 +272,48 @@
     empty: cmu-net-board-embassy-empty
     posters:
     - AU14JobCivilianAmbassadorCCA
+
+# Colony classifieds: anyone sells, buys or asks; every ad shows the terminal it came from, so people can meet.
+- type: cmuNetSite
+  id: CMUNetSiteColonyClassifieds
+  address: classifieds.colony
+  title: cmu-net-site-colony-classifieds
+  networks:
+  - CMUNetPublic
+  root: /ServerInfo/CMU14/ExtraNet/Boards/Classifieds/
+  style:
+    background: "#F4EFE2"
+    text: "#2A2418"
+    heading: "#8A2A12"
+    link: "#1A4E8A"
+    font: Sans
+  pages:
+    "": index.xml
+  board:
+    postLabel: cmu-net-board-classifieds-post
+    empty: cmu-net-board-classifieds-empty
+    anyonePosts: true
+    showTerminals: true
+
+# The colony bounty board: post a job with a cash reward, pay whoever answers it best.
+- type: cmuNetSite
+  id: CMUNetSiteColonyBounties
+  address: bounties.colony
+  title: cmu-net-site-colony-bounties
+  networks:
+  - CMUNetPublic
+  root: /ServerInfo/CMU14/ExtraNet/Boards/Bounties/
+  style:
+    background: "#16120A"
+    text: "#E8DCC0"
+    heading: "#F2C230"
+    link: "#E8A040"
+    font: Display
+  pages:
+    "": index.xml
+  board:
+    postLabel: cmu-net-board-bounties-post
+    empty: cmu-net-board-bounties-empty
+    anyonePosts: true
+    showTerminals: true
+    bounties: true

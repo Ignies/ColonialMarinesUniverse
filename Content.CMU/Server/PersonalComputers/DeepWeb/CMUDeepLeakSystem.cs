@@ -63,6 +63,9 @@ public sealed partial class CMUDeepLeakSystem : EntitySystem
     public override void Update(float frameTime)
     {
         base.Update(frameTime);
+        if (!_cfg.GetCVar(CMUPersonalComputerCVars.Leaks) || !_cfg.GetCVar(CMUPersonalComputerCVars.DeepWeb))
+            return;
+
         var now = _timing.CurTime;
         var fast = _cfg.GetCVar(CMUPersonalComputerDevCVars.DevFastLeaks);
         if (_nextLeak == TimeSpan.Zero)

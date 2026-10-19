@@ -694,3 +694,290 @@ cmu-net-tab-public-clinic-dispensary-home = Dispensary
 cmu-net-tab-public-clinic-dispensary-shelf = On the Shelf
 cmu-net-tab-public-clinic-dispensary-hours = Hours and Rules
 cmu-net-tab-public-clinic-dispensary-firstaid = First Aid
+
+cmu-pc-offline = The terminal is offline.
+
+## Classifieds and bounties
+
+cmu-net-board-from-terminal = {$byline} | Terminal #{$terminal}
+cmu-net-board-reward-placeholder = Bounty in dollars, taken from your account now (optional)
+cmu-net-board-bounty = BOUNTY ${$amount}
+cmu-net-board-bounty-paid = PAID TO {$name}
+cmu-net-board-pay = Pay bounty
+cmu-net-board-withdraw = Withdraw bounty
+cmu-net-site-colony-classifieds = Colony Classifieds
+cmu-net-board-classifieds-post = Place an ad
+cmu-net-board-classifieds-empty = No ads yet this shift. Be the first.
+cmu-net-site-colony-bounties = Colony Bounty Board
+cmu-net-board-bounties-post = Post a job
+cmu-net-board-bounties-empty = No open jobs. Quiet shift.
+cmu-net-board-weyland-post = Publish an announcement
+cmu-net-board-weyland-empty = No announcements. All operations nominal.
+
+## The ExtraNet reacting to the round
+
+cmu-net-events-role = automated
+cmu-net-events-somewhere = somewhere in the colony
+cmu-net-events-wire-author = Herald Wire Service
+cmu-net-events-wire-shift-title = A NEW SHIFT BEGINS AT {$colony}
+cmu-net-events-wire-shift-body = Crews are clocking in across {$colony}. The Herald wishes every colonist a safe and productive shift.
+cmu-net-events-wire-death-title = DEATH REPORTED
+cmu-net-events-wire-death-body = The Herald has received word of a death near {$where}. Details are not yet confirmed. Colonists are asked to avoid the area.
+cmu-net-events-wire-creature-title = REPORTS OF AN ANIMAL ATTACK
+cmu-net-events-wire-creature-body = Several colonists report an aggressive animal near {$where}. Authorities have not commented. Keep pets and children indoors.
+cmu-net-events-spin-author = W-Y Corporate Communications
+cmu-net-events-spin-shift-title = ANOTHER RECORD SHIFT AHEAD
+cmu-net-events-spin-shift-body = Weyland-Yutani thanks the hardworking people of {$colony}. Productivity targets are within reach. Building better worlds, together.
+cmu-net-events-spin-death-title = WORKPLACE SAFETY UPDATE
+cmu-net-events-spin-death-body = A minor incident near {$where} has been logged and is being handled according to procedure. There is no cause for concern. Please continue with your duties.
+cmu-net-events-spin-creature-title = SCHEDULED PEST CONTROL EXERCISE
+cmu-net-events-spin-creature-body = Colonists may notice unusual activity in outlying sectors. This is a scheduled pest control exercise. Do not approach any wildlife. Do not discuss the exercise off-world.
+cmu-net-events-lastseen-title = HAS ANYONE SEEN {$name}?
+cmu-net-events-lastseen-body = {$name} stopped answering. Last seen near {$where}. If you saw anything, post here. Do not go looking alone.
+cmu-net-events-reddog-title = SAW IT AGAIN, NEAR {$where}
+cmu-net-events-reddog-body = Red, low, faster than anything should be. Near {$where}. No eyes that I could see. It went into the dark before I could get a look. Lock your doors tonight.
+
+## Traces and log tampering
+
+cmu-cmb-trace-found = TRACE COMPLETE: logged in as {$name}
+cmu-cmb-trace-lost = TRACE LOST: the session ended first
+cmu-cmb-trace-alert = {$time} TERMINAL #{$id} ({$location}) {$result}
+cmu-cmb-map-hint = Click a terminal to trace whoever is logged in to it.
+cmu-pc-trace-banner = !! TRACE IN PROGRESS {$percent}% !!
+cmu-pc-log-cleared = Log cleared by maintenance.
+cmu-pc-logs-wipe = Wipe log
+cmu-pc-logs-forge-placeholder = Type a line to slip into the log
+cmu-pc-logs-forge = Add line
+
+## Mail, notes and wallpapers
+
+cmu-pc-app-mail = Mail
+cmu-mail-company-from = W-Y Human Resources
+cmu-mail-welcome-subject = Welcome to your colony mailbox
+cmu-mail-welcome-body = Dear {$name}, your mailbox is ready. Use it to keep in touch with your colleagues. All mail is retained for quality and compliance purposes. Weyland-Yutani: building better worlds.
+cmu-mail-spam-from = deals@offers.ad
+cmu-mail-spam-body = Exclusive offer for valued colonists. Visit the deep ad network to claim yours today. Reply STOP to stop. Replies are not monitored.
+cmu-mail-no-subject = (no subject)
+cmu-mail-inbox = Inbox
+cmu-mail-sent = Sent
+cmu-mail-compose = Write
+cmu-mail-to = To
+cmu-mail-subject = Subject
+cmu-mail-send = Send
+cmu-mail-empty = No mail.
+cmu-mail-from-line = From {$from} at {$time}
+cmu-mail-to-line = To {$to} at {$time}
+cmu-mail-login = Log in with an ID card to read mail.
+cmu-mail-directory = Colony directory: {$names}
+cmu-notes-new = New note
+cmu-notes-name = File name
+cmu-notes-save = Save
+cmu-notes-delete = Delete
+cmu-notes-by = Saved by {$author}
+cmu-wallpaper-set = Use as desktop wallpaper
+cmu-wallpaper-reset = Restore the default wallpaper
+
+## SpaceGPT
+
+cmu-spacegpt-placeholder = Ask SpaceGPT anything...
+cmu-spacegpt-ask = ASK
+cmu-spacegpt-greeting = SpaceGPT: Hello, colonist. How can I help you today?
+cmu-spacegpt-you = You: {$question}
+cmu-spacegpt-thinking = SpaceGPT is thinking...
+cmu-spacegpt-answer = SpaceGPT: {$answer}
+cmu-spacegpt-votes = ({$votes} {$votes ->
+    [one] voice
+   *[other] voices
+} agreed)
+cmu-spacegpt-no-votes = (the line was quiet; SpaceGPT answered alone)
+cmu-spacegpt-ghost-title = SpaceGPT needs an answer
+cmu-spacegpt-ghost-intro = A colonist asked SpaceGPT. Speak through the machine: pick the answer.
+cmu-spacegpt-answer-1 = It is certain.
+cmu-spacegpt-answer-2 = Without a doubt.
+cmu-spacegpt-answer-3 = The signs point to yes.
+cmu-spacegpt-answer-4 = Outlook good.
+cmu-spacegpt-answer-5 = Ask again after the next shift.
+cmu-spacegpt-answer-6 = Reply hazy. Check your antenna.
+cmu-spacegpt-answer-7 = Better not tell you now.
+cmu-spacegpt-answer-8 = Cannot predict now. Signal lost.
+cmu-spacegpt-answer-9 = My sources say no.
+cmu-spacegpt-answer-10 = Very doubtful.
+cmu-spacegpt-answer-11 = Absolutely not.
+cmu-spacegpt-answer-12 = Do not go outside tonight.
+cmu-spacegpt-answer-13 = The Company already knows.
+cmu-spacegpt-answer-14 = Building better worlds.
+cmu-spacegpt-answer-15 = Consult your Working Joe.
+cmu-spacegpt-answer-16 = That information is restricted.
+cmu-spacegpt-answer-17 = Have you tried turning it off and on again?
+cmu-spacegpt-answer-18 = Try the vents.
+cmu-spacegpt-answer-19 = It is right behind you.
+cmu-spacegpt-answer-20 = Lock your door.
+cmu-spacegpt-answer-21 = Mother is listening.
+cmu-spacegpt-answer-22 = Ask the Marshals. Or better, do not.
+cmu-spacegpt-answer-23 = Yes, but you will not like it.
+cmu-spacegpt-answer-24 = No, and it is worse than that.
+cmu-spacegpt-answer-25 = Only if you go alone.
+cmu-spacegpt-answer-26 = It depends on the weather on LV-426.
+cmu-spacegpt-answer-27 = Your account balance says no.
+cmu-spacegpt-answer-28 = Your account balance says yes.
+cmu-spacegpt-answer-29 = Sleep on it. In hypersleep, preferably.
+cmu-spacegpt-answer-30 = The answer is in the deep.
+cmu-spacegpt-answer-31 = Forty two.
+cmu-spacegpt-answer-32 = Run.
+cmu-spacegpt-answer-33 = We were like you once.
+cmu-spacegpt-answer-34 = Ask the red dog.
+cmu-spacegpt-answer-35 = Seek the one who answers in the trees.
+cmu-spacegpt-answer-36 = Nobody comes back from there.
+cmu-spacegpt-answer-37 = It was never about the money.
+cmu-spacegpt-answer-38 = Check the dumpster behind the canteen.
+cmu-spacegpt-answer-39 = The cat knows.
+cmu-spacegpt-answer-40 = Error: the dead are not available right now.
+
+## Arcade and betting
+
+cmu-arcade-HuggerRun = Hugger Run
+cmu-arcade-TrackerReflex = Tracker Reflex
+cmu-arcade-record-title = NEW ARCADE RECORD
+cmu-arcade-record-body = {$name} has set a new colony record of {$score} on {$game}. The Herald salutes you, champ.
+cmu-arcade-start = START
+cmu-arcade-score = SCORE {$score}
+cmu-arcade-time = TIME {$seconds}
+cmu-arcade-over = GAME OVER - SCORE {$score}
+cmu-arcade-scores = HIGH SCORES
+cmu-arcade-no-scores = No scores yet. Be the first.
+cmu-arcade-score-line = {$rank}. {$name} {$score}
+cmu-arcade-help-hugger = Click the screen, then steer with the arrow keys or the buttons. Eat eggs, do not bite your tail.
+cmu-arcade-help-tracker = Click the blips before they fade. Thirty seconds on the clock.
+cmu-bet-slip = ${$amount} on {$team}
+cmu-bet-open = NEXT MATCH: {$home} vs {$away}
+cmu-bet-kickoff = Betting closes in {$seconds}s
+cmu-bet-closed = In play, betting closed
+cmu-bet-result = {$home} {$result} {$away}
+cmu-bet-amount = Stake in dollars
+cmu-bet-on = Bet on {$team} (x{$odds})
+cmu-bet-slips = Your bets
+cmu-bet-results = Latest results
+cmu-bet-login = Log in with an ID card to place bets from your account.
+cmu-net-site-public-arcade = Break Room Arcade
+cmu-net-site-public-sportsbook = Zero-G Ball Sportsbook
+
+## Retro sites
+
+## Retro public sites
+
+cmu-net-site-retro-spacegpt = SpaceGPT
+cmu-net-tab-retro-spacegpt-chat = Chat
+cmu-net-tab-retro-spacegpt-faq = FAQ
+cmu-net-tab-retro-spacegpt-changelog = Changelog
+cmu-net-tab-retro-spacegpt-terms = Terms of Use
+
+cmu-net-site-retro-yotta = Yotta!
+cmu-net-tab-retro-yotta-home = Home
+cmu-net-tab-retro-yotta-directory = Directory
+cmu-net-tab-retro-yotta-answers = Answers
+cmu-net-tab-retro-yotta-coolsites = Cool Sites
+
+cmu-net-site-retro-youtape = YouTape
+cmu-net-tab-retro-youtape-home = Home
+cmu-net-tab-retro-youtape-trending = Trending
+cmu-net-tab-retro-youtape-channel = Channels
+cmu-net-tab-retro-youtape-upload = Upload
+
+cmu-net-site-retro-mybunk = MyBunk
+cmu-net-tab-retro-mybunk-home = Home
+cmu-net-tab-retro-mybunk-bulletins = Bulletins
+cmu-net-tab-retro-mybunk-profiles = Profiles
+cmu-net-tab-retro-mybunk-groups = Groups
+
+cmu-net-site-retro-colonypedia = ColonyPedia
+cmu-net-tab-retro-colonypedia-main = Main Page
+cmu-net-tab-retro-colonypedia-hypersleep = Hypersleep
+cmu-net-tab-retro-colonypedia-synthetics = Synthetics
+cmu-net-tab-retro-colonypedia-talk = Talk
+
+cmu-net-site-retro-ebuoy = eBuoy
+cmu-net-tab-retro-ebuoy-home = Home
+cmu-net-tab-retro-ebuoy-electronics = Electronics
+cmu-net-tab-retro-ebuoy-motors = Motors
+cmu-net-tab-retro-ebuoy-feedback = Feedback
+
+cmu-net-site-retro-atmocast = AtmoCast
+cmu-net-tab-retro-atmocast-today = Today
+cmu-net-tab-retro-atmocast-radar = Radar
+cmu-net-tab-retro-atmocast-alerts = Alerts
+cmu-net-tab-retro-atmocast-almanac = Almanac
+
+cmu-net-site-retro-orematch = OreMatch
+cmu-net-tab-retro-orematch-home = Home
+cmu-net-tab-retro-orematch-profiles = Browse Hearts
+cmu-net-tab-retro-orematch-stories = Success Stories
+cmu-net-tab-retro-orematch-safety = Safety
+
+cmu-net-site-retro-hydrogenline = The Hydrogen Line 1420
+cmu-net-tab-retro-hydrogenline-onair = On Air
+cmu-net-tab-retro-hydrogenline-schedule = Schedule
+cmu-net-tab-retro-hydrogenline-requests = Requests
+cmu-net-tab-retro-hydrogenline-charts = Frontier Forty
+
+cmu-net-site-retro-dropdash = DropDash
+cmu-net-tab-retro-dropdash-home = Home
+cmu-net-tab-retro-dropdash-menu = Menu
+cmu-net-tab-retro-dropdash-tracking = Track Order
+cmu-net-tab-retro-dropdash-dashers = Dashers
+
+cmu-net-site-retro-vectorquest = VectorQuest
+cmu-net-tab-retro-vectorquest-home = Home
+cmu-net-tab-retro-vectorquest-directions = Directions
+cmu-net-tab-retro-vectorquest-satellite = Satellite
+cmu-net-tab-retro-vectorquest-lanes = Shipping Lanes
+
+cmu-net-site-retro-indentured = Indentured
+cmu-net-tab-retro-indentured-home = Home
+cmu-net-tab-retro-indentured-listings = Contracts
+cmu-net-tab-retro-indentured-resume = Resume Tips
+cmu-net-tab-retro-indentured-reviews = Company Reviews
+
+## The deep market and hacker tools
+
+cmu-net-site-deep-blackline = BLACKLINE
+cmu-market-offline = Connecting to the market...
+cmu-market-empty = Nothing for sale. Check back later.
+cmu-market-listing = {$title} (from {$seller})
+cmu-market-buy = Buy ${$price}
+cmu-market-bought = Your pickups
+cmu-market-drop = {$title}: {$drop}
+cmu-market-sell = List something
+cmu-market-title = What is it
+cmu-market-description = A few words about it
+cmu-market-price = Price
+cmu-market-drop-placeholder = Where to pick it up
+cmu-market-list = List it
+cmu-market-mail-subject = Your order: {$title}
+cmu-market-mail-body = Paid. Your pickup is at {$drop}. Go alone. Delete this mail.
+cmu-deep-tools-heading = TOOLS
+cmu-deep-sniff = SNIFF
+cmu-deep-sniff-placeholder = Term #
+cmu-deep-sniff-title = Last traffic from terminal #{$terminal}
+cmu-deep-sniff-nothing = No traffic on that line.
+cmu-deep-loop-intro = Loop a camera on a tapped grid for a minute:
+cmu-deep-loop-govfor = GOVFOR
+cmu-deep-loop-weyu = COMPANY
+cmu-deep-loop-cmb = MARSHALS
+cmu-deep-loop-title = Camera loop
+cmu-deep-loop-done = {$camera} is showing yesterday's footage.
+cmu-deep-loop-nothing = Nothing on that grid to loop.
+
+## Wallpapers
+
+cmu-wallpaper-synthwave = Processor Sunset
+cmu-wallpaper-storm-plains = Storm Plains
+cmu-wallpaper-corporate = Building Better Worlds
+cmu-wallpaper-blueprint = Seegson Blueprint
+cmu-wallpaper-starfield = Long Haul
+cmu-wallpaper-gateway = Gateway Orbit
+cmu-wallpaper-test-card = Test Card
+cmu-wallpaper-wireframe = Vector Country
+cmu-wallpaper-hypersleep = Hypersleep Bay
+cmu-wallpaper-colony-night = Colony After Dark
+cmu-wallpaper-joe-pinup = Always On Shift
+cmu-wallpaper-nebula = Something In The Clouds
