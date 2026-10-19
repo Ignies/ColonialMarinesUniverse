@@ -89,7 +89,9 @@ public sealed partial class CMUPersonalComputerWindow : DefaultWindow
         string home,
         List<CMUComputerDocument> documents,
         string terminalName,
-        ICMUNetBoardHost? boards)
+        ICMUNetBoardHost? boards,
+        string? colony,
+        string? colonyName)
     {
         _theme = new CMUComputerTheme(os, _cache);
         Title = Loc.GetString(os.Name);
@@ -97,7 +99,7 @@ public sealed partial class CMUPersonalComputerWindow : DefaultWindow
         _crt.Phosphor = os.Phosphor;
 
         _layer.RemoveAllChildren();
-        _desktop = new CMUComputerDesktop(_theme, networks, home, documents, terminalName, boards);
+        _desktop = new CMUComputerDesktop(_theme, networks, home, documents, terminalName, boards, colony, colonyName);
         _desktop.OnKeyTyped += () => OnKeyTyped?.Invoke();
         _desktop.OnClicked += () => OnClicked?.Invoke();
         _desktop.OnShutDown += Close;

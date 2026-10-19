@@ -83,7 +83,7 @@ public sealed class CMUPersonalComputerPreview
         var os = _prototype.Index<CMUComputerOsPrototype>(osId);
         _window = new CMUPersonalComputerWindow();
         _window.OpenCentered();
-        _window.Boot(os, os.Networks, os.HomePage, NoDocuments, "Preview terminal", _boards);
+        _window.Boot(os, os.Networks, os.HomePage, NoDocuments, "Preview terminal", _boards, "StableGarrison", "Stable Garrison");
     }
 
     /// <summary>Fabricated postings, so boards can be looked at without a server round.</summary>
@@ -133,7 +133,7 @@ public sealed class CMUPersonalComputerPreview
             StateReceived?.Invoke(new CMUNetBoardStateMessage(site, list ?? new List<CMUNetBoardPost>(), true, true, true));
         }
 
-        public void Post(ProtoId<CMUNetSitePrototype> site, string title, string body, bool attachPhoto)
+        public void Post(ProtoId<CMUNetSitePrototype> site, string title, string body)
         {
             Add(site, title, body, "Preview", "Journalist", TimeSpan.Zero, new List<CMUNetBoardComment>());
             Request(site);

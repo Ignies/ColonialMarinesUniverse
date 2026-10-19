@@ -5,6 +5,7 @@ using Content.Client.Guidebook;
 using Content.Client.Guidebook.Controls;
 using Content.Client.Guidebook.Richtext;
 using Content.IntegrationTests.Fixtures;
+using Content.Shared.Maps;
 using Content.Shared.CMU14.PersonalComputers;
 using Robust.Client.UserInterface;
 using Robust.Shared.ContentPack;
@@ -37,7 +38,7 @@ public sealed class CMUExtraNetTest : GameTest
             Assert.Multiple(() =>
             {
                 foreach (var site in sites)
-                    links += ValidateSite(site, resMan, parser, net);
+                    links += ValidateSite(site, protoMan, resMan, parser, net);
             });
             Assert.That(links, Is.Positive, "No netlink tags were rendered; the tag is not registered.");
         });
@@ -45,6 +46,7 @@ public sealed class CMUExtraNetTest : GameTest
 
     private static int ValidateSite(
         CMUNetSitePrototype site,
+        IPrototypeManager protoMan,
         IResourceManager resMan,
         DocumentParsingManager parser,
         CMUExtraNetSystem net)
@@ -65,8 +67,27 @@ public sealed class CMUExtraNetTest : GameTest
         }
 
         var links = 0;
-        foreach (var (_, file) in site.Pages)
-            links += ValidateDocument(site.Root / file, resMan, parser, net);
+        foreach (var (path, file) in site.Pages)
+        {
+            Assert.That(resMan.ContentFileExists(site.Root / file), $"Page {path} on {site.Address} points to missing file {file}.");
+        }
+
+        // Every document under the root, colony versions included, must parse and link to real pages.
+        foreach (var document in resMan.ContentFindFiles(site.Root))
+        {
+            if (document.Extension != "xml")
+                continue;
+
+            var relative = document.RelativeTo(site.Root);
+            if (relative.EnumerateSegments().Count() > 1)
+            {
+                var colony = relative.EnumerateSegments().First();
+                Assert.That(protoMan.HasIndex<CMUNetColonyPrototype>(colony) || protoMan.HasIndex<GameMapPrototype>(colony),
+                    $"{document} is in folder {colony}, which is neither a cmuNetColony id nor a game map id.");
+            }
+
+            links += ValidateDocument(document, resMan, parser, net);
+        }
 
         return links;
     }
@@ -132,6 +153,28 @@ public sealed class CMUExtraNetTest : GameTest
 
                     foreach (var document in os.Documents)
                         ValidateDocument(document.Path, resMan, parser, net);
+                }
+            });
+        });
+    }
+
+    [Test]
+    [Description("Every map a colony lists is a game map, and no map belongs to two colonies.")]
+    public async Task ColoniesNameRealMaps()
+    {
+        await Server.WaitAssertion(() =>
+        {
+            var protoMan = Server.ResolveDependency<IPrototypeManager>();
+            var seen = new Dictionary<string, string>();
+            Assert.Multiple(() =>
+            {
+                foreach (var colony in protoMan.EnumeratePrototypes<CMUNetColonyPrototype>())
+                {
+                    foreach (var map in colony.Maps)
+                    {
+                        Assert.That(protoMan.HasIndex<GameMapPrototype>(map), $"Colony {colony.ID} lists {map}, which is not a game map.");
+                        Assert.That(seen.TryAdd(map, colony.ID), $"Map {map} is in both {colony.ID} and {seen.GetValueOrDefault(map)}.");
+                    }
                 }
             });
         });

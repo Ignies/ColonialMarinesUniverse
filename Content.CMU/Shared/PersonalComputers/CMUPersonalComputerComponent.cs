@@ -22,6 +22,17 @@ public sealed partial class CMUPersonalComputerComponent : Component
     [DataField, AutoNetworkedField]
     public string? HomePage;
 
+    /// <summary>
+    /// Folder of this computer's colony pages: a <see cref="CMUNetColonyPrototype"/> id, or the round's game map
+    /// id when no colony lists the map. Set by the server from the round's map.
+    /// </summary>
+    [DataField, AutoNetworkedField]
+    public string? Colony;
+
+    /// <summary>What <c>{colony}</c> becomes in pages: the round's map name.</summary>
+    [DataField, AutoNetworkedField]
+    public string? ColonyName;
+
     /// <summary>Documents on this computer, in addition to the OS ones. Mappers use it for notes left on a PC.</summary>
     [DataField, AutoNetworkedField]
     public List<CMUComputerDocument> Documents = new();

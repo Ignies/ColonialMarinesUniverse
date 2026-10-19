@@ -100,8 +100,6 @@ cmu-net-board-comment-byline = {$author} ({$role}) at {$time}:
 cmu-net-board-comment-placeholder = Leave a comment
 cmu-net-board-comment-send = Send
 cmu-net-board-no-role = Visitor
-cmu-net-board-attach-photo = Attach held photo
-cmu-net-board-attach-photo-tooltip = Adds the photograph you are holding to the posting.
 
 ## Board tabs
 
@@ -137,3 +135,7 @@ cmu-net-tab-herald-front = Front Page
 cmu-net-tab-herald-about = About the Herald
 cmu-net-tab-herald-history = Colony History
 cmu-net-tab-herald-classifieds = Classifieds
+
+## Colony pages
+
+cmu-net-colony-unknown = the colony

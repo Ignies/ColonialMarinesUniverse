@@ -1,14 +1,28 @@
 """Draws the masthead and emblem for The Colony Herald (herald.colony.news).
 
-Run from anywhere: python Content.CMU/Design/PersonalComputers/SiteArt/Herald.py
-Writes Content.CMU/Resources/Textures/CMU14/PersonalComputers/Sites/Herald/{banner,emblem}.png.
+The Herald is the newspaper of whatever colony the round is on, so the masthead comes in two kinds:
+
+  python Herald.py
+      The generic masthead, INDEPENDENT PRESS OF THE COLONY, written with the emblem to
+      Content.CMU/Resources/Textures/CMU14/PersonalComputers/Sites/Herald/{banner,emblem}.png.
+      It heads the fallback pages served to colonies without an edition of their own.
+
+  python Herald.py --colony "NAME" --out DIR [--edition "TEXT"] [--weather "L1|L2|L3"]
+                   [--est YEAR] [--vol ROMAN] [--sector "TEXT"] [--skyline frontier|domes]
+      One colony's masthead, written to DIR/banner.png (the colony's edition folder, usually
+      .../Sites/Herald/<ColonyId>). --out is required because a colony id is not derivable from its name.
+      Every piece of small print must use the 3x5 face's glyphs: A-Z 0-9 and ' - . , / & : *.
+
+Pass --preview DIR to also write 4x previews there.
 Everything is drawn at 1x on the pixel grid with hand-built bitmap letters (a textura style display face
 for the title, a 3x5 face for the small print), then upscaled 2x with nearest neighbour.
-Pass --preview DIR to also write 4x previews there.
+Stable Garrison's masthead:
+  python Herald.py --colony "ALBACETIRE" --edition "STABLE GARRISON EDITION" --weather "DUST HAZE|WIND EAST|CO: LOW"
+                   --est 2169 --vol XV --sector "NEROID SECTOR" --skyline domes --out .../Sites/Herald/StableGarrison
 """
+import argparse
 import math
 import os
-import sys
 
 from PIL import Image
 
@@ -269,8 +283,12 @@ SMALL = {
     "-": ["...", "...", "###", "...", "..."], ".": [".", ".", ".", ".", "#"],
     ",": ["..", "..", "..", ".#", "#."], "'": ["#", "#", ".", ".", "."],
     ":": [".", "#", ".", "#", "."], "*": ["...", "#.#", ".#.", "#.#", "..."],
+    "/": ["..#", "..#", ".#.", "#..", "#.."], "&": [".#..", "#.#.", ".#..", "#.##", ".##."],
     " ": ["..", "..", "..", "..", ".."],
 }
+# A one pixel word space, for when a press line has to tighten up to fit between the ears.
+SMALL_TIGHT = dict(SMALL)
+SMALL_TIGHT[" "] = [".", ".", ".", ".", "."]
 
 
 class Canvas:
@@ -421,6 +439,48 @@ def skyline(cv, x0, y0, x1, y1):
     cv.hline(x0 - 2, x1 + 2, ground, INK)
 
 
+def frontier_skyline(cv, x0, y0, x1, y1):
+    """Any colony seen from its press office: the atmosphere processor every settlement is built around,
+    a row of prefab hab modules and the colony's comms mast, with a low hill line behind. Nothing in it
+    belongs to one world, so it heads the generic masthead. Fits x0..x1, y0..y1; y1 is the ground line."""
+    ground = y1
+    px = x0 + 9
+    mx = x1 - 2
+    # Hill line behind the habs, drawn first so everything stands in front of it.
+    for x in range(px + 5, mx - 1):
+        t = (x - px - 5) / max(1, mx - px - 7)
+        cv.set(x, ground - 8 - round(3 * math.sin(math.pi * t)), GREY)
+    # Atmosphere processor: twin stacks with red beacons, a crown, a neck, ribbed shoulders, a piped body
+    # and a wide skirt with a door.
+    for sx in (px - 2, px + 2):
+        cv.set(sx, y0, RED)
+        cv.vline(sx, y0 + 1, y0 + 3, INK)
+    cv.rect(px - 3, y0 + 4, px + 3, y0 + 5, INK)
+    cv.rect(px - 2, y0 + 6, px + 2, y0 + 8, INK)
+    cv.rect(px - 5, y0 + 9, px + 5, y0 + 11, INK)
+    cv.hline(px - 4, px + 4, y0 + 10, GREY)
+    cv.rect(px - 4, y0 + 12, px + 4, ground - 4, INK)
+    for x in (px - 2, px, px + 2):
+        cv.vline(x, y0 + 13, ground - 5, GREY)
+    cv.rect(px - 6, ground - 3, px + 6, ground - 1, INK)
+    cv.vline(px, ground - 2, ground - 1, PAPER)
+    # Hab modules: low prefab boxes with a roof rule and lit windows.
+    for hx0, hx1, top in ((px + 8, px + 17, ground - 6), (px + 19, px + 25, ground - 4)):
+        cv.rect(hx0, top, hx1, ground - 1, INK)
+        cv.hline(hx0 - 1, hx1 + 1, top - 1, INK)
+        for wx in range(hx0 + 2, hx1 - 1, 3):
+            cv.set(wx, top + 2, PAPER)
+    # Comms mast: a lattice with a red light.
+    cv.set(mx, y0 + 2, RED)
+    cv.vline(mx, y0 + 3, ground - 1, INK)
+    for y in range(y0 + 6, ground - 1, 3):
+        cv.set(mx - 1, y, INK)
+        cv.set(mx + 1, y, INK)
+    cv.set(mx - 2, ground - 1, INK)
+    cv.set(mx + 2, ground - 1, INK)
+    cv.hline(x0 - 2, x1 + 2, ground, INK)
+
+
 # The quill's vane, row by row from the tip: pixels of red left and right of the shaft.
 VANE = [(0, 0), (1, 0), (1, 1), (2, 1), (2, 1), (3, 1), (3, 2), (4, 2), (4, 2), (4, 2), (5, 2), (5, 2), (5, 2),
         (4, 2), (4, 1), (3, 1), (2, 1), (1, 0)]
@@ -454,7 +514,52 @@ def quill(cv, tx, ty, rows=26, splits=(8, 12), right_splits=(10,)):
 SHAFT = "#5A1010"
 
 
-def banner():
+GENERIC_PRESS = "THE COLONY"
+GENERIC_EDITION = "COLONY EDITION"
+GENERIC_WEATHER = ["CHECK THE", "COLONY", "NOTICES"]
+EAR_W = 46
+EAR_PAD = 3          # least clear pixels between small print and an ear's rules
+MIN_ED_GAP = 9       # least room between edition bar items, with the diamond in the middle
+
+
+class HeraldError(ValueError):
+    pass
+
+
+def check_glyphs(text, what):
+    missing = sorted({ch for ch in text if ch not in SMALL})
+    if missing:
+        raise HeraldError(f"{what} {text!r} uses characters the 3x5 face lacks: {' '.join(missing)}")
+
+
+def press_lines(name, avail):
+    """The press line, set to fit avail pixels: one line at normal spacing, then one line with one pixel
+    word spaces, then wrapped after OF onto two lines. Returns (font, lines)."""
+    one = f"INDEPENDENT PRESS OF {name}"
+    for font in (SMALL, SMALL_TIGHT):
+        if text_width(font, one) <= avail:
+            return font, [one]
+    lines = ["INDEPENDENT PRESS OF", name]
+    for font in (SMALL, SMALL_TIGHT):
+        if all(text_width(font, t) <= avail for t in lines):
+            return font, lines
+    raise HeraldError(f"colony name {name!r} is too long for the masthead even wrapped")
+
+
+def banner(colony=None, edition=None, weather=None, est=None, vol=None, sector=None, kind="frontier"):
+    """The masthead. With no colony it is the generic one; every argument left None takes the generic
+    small print, so a colony edition only names what it knows."""
+    name = (colony or GENERIC_PRESS).upper()
+    edition = (edition or (f"{name} EDITION" if colony else GENERIC_EDITION)).upper()
+    weather = [w.upper() for w in (weather or GENERIC_WEATHER)]
+    label = f"EST. {est}".upper() if est else "FREE PRESS"
+    ed = [(f"VOL. {vol}" if vol else "DAILY").upper(), edition, (sector or "FRONTIER NEWS").upper(), "ONE CREDIT"]
+    check_glyphs(name, "colony name")
+    for t in [label] + weather + ed:
+        check_glyphs(t, "small print")
+    if len(weather) > 3:
+        raise HeraldError("the weather box holds three lines")
+
     W, H = 272, 58
     cv = Canvas(W, H, PAPER)
 
@@ -463,23 +568,26 @@ def banner():
     cv.rect(2, 3, W - 3, 4, INK)
 
     # Ears: the boxed corners either side of the title, as on a broadsheet.
-    ear_w = 46
     ey0, ey1 = 8, 38
-    left, right = (3, 3 + ear_w - 1), (W - 3 - ear_w, W - 4)
+    left, right = (3, 3 + EAR_W - 1), (W - 3 - EAR_W, W - 4)
     for x0, x1 in (left, right):
         cv.outline(x0, ey0, x1, ey1, INK)
+    ear_text = EAR_W - 2 - 2 * EAR_PAD
 
-    # Left ear: the colony skyline with the founding year.
-    skyline(cv, left[0] + 4, ey0 + 2, left[1] - 4, ey1 - 9)
-    label = "EST. 2169"
+    # Left ear: the colony skyline with the founding year, or the press's own motto when that is unknown.
+    (skyline if kind == "domes" else frontier_skyline)(cv, left[0] + 4, ey0 + 2, left[1] - 4, ey1 - 9)
+    if text_width(SMALL, label) > ear_text:
+        raise HeraldError(f"{label!r} is too wide for the skyline box ({text_width(SMALL, label)} > {ear_text} px)")
     cv.glyphs(SMALL, centre(SMALL, label, left[0], left[1]), ey1 - 6, label, RED)
 
-    # Right ear: the weather, which on Albacetire is never only the weather.
+    # Right ear: the weather, which on a colony is never only the weather.
     x0, x1 = right
     cv.glyphs(SMALL, centre(SMALL, "WEATHER", x0, x1), ey0 + 3, "WEATHER", RED)
     cv.hline(x0 + 8, x1 - 8, ey0 + 9, RED)
     y = ey0 + 12
-    for text in ("DUST HAZE", "WIND EAST", "AIR: CLEAR"):
+    for text in weather:
+        if text_width(SMALL, text) > ear_text:
+            raise HeraldError(f"weather line {text!r} is too wide ({text_width(SMALL, text)} > {ear_text} px)")
         cv.glyphs(SMALL, centre(SMALL, text, x0, x1), y, text, INK)
         y += 6
 
@@ -488,16 +596,20 @@ def banner():
     tw = text_width(TITLE, title, TITLE_GAP, TITLE_BOLD)
     draw_title(cv, (W - tw) // 2, 9, title, INK)
 
-    # Tagline under the title.
-    tag = "INDEPENDENT PRESS OF ALBACETIRE"
-    cv.glyphs(SMALL, (W - text_width(SMALL, tag)) // 2, 31, tag, RED)
+    # Press line under the title, between the ears; long names tighten, then wrap onto a second line.
+    avail = right[0] - left[1] - 1 - 2 * EAR_PAD
+    font, lines = press_lines(name, avail)
+    ys = [31] if len(lines) == 1 else [29, 35]
+    for t, ty in zip(lines, ys):
+        cv.glyphs(font, left[1] + 1 + (right[0] - left[1] - 1 - text_width(font, t)) // 2, ty, t, RED)
 
     # Edition bar: thin rule, small print spread across with red diamonds, thick over thin.
     cv.hline(2, W - 3, 41, INK)
-    ed = ["VOL. XV", "STABLE GARRISON EDITION", "NEROID SECTOR", "ONE CREDIT"]
     widths = [text_width(SMALL, t) for t in ed]
     x_left, x_right = 6, W - 7
     gap = (x_right - x_left + 1 - sum(widths)) / (len(ed) - 1)
+    if gap < MIN_ED_GAP:
+        raise HeraldError(f"edition bar {ed} is {round(MIN_ED_GAP - gap) * (len(ed) - 1)} px too long; shorten --edition or --sector")
     x = x_left
     for i, t in enumerate(ed):
         xi = round(x)
@@ -547,19 +659,39 @@ def emblem():
 
 
 def main():
-    preview = None
-    if "--preview" in sys.argv:
-        preview = sys.argv[sys.argv.index("--preview") + 1]
-    b = banner()
-    e = emblem()
-    b.save(os.path.join(OUT, "banner.png"), SCALE)
-    e.save(os.path.join(OUT, "emblem.png"), SCALE)
-    if preview:
-        b.save(os.path.join(preview, "herald_banner_4x.png"), 4)
-        bg = Canvas(e.w + 8, e.h + 8, PAPER)
-        bg.img.alpha_composite(e.img, (4, 4))
-        bg.save(os.path.join(preview, "herald_emblem_4x.png"), 6)
-    print("wrote", OUT)
+    ap = argparse.ArgumentParser(description="Draw The Colony Herald masthead, generic or for one colony.")
+    ap.add_argument("--colony", help="colony name for the press line; omit for the generic masthead")
+    ap.add_argument("--edition", help="edition bar text (default '<NAME> EDITION')")
+    ap.add_argument("--weather", help="up to three weather box lines separated by |")
+    ap.add_argument("--est", help="founding year for the skyline box (default: FREE PRESS)")
+    ap.add_argument("--vol", help="volume number in roman numerals (default: DAILY)")
+    ap.add_argument("--sector", help="sector for the edition bar (default: FRONTIER NEWS)")
+    ap.add_argument("--skyline", choices=("frontier", "domes"), default="frontier",
+                    help="frontier: processor, habs and mast; domes: Albacetire's greenhouse domes and ridge")
+    ap.add_argument("--out", help="output folder; required with --colony")
+    ap.add_argument("--preview", help="also write 4x previews to this folder")
+    a = ap.parse_args()
+    if a.colony and not a.out:
+        ap.error("--out is required with --colony (the colony's edition folder, e.g. .../Sites/Herald/<ColonyId>)")
+    out = a.out or OUT
+    weather = [w.strip() for w in a.weather.split("|")] if a.weather else None
+    try:
+        b = banner(a.colony, a.edition, weather, a.est, a.vol, a.sector, a.skyline)
+    except HeraldError as err:
+        ap.error(str(err))
+    b.save(os.path.join(out, "banner.png"), SCALE)
+    e = None
+    if not a.colony:
+        e = emblem()
+        e.save(os.path.join(out, "emblem.png"), SCALE)
+    if a.preview:
+        stem = "herald_" + ("".join(ch for ch in a.colony if ch.isalnum()).lower() if a.colony else "generic")
+        b.save(os.path.join(a.preview, f"{stem}_banner_4x.png"), 4)
+        if e:
+            bg = Canvas(e.w + 8, e.h + 8, PAPER)
+            bg.img.alpha_composite(e.img, (4, 4))
+            bg.save(os.path.join(a.preview, "herald_emblem_4x.png"), 6)
+    print("wrote", out)
 
 
 if __name__ == "__main__":

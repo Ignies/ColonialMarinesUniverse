@@ -1,6 +1,5 @@
 using Content.Server.Administration.Logs;
 using Content.Server.Administration.Managers;
-using Content.Server.CMU14.Photography;
 using Content.Shared.CMU14.PersonalComputers;
 using Content.Shared.Database;
 using Content.Shared.Ghost.Components;
@@ -26,7 +25,6 @@ public sealed partial class CMUNetBoardSystem : EntitySystem
     [Dependency] private IGameTiming _timing = default!;
     [Dependency] private IPrototypeManager _prototype = default!;
     [Dependency] private CMUExtraNetSystem _net = default!;
-    [Dependency] private CMUPhotoSystem _photos = default!;
     [Dependency] private SharedJobSystem _jobs = default!;
     [Dependency] private SharedMindSystem _minds = default!;
     [Dependency] private UserInterfaceSystem _ui = default!;
@@ -87,18 +85,14 @@ public sealed partial class CMUNetBoardSystem : EntitySystem
         if (title.Length == 0 || body.Length == 0)
             return;
 
-        int? photo = null;
-        if (args.AttachPhoto && _photos.TryGetHeldPhoto(args.Actor, out var held))
-            photo = held;
-
         var (author, role) = Identify(args.Actor);
         var posts = Board(args.Site);
-        posts.Insert(0, new CMUNetBoardPost(_nextId++, title, body, author, role, _timing.CurTime, new List<CMUNetBoardComment>(), photo));
+        posts.Insert(0, new CMUNetBoardPost(_nextId++, title, body, author, role, _timing.CurTime, new List<CMUNetBoardComment>()));
         if (posts.Count > CMUNetBoardLimits.PostsPerBoard)
             posts.RemoveAt(posts.Count - 1);
 
         _adminLog.Add(LogType.Chat, LogImpact.Low,
-            $"{ToPrettyString(args.Actor):player} posted on ExtraNet board {args.Site}{(photo is { } p ? $" with photo {p}" : "")}: {title}: {body}");
+            $"{ToPrettyString(args.Actor):player} posted on ExtraNet board {args.Site}: {title}: {body}");
         Broadcast(args.Site);
     }
 

@@ -23,6 +23,8 @@ public sealed partial class CMUComputerDesktop : BoxContainer
     private readonly List<CMUComputerDocument> _documents;
     private readonly string _terminalName;
     private readonly ICMUNetBoardHost? _boards;
+    private readonly string? _colony;
+    private readonly string? _colonyName;
 
     private readonly LayoutContainer _area;
     private readonly BoxContainer _tasks;
@@ -44,10 +46,14 @@ public sealed partial class CMUComputerDesktop : BoxContainer
         string home,
         List<CMUComputerDocument> documents,
         string terminalName,
-        ICMUNetBoardHost? boards)
+        ICMUNetBoardHost? boards,
+        string? colony,
+        string? colonyName)
     {
         IoCManager.InjectDependencies(this);
         _boards = boards;
+        _colony = colony;
+        _colonyName = colonyName;
         _theme = theme;
         _networks = networks;
         _home = home;
@@ -278,7 +284,7 @@ public sealed partial class CMUComputerDesktop : BoxContainer
 
     private CMUNetBrowser NewBrowser()
     {
-        var browser = new CMUNetBrowser(_theme, _networks, _home, _boards);
+        var browser = new CMUNetBrowser(_theme, _networks, _home, _boards, _colony, _colonyName);
         browser.OnKeyTyped += () => OnKeyTyped?.Invoke();
         browser.OnClicked += () => OnClicked?.Invoke();
         return browser;

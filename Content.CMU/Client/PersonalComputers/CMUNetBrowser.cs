@@ -4,6 +4,7 @@ using Robust.Client.UserInterface;
 using Robust.Client.UserInterface.Controls;
 using Robust.Shared.ContentPack;
 using Robust.Shared.Prototypes;
+using Robust.Shared.Utility;
 
 namespace Content.Client.CMU14.PersonalComputers;
 
@@ -20,6 +21,8 @@ public sealed partial class CMUNetBrowser : BoxContainer, ILinkClickHandler
     private readonly CMUExtraNetSystem _net;
     private readonly CMUComputerTheme _theme;
     private readonly ICMUNetBoardHost? _boards;
+    private readonly string? _colony;
+    private readonly string? _colonyName;
     private readonly HashSet<ProtoId<CMUNetworkPrototype>> _networks;
     private readonly string _home;
 
@@ -44,12 +47,16 @@ public sealed partial class CMUNetBrowser : BoxContainer, ILinkClickHandler
         CMUComputerTheme theme,
         HashSet<ProtoId<CMUNetworkPrototype>> networks,
         string home,
-        ICMUNetBoardHost? boards)
+        ICMUNetBoardHost? boards,
+        string? colony,
+        string? colonyName)
     {
         IoCManager.InjectDependencies(this);
         _net = _entities.System<CMUExtraNetSystem>();
         _theme = theme;
         _boards = boards;
+        _colony = colony;
+        _colonyName = colonyName;
         _networks = networks;
         _home = home;
 
@@ -165,9 +172,17 @@ public sealed partial class CMUNetBrowser : BoxContainer, ILinkClickHandler
         switch (page.Result)
         {
             case CMUNetResolveResult.Found:
-                using (var reader = _resources.ContentFileReadText(page.File!.Value))
+                var file = ColonyFile(page.Site!, page.File!.Value);
+                if (!_resources.ContentFileExists(file))
                 {
-                    _view.ShowDocument(reader.ReadToEnd(), page.Site!.Style);
+                    ShowSystemPage("cmu-pc-browser-missing-page-title", "cmu-pc-browser-missing-page-body", page.Address);
+                    SetStatus(siteTitle, "cmu-pc-browser-status-error");
+                    break;
+                }
+
+                using (var reader = _resources.ContentFileReadText(file))
+                {
+                    _view.ShowDocument(FillColony(reader.ReadToEnd()), page.Site!.Style);
                 }
 
                 // A board's postings run under its index page.
@@ -198,6 +213,22 @@ public sealed partial class CMUNetBrowser : BoxContainer, ILinkClickHandler
                 SetStatus(string.Empty, "cmu-pc-browser-status-error");
                 break;
         }
+    }
+
+    /// <summary>This colony's (or map's) own version of a page, <c>&lt;root&gt;/&lt;colony&gt;/&lt;file&gt;</c>, when the site has one.</summary>
+    private ResPath ColonyFile(CMUNetSitePrototype site, ResPath file)
+    {
+        if (_colony == null)
+            return file;
+
+        var variant = site.Root / _colony / file.RelativeTo(site.Root);
+        return _resources.ContentFileExists(variant) ? variant : file;
+    }
+
+    private string FillColony(string text)
+    {
+        var name = string.IsNullOrEmpty(_colonyName) ? Loc.GetString("cmu-net-colony-unknown") : _colonyName;
+        return text.Replace("{colony}", name, StringComparison.Ordinal);
     }
 
     /// <summary>The site's tab strip in its own colours, the open page's tab filled.</summary>

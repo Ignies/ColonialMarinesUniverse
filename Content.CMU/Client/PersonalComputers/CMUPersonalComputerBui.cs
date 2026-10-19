@@ -38,7 +38,7 @@ public sealed partial class CMUPersonalComputerBui : BoundUserInterface, ICMUNet
         _window.OnKeyTyped += () => Play(_os.KeySound, -8f, _random.NextFloat(0.9f, 1.1f));
         _window.OnClicked += () => Play(_os.ClickSound, -6f, 1f);
         _window.Boot(_os, net.GetNetworks(computer), net.GetHomePage(computer), computer.Documents,
-            EntMan.GetComponent<MetaDataComponent>(Owner).EntityName, this);
+            EntMan.GetComponent<MetaDataComponent>(Owner).EntityName, this, computer.Colony, computer.ColonyName);
         Play(_os.BootSound, -4f, 1f);
     }
 
@@ -54,9 +54,9 @@ public sealed partial class CMUPersonalComputerBui : BoundUserInterface, ICMUNet
         SendMessage(new CMUNetBoardRequestMessage(site));
     }
 
-    public void Post(ProtoId<CMUNetSitePrototype> site, string title, string body, bool attachPhoto)
+    public void Post(ProtoId<CMUNetSitePrototype> site, string title, string body)
     {
-        SendMessage(new CMUNetBoardPostMessage(site, title, body, attachPhoto));
+        SendMessage(new CMUNetBoardPostMessage(site, title, body));
     }
 
     public void Comment(ProtoId<CMUNetSitePrototype> site, int post, string body)
