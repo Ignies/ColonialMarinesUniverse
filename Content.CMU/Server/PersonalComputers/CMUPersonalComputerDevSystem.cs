@@ -2,7 +2,10 @@ using System.Numerics;
 using Content.Server.GameTicking;
 using Content.Server.Station.Components;
 using Content.Server.Station.Systems;
+using Content.Shared._RMC14.Marines.Skills;
+using Content.Shared.CMU14.Threats.Mobs.CLF;
 using Content.Shared.GameTicking;
+using Content.Shared.Hands.EntitySystems;
 using Content.Shared.Maps;
 using Content.Shared.Physics;
 using Content.Shared.Roles;
@@ -33,12 +36,27 @@ public sealed class CMUPersonalComputerDevCVars
     /// journalist whatever its saved preferences say. Empty to leave jobs alone.
     /// </summary>
     public static readonly CVarDef<string> DevJob = CVarDef.Create("cmu.pc.dev_job", "", CVar.SERVERONLY);
+
+    /// <summary>
+    /// Kits test players out for the deep web: an access tuner in hand and enough engineering skill to hack
+    /// the desktops beside them.
+    /// </summary>
+    public static readonly CVarDef<bool> DevHacker = CVarDef.Create("cmu.pc.dev_hacker", false, CVar.SERVERONLY);
+
+    /// <summary>Makes test players insurgents, so they can post on insurgent boards and seize the Herald.</summary>
+    public static readonly CVarDef<bool> DevInsurgent = CVarDef.Create("cmu.pc.dev_insurgent", false, CVar.SERVERONLY);
+
+    /// <summary>Posts deep web leaks every minute, starting half a minute into the round, instead of every few minutes.</summary>
+    public static readonly CVarDef<bool> DevFastLeaks = CVarDef.Create("cmu.pc.dev_fast_leaks", false, CVar.SERVERONLY);
 }
 
 /// <summary>Puts test players next to working computers. See <see cref="CMUPersonalComputerDevCVars"/>.</summary>
 public sealed partial class CMUPersonalComputerDevSystem : EntitySystem
 {
     private static readonly string[] Desks = { "RMCPersonalDesktop", "CMUPersonalDesktopWeyland" };
+    private static readonly EntProtoId AccessTuner = "CMMultitool";
+    private static readonly EntProtoId<SkillDefinitionComponent> EngineerSkill = "RMCSkillEngineer";
+    private const int HackerSkill = 4;
 
     private static readonly Vector2i[] Around =
     {
@@ -50,6 +68,8 @@ public sealed partial class CMUPersonalComputerDevSystem : EntitySystem
     [Dependency] private IConfigurationManager _cfg = default!;
     [Dependency] private IPrototypeManager _prototypes = default!;
     [Dependency] private GameTicker _ticker = default!;
+    [Dependency] private SharedHandsSystem _hands = default!;
+    [Dependency] private SkillsSystem _skills = default!;
     [Dependency] private MapSystem _map = default!;
     [Dependency] private StationJobsSystem _stationJobs = default!;
     [Dependency] private TransformSystem _transform = default!;
@@ -123,5 +143,15 @@ public sealed partial class CMUPersonalComputerDevSystem : EntitySystem
         }
 
         Log.Info($"Placed {placed} test desktops beside {args.Player.Name}");
+
+        if (_cfg.GetCVar(CMUPersonalComputerDevCVars.DevHacker))
+        {
+            _skills.SetSkill(args.Mob, EngineerSkill, HackerSkill);
+            var tuner = Spawn(AccessTuner, xform.Coordinates);
+            _hands.PickupOrDrop(args.Mob, tuner);
+        }
+
+        if (_cfg.GetCVar(CMUPersonalComputerDevCVars.DevInsurgent))
+            EnsureComp<CLFMemberComponent>(args.Mob);
     }
 }

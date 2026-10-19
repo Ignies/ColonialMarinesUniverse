@@ -1,5 +1,7 @@
 # Personal computer test server: Stable Garrison, no lobby, every player spawns as the colony journalist
-# (so the Herald's composer shows) with a colony desktop and a corporate desktop beside them.
+# (so the Herald's composer shows) with a colony desktop and a corporate desktop beside them, an access tuner
+# in hand and engineering skill to hack them into the deep web, and marked as an insurgent so the insurgent
+# boards and the Herald hijack can be tried too.
 # Run from the repo root:
 #   dotnet run --project Content.Server -- --config-file Content.CMU/Design/PersonalComputers/Test/server.toml
 #   dotnet run --project Content.Client
@@ -34,6 +36,9 @@ role_whitelist = false
 [cmu.pc]
 dev_desks = true
 dev_job = "AU14JobCivilianJournalist"
+dev_hacker = true
+dev_insurgent = true
+dev_fast_leaks = true
 
 [events]
 enabled = false

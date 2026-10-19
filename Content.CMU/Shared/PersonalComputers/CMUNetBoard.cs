@@ -1,4 +1,5 @@
 using Content.Shared.Roles;
+using Content.Shared.Whitelist;
 using Robust.Shared.Prototypes;
 using Robust.Shared.Serialization;
 
@@ -15,6 +16,10 @@ public sealed partial class CMUNetBoardDefinition
     [DataField]
     public HashSet<ProtoId<JobPrototype>> Posters = new();
 
+    /// <summary>Anyone matching this may also publish, e.g. every CLF member whatever their job.</summary>
+    [DataField]
+    public EntityWhitelist? PosterWhitelist;
+
     /// <summary>Label of the publish button and composer, e.g. "File a report".</summary>
     [DataField(required: true)]
     public LocId PostLabel;
@@ -22,6 +27,28 @@ public sealed partial class CMUNetBoardDefinition
     /// <summary>Shown when there are no postings yet.</summary>
     [DataField(required: true)]
     public LocId Empty;
+
+    /// <summary>A forum: anyone at a computer that reaches the site may post, not only the poster jobs.</summary>
+    [DataField]
+    public bool AnyonePosts;
+
+    /// <summary>Unknown hackers dump stolen ATM accounts and wanted lists here at random.</summary>
+    [DataField]
+    public bool Leaks;
+
+    /// <summary>Insurgents on a hacked computer can seize the board's front page for a while.</summary>
+    [DataField]
+    public bool Hijackable;
+}
+
+/// <summary>Propaganda covering a board's front page until <see cref="Until"/>, or until a poster restores it.</summary>
+[Serializable, NetSerializable]
+public sealed class CMUNetBoardHijack(string faction, string title, string body, TimeSpan until)
+{
+    public readonly string Faction = faction;
+    public readonly string Title = title;
+    public readonly string Body = body;
+    public readonly TimeSpan Until = until;
 }
 
 [Serializable, NetSerializable]
@@ -85,6 +112,13 @@ public sealed class CMUNetBoardDeleteMessage(ProtoId<CMUNetSitePrototype> site, 
     public readonly int Post = post;
 }
 
+/// <summary>A board poster takes the front page back from propaganda.</summary>
+[Serializable, NetSerializable]
+public sealed class CMUNetBoardRestoreMessage(ProtoId<CMUNetSitePrototype> site) : BoundUserInterfaceMessage
+{
+    public readonly ProtoId<CMUNetSitePrototype> Site = site;
+}
+
 /// <summary>A board's postings, newest first, and what the viewer may do there.</summary>
 [Serializable, NetSerializable]
 public sealed class CMUNetBoardStateMessage(
@@ -92,8 +126,10 @@ public sealed class CMUNetBoardStateMessage(
     List<CMUNetBoardPost> posts,
     bool canPost,
     bool canComment,
-    bool canModerate) : BoundUserInterfaceMessage
+    bool canModerate,
+    CMUNetBoardHijack? hijack = null) : BoundUserInterfaceMessage
 {
+    public readonly CMUNetBoardHijack? Hijack = hijack;
     public readonly ProtoId<CMUNetSitePrototype> Site = site;
     public readonly List<CMUNetBoardPost> Posts = posts;
     public readonly bool CanPost = canPost;
@@ -110,4 +146,6 @@ public static class CMUNetBoardLimits
     public const int CommentsPerPost = 60;
     public static readonly TimeSpan PostCooldown = TimeSpan.FromSeconds(30);
     public static readonly TimeSpan CommentCooldown = TimeSpan.FromSeconds(5);
+    public static readonly TimeSpan HijackLength = TimeSpan.FromMinutes(5);
+    public static readonly TimeSpan HijackCooldown = TimeSpan.FromMinutes(12);
 }

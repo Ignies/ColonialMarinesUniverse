@@ -13,3 +13,8 @@
 - type: cmuNetwork
   id: CMUNetUSCM
   name: cmu-net-network-uscm
+
+# The Colonial Marshal Bureau's own network: lookup alerts, the terminal map, fax copies and records.
+- type: cmuNetwork
+  id: CMUNetCMB
+  name: cmu-net-network-cmb

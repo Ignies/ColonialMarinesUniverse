@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Numerics;
 using Content.Client.Guidebook;
 using Content.Client.Guidebook.Controls;
@@ -6,6 +7,7 @@ using Content.Shared.CMU14.PersonalComputers;
 using Robust.Client.Graphics;
 using Robust.Client.UserInterface;
 using Robust.Client.UserInterface.Controls;
+using Robust.Shared.Timing;
 
 namespace Content.Client.CMU14.PersonalComputers;
 
@@ -22,6 +24,9 @@ public sealed partial class CMUNetPageView : Control
     private readonly TextureRect _backgroundImage;
     private readonly ScrollContainer _scroll;
     private readonly BoxContainer _page;
+    private readonly LayoutContainer _overlay;
+    private readonly List<CMUNetPopup> _popups = new();
+    private float _elapsed;
     private CMUNetPageStyle _style;
 
     public CMUNetPageView(CMUComputerTheme theme)
@@ -49,6 +54,28 @@ public sealed partial class CMUNetPageView : Control
         AddChild(_background);
         AddChild(_backgroundImage);
         AddChild(_scroll);
+
+        // Pop ups float over the page, inside the browser window.
+        _overlay = new LayoutContainer { MouseFilter = MouseFilterMode.Ignore };
+        AddChild(_overlay);
+    }
+
+    protected override void FrameUpdate(FrameEventArgs args)
+    {
+        base.FrameUpdate(args);
+        if (_popups.Count == 0)
+            return;
+
+        _elapsed += args.DeltaSeconds;
+        foreach (var popup in _popups)
+        {
+            if (popup.Closed || _elapsed < popup.Delay)
+                continue;
+
+            popup.Visible = true;
+            var room = Vector2.Max(Vector2.Zero, Size - popup.DesiredSize);
+            LayoutContainer.SetPosition(popup, room * popup.Place);
+        }
     }
 
     /// <summary>Parses a page document. A CMUNetStyle tag in it overrides <paramref name="siteStyle"/>.</summary>
@@ -107,6 +134,9 @@ public sealed partial class CMUNetPageView : Control
     {
         _style = style;
         _page.RemoveAllChildren();
+        _overlay.RemoveAllChildren();
+        _popups.Clear();
+        _elapsed = 0;
         _page.Stylesheet = BuildStylesheet(style);
         _scroll.SetScrollValue(Vector2.Zero);
         _background.PanelOverride = new StyleBoxFlat { BackgroundColor = style.Background ?? _theme.Background };
@@ -129,6 +159,13 @@ public sealed partial class CMUNetPageView : Control
     {
         var link = style.Link ?? _theme.Phosphor;
         var background = style.Background ?? _theme.Background;
+        foreach (var popup in Descendants(_page).OfType<CMUNetPopup>().ToList())
+        {
+            popup.Orphan();
+            _overlay.AddChild(popup);
+            _popups.Add(popup);
+        }
+
         foreach (var control in Descendants(_page))
         {
             if (control is CMUNetLinkLabel label)

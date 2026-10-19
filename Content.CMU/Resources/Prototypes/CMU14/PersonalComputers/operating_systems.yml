@@ -56,3 +56,25 @@
     path: /Audio/CMU14/ColonyEconomy/atm_type.wav
   clickSound:
     path: /Audio/CMU14/ColonyEconomy/atm_select.ogg
+
+# The Marshals' terminal on their camera monitors. No logo file: the splash shows the name.
+- type: cmuComputerOs
+  id: CMUOsCMB
+  name: cmu-os-cmb-name
+  startLabel: cmu-os-cmb-start
+  homePage: cmb.bureau
+  networks:
+  - CMUNetPublic
+  - CMUNetCMB
+  phosphor: "#8FC4FF"
+  background: "#050A14"
+  bootLines:
+  - cmu-os-cmb-boot-1
+  - cmu-os-cmb-boot-2
+  - cmu-os-cmb-boot-3
+  bootSound:
+    path: /Audio/CMU14/ColonyEconomy/crt_startup.ogg
+  keySound:
+    path: /Audio/CMU14/ColonyEconomy/atm_type.wav
+  clickSound:
+    path: /Audio/CMU14/ColonyEconomy/atm_select.ogg

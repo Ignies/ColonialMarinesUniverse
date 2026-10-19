@@ -1,4 +1,6 @@
+using Content.Client.CMU14.PersonalComputers.DeepWeb;
 using Content.Shared.CMU14.PersonalComputers;
+using Content.Shared.CMU14.PersonalComputers.DeepWeb;
 using Robust.Client.Graphics;
 using Robust.Shared.Prototypes;
 
@@ -19,6 +21,7 @@ public sealed class CMUPersonalComputerPreview
     private readonly string _title;
     private readonly (string Name, float Seconds, Action Run)[] _steps;
     private readonly PreviewBoards _boards = new();
+    private readonly PreviewDeep _deep = new();
     private CMUPersonalComputerWindow? _window;
     private int _step = -1;
     private float _timer;
@@ -60,6 +63,17 @@ public sealed class CMUPersonalComputerPreview
             ("weyland-boot-log", 3.6f, () => { }),
             ("weyland-browser", 2.5f, () => _window?.Desktop?.Open(CMUComputerApp.Browser)),
             ("weyland-memo", 3f, () => _window?.Desktop?.Browser?.Navigate("intranet.wy/memo")),
+            ("deep-boot", 4.5f, () => Boot("CMUOsSeegson", true)),
+            ("deep-desktop", 2.5f, () => { }),
+            ("deep-home", 3f, () => _window?.Desktop?.Open(CMUComputerApp.Deeps)),
+            ("deep-ad", 3f, () => _window?.Desktop?.Browser?.Navigate("eb1a-a02d-ans9-202ab-0s9bf-ffa0-l2kc-998d.ad")),
+            ("deep-forum", 3f, () => _window?.Desktop?.Browser?.Navigate(_deep.AliasOf("CMUNetSiteDeepDump"))),
+            ("deep-eyes", 3f, () => _window?.Desktop?.Browser?.Navigate(_deep.AliasOf("CMUNetSiteDeepEyes"))),
+            ("deep-herald-hijacked", 3f, () =>
+            {
+                _boards.Hijacked = true;
+                _window?.Desktop?.Browser?.Navigate("herald.colony.news");
+            }),
         };
     }
 
@@ -77,13 +91,136 @@ public sealed class CMUPersonalComputerPreview
         _osWindow.Title = $"{_title} [pc-preview {_step} {name}]";
     }
 
-    private void Boot(string osId)
+    private void Boot(string osId, bool jacked = false)
     {
         _window?.Close();
         var os = _prototype.Index<CMUComputerOsPrototype>(osId);
+        var networks = new HashSet<ProtoId<CMUNetworkPrototype>>(os.Networks);
+        if (jacked)
+            networks.Add("CMUNetDeep");
+
         _window = new CMUPersonalComputerWindow();
         _window.OpenCentered();
-        _window.Boot(os, os.Networks, os.HomePage, NoDocuments, "Preview terminal", _boards, "StableGarrison", "Stable Garrison");
+        _window.Boot(os, networks, os.HomePage, NoDocuments, "Preview terminal", _boards, "StableGarrison", "Stable Garrison",
+            jacked ? _deep : null, _deep);
+    }
+
+    /// <summary>A hacked computer that has found a few things, with links saved to its desktop.</summary>
+    private sealed class PreviewDeep : ICMUDeepHost, ICMUComputerHost
+    {
+        private readonly List<string> _discovered = new();
+        private readonly HashSet<ProtoId<CMUNetSitePrototype>> _unlocked = new();
+        private readonly Dictionary<ProtoId<CMUNetSitePrototype>, string> _aliases = new();
+        private readonly List<CMUNetShortcut> _shortcuts = new();
+
+        public PreviewDeep()
+        {
+            var rng = new System.Random(1979);
+            foreach (var site in IoCManager.Resolve<IPrototypeManager>().EnumeratePrototypes<CMUNetSitePrototype>())
+            {
+                if (!CMUExtraNetSystem.IsDeep(site))
+                    continue;
+
+                _aliases[site.ID] = CMUDeepAddress.NewAlias(rng, site.AliasSuffix);
+                if (site.Hidden)
+                    _unlocked.Add(site.ID);
+            }
+
+            _discovered.Add(AliasOf("CMUNetSiteDeepCell"));
+            _discovered.Add("eb1a-a02d-ans9-202ab-0s9bf-ffa0-l2kc-998d.ad");
+            _discovered.Add(AliasOf("CMUNetSiteDeepWyLeaks"));
+            _shortcuts.Add(new CMUNetShortcut { Address = AliasOf("CMUNetSiteDeepDump"), Title = "THE DUMP" });
+            _shortcuts.Add(new CMUNetShortcut { Address = AliasOf("CMUNetSiteDeepEyes"), Title = "EYES" });
+            _shortcuts.Add(new CMUNetShortcut { Address = "herald.colony.news", Title = "Colony Herald" });
+        }
+
+        public string AliasOf(string site)
+        {
+            return _aliases.TryGetValue(site, out var alias) ? alias : site;
+        }
+
+        public IReadOnlyDictionary<ProtoId<CMUNetSitePrototype>, string> Aliases => _aliases;
+        public int TerminalId => 23;
+        public string? SessionUser => "Preview";
+        public string? SessionJob => "Journalist";
+        public bool RequireLogin => false;
+
+        public event Action<CMUCmbStateMessage>? CmbReceived;
+
+        public void Visited(string address, bool found)
+        {
+        }
+
+        public void Logout()
+        {
+        }
+
+        public void RequestCmb(CMUCmbPanel panel)
+        {
+            CmbReceived?.Invoke(new CMUCmbStateMessage(panel, new List<CMUCmbAlert>(), new List<CMUCmbTerminal>(),
+                new List<CMUCmbFax>(), new List<CMUCmbRecord>(), null));
+        }
+
+        public IReadOnlyList<string> Discovered => _discovered;
+        public IReadOnlySet<ProtoId<CMUNetSitePrototype>> Unlocked => _unlocked;
+        public TimeSpan NextScan => TimeSpan.Zero;
+        public bool IsInsurgent => true;
+        public IReadOnlyList<CMUNetShortcut> Shortcuts => _shortcuts;
+
+        public event Action<CMUDeepPageMessage>? PageReceived;
+
+        public void Scan()
+        {
+        }
+
+        public void RequestPage(string host)
+        {
+            PageReceived?.Invoke(new CMUDeepPageMessage(host, """
+                <Document>
+                  <CMUNetStyle Background="#FFF200" Text="#1A1A1A" Heading="#E4002B" Link="#0033CC" Font="Display"/>
+                  <CMUNetBlink Rate="0.5">
+                    [color=#E4002B][bold]YOU HAVE BEEN SELECTED[/bold][/color]
+                  </CMUNetBlink>
+
+                  Sponsored content from hot-synth-4471.ad
+                  <CMUNetAd Id="CMUDeepAdPowerLoader"/>
+
+                  <CMUNetSprite Rsi="/Textures/CMU14/PersonalComputers/Sites/Ads/badges.rsi" State="wycoin" Scale="2" Align="Left"/>
+                  [netlink="Seegson Working Joe, the helping hand that never tires" link="seegson-joe-221.ad"]
+
+                  [netlink="Aspen, the coldest beer this side of Zeta Reticuli" link="aspen-galley-9011.ad"]
+                  <CMUNetAd Id="CMUDeepAdMre" Flip="true"/>
+                  <CMUGuideImage Path="/Textures/CMU14/PersonalComputers/Sites/Ads/banner_10.png" MaxHeight="72"/>
+
+                  [netlink="Outer Rim Surplus, uniforms and parts by the crate ::" link="dump.deep"]
+
+                  <CMUNetSprite Rsi="/Textures/CMU14/PersonalComputers/Sites/Ads/badges.rsi" State="joewave" Scale="2" Align="Right"/>
+                  [netlink="Transit tickets to the core worlds, ask your depot" link="transit-ticket-5120.ad"]
+
+                  <CMUNetPopup Title="SEEGSON NOTICE" Text="Your Working Joe is due for its service cycle. Book a technician today." Link="seegson-store-404.ad" LinkText="Book a technician" Icon="/Textures/CMU14/PersonalComputers/Sites/Ads/icon_05.png" X="0.85" Y="0.35" Delay="0.5" Background="#FFF200" Accent="#0033CC"/>
+
+                  <CMUNetMarquee Text="BUILDING BETTER WORLDS  ///  NOW ON COLONY SHELVES  ///  SLEEP SOUND, WAKE READY" Speed="70" Color="#0033CC"/>
+                </Document>
+                """));
+        }
+
+        public void OpenCamera(string network)
+        {
+        }
+
+        public void Hijack(string title, string body)
+        {
+        }
+
+        public void SaveShortcut(string address, string title)
+        {
+            _shortcuts.Add(new CMUNetShortcut { Address = address, Title = title });
+        }
+
+        public void RemoveShortcut(string address)
+        {
+            _shortcuts.RemoveAll(s => s.Address == address);
+        }
     }
 
     /// <summary>Fabricated postings, so boards can be looked at without a server round.</summary>
@@ -91,6 +228,9 @@ public sealed class CMUPersonalComputerPreview
     {
         private readonly Dictionary<ProtoId<CMUNetSitePrototype>, List<CMUNetBoardPost>> _posts = new();
         private int _nextId = 100;
+
+        /// <summary>Shows the Herald seized by insurgents.</summary>
+        public bool Hijacked;
 
         public event Action<CMUNetBoardStateMessage>? StateReceived;
 
@@ -114,6 +254,12 @@ public sealed class CMUPersonalComputerPreview
             Add("CMUNetSiteGovforCommand", "SECURITY ZONE AROUND THE LANDING PAD",
                 "Civilians are not to approach within fifty metres of the landing pad until further notice. Patrols are authorised to detain trespassers.",
                 "Maj. R. Dallas", "Commanding Officer", TimeSpan.FromMinutes(15), new List<CMUNetBoardComment>());
+            Add("CMUNetSiteDeepDump", "FRESH DUMP #4410",
+                "acct 48213 | Ann Kowalski | bal ~4300 | pin 4 _ 7 _\nacct 51920 | Simon Hartley | bal ~9100 | pin _ 2 _ 8",
+                "nullbyte", "unknown hacker", TimeSpan.FromMinutes(26), new List<CMUNetBoardComment>
+                {
+                    new("Unknown", "Colonist", "the second one is good, got in at the canteen ATM", TimeSpan.FromMinutes(29)),
+                });
             Add("CMUNetSiteEmbassyUPP", "THE UNION STANDS WITH THE COLONISTS",
                 "The Ambassador offers the mission's medical staff to any colonist in need, free of charge.",
                 "Ambassador Volkova", "UPP Ambassador", TimeSpan.FromMinutes(20), new List<CMUNetBoardComment>());
@@ -130,7 +276,12 @@ public sealed class CMUPersonalComputerPreview
         public void Request(ProtoId<CMUNetSitePrototype> site)
         {
             _posts.TryGetValue(site, out var list);
-            StateReceived?.Invoke(new CMUNetBoardStateMessage(site, list ?? new List<CMUNetBoardPost>(), true, true, true));
+            var hijack = Hijacked && site == "CMUNetSiteColonyHerald"
+                ? new CMUNetBoardHijack("Colonial Liberation Front", "THE COMPANY LIES TO YOU",
+                    "Every credit you earn here is owed back to them before you see it. Ask the Administrator where the last supply drop went.",
+                    TimeSpan.FromHours(1))
+                : null;
+            StateReceived?.Invoke(new CMUNetBoardStateMessage(site, list ?? new List<CMUNetBoardPost>(), true, true, true, hijack));
         }
 
         public void Post(ProtoId<CMUNetSitePrototype> site, string title, string body)
@@ -145,6 +296,12 @@ public sealed class CMUPersonalComputerPreview
 
         public void Delete(ProtoId<CMUNetSitePrototype> site, int post)
         {
+        }
+
+        public void Restore(ProtoId<CMUNetSitePrototype> site)
+        {
+            Hijacked = false;
+            Request(site);
         }
     }
 }

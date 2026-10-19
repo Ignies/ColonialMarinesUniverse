@@ -36,6 +36,68 @@ public sealed partial class CMUPersonalComputerComponent : Component
     /// <summary>Documents on this computer, in addition to the OS ones. Mappers use it for notes left on a PC.</summary>
     [DataField, AutoNetworkedField]
     public List<CMUComputerDocument> Documents = new();
+
+    /// <summary>Pages saved to the desktop with the browser's save link button. Lasts the round.</summary>
+    [DataField, AutoNetworkedField]
+    public List<CMUNetShortcut> Shortcuts = new();
+
+    /// <summary>This round's terminal number, e.g. 23 for Terminal #23. Given out by the server at map init.</summary>
+    [DataField, AutoNetworkedField]
+    public int TerminalId;
+
+    /// <summary>Whose ID card opened the session, or null while the terminal waits at its login screen.</summary>
+    [DataField, AutoNetworkedField]
+    public string? SessionUser;
+
+    [DataField, AutoNetworkedField]
+    public string? SessionJob;
+
+    /// <summary>Whether the desktop waits for an ID card. Off for kiosks.</summary>
+    [DataField, AutoNetworkedField]
+    public bool RequireLogin = true;
+
+    /// <summary>
+    /// For consoles whose click already opens something else, like the Marshals' camera monitors: the terminal
+    /// opens from a verb instead.
+    /// </summary>
+    [DataField]
+    public bool OpenVerb;
+
+    /// <summary>What happened at this terminal this round. Server only; engineers read it with a multitool.</summary>
+    [ViewVariables]
+    public List<CMUComputerLogEntry> Log = new();
+}
+
+/// <summary>A page saved to the desktop.</summary>
+[DataDefinition, Serializable, NetSerializable]
+public sealed partial class CMUNetShortcut
+{
+    [DataField(required: true)]
+    public string Address = string.Empty;
+
+    [DataField]
+    public string Title = string.Empty;
+}
+
+/// <summary>Saves the page on screen to the desktop.</summary>
+[Serializable, NetSerializable]
+public sealed class CMUNetSaveShortcutMessage(string address, string title) : BoundUserInterfaceMessage
+{
+    public readonly string Address = address;
+    public readonly string Title = title;
+}
+
+[Serializable, NetSerializable]
+public sealed class CMUNetRemoveShortcutMessage(string address) : BoundUserInterfaceMessage
+{
+    public readonly string Address = address;
+}
+
+public static class CMUNetShortcutLimits
+{
+    public const int Count = 10;
+    public const int AddressLength = 96;
+    public const int TitleLength = 32;
 }
 
 /// <summary>A read only document in the Files app, written in the same format as ExtraNet pages.</summary>

@@ -141,11 +141,25 @@
   parent: RMCMonitorCameraAlmayer
   id: CMUMonitorCameraColonyCMB
   name: colony security cameras
-  description: Used to access the various cameras on the colony.
+  description: Used to access the various cameras on the colony. Alt-click to use its bureau terminal.
   suffix: Colony, CMB
   components:
   - type: Transform
     anchored: true
+  # The Marshals' bureau terminal, opened with a verb so a click still shows the cameras.
+  - type: CMUPersonalComputer
+    os: CMUOsCMB
+    openVerb: true
+  - type: UserInterface
+    interfaces:
+      enum.RMCCameraUiKey.Key:
+        type: RMCCameraBui
+      enum.CMUPersonalComputerUiKey.Key:
+        type: CMUPersonalComputerBui
+      enum.CMUComputerToolUiKey.Key:
+        type: CMUComputerToolBui
+      enum.CMUComputerLogUiKey.Key:
+        type: CMUComputerLogBui
   - type: RMCCameraComputer
   - type: CameraNetworkReceiver
     networks: [CMUSurveillanceCameraColonyCMB]

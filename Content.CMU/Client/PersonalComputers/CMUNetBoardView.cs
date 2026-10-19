@@ -2,6 +2,7 @@ using Content.Shared.CMU14.PersonalComputers;
 using Robust.Client.UserInterface;
 using Robust.Client.UserInterface.Controls;
 using Robust.Shared.Prototypes;
+using Robust.Shared.Timing;
 using Robust.Shared.Utility;
 
 namespace Content.Client.CMU14.PersonalComputers;
@@ -21,30 +22,38 @@ public interface ICMUNetBoardHost
     void Comment(ProtoId<CMUNetSitePrototype> site, int post, string body);
 
     void Delete(ProtoId<CMUNetSitePrototype> site, int post);
+
+    void Restore(ProtoId<CMUNetSitePrototype> site);
 }
 
 /// <summary>
 /// A board's postings under its index page: a composer for the roles allowed to post, each posting with its
 /// comments, and a comment line for everyone else. Player text is drawn as plain text, never as markup.
+/// While insurgents hold the board, their propaganda covers the postings.
 /// </summary>
-public sealed class CMUNetBoardView : BoxContainer
+public sealed partial class CMUNetBoardView : BoxContainer
 {
+    [Dependency] private IGameTiming _timing = default!;
+
     private readonly CMUComputerTheme _theme;
     private readonly CMUNetPageStyle _style;
     private readonly CMUNetSitePrototype _site;
     private readonly ICMUNetBoardHost? _host;
+    private readonly BoxContainer _hijackSlot;
     private readonly BoxContainer _composerSlot;
     private readonly BoxContainer _posts;
     private readonly Dictionary<int, string> _drafts = new();
     private readonly Dictionary<int, LineEdit> _commentFields = new();
 
     private bool _composerOpen;
+    private TimeSpan? _hijackUntil;
 
     public event Action? OnClicked;
     public event Action? OnKeyTyped;
 
     public CMUNetBoardView(CMUComputerTheme theme, CMUNetPageStyle style, CMUNetSitePrototype site, ICMUNetBoardHost? host)
     {
+        IoCManager.InjectDependencies(this);
         _theme = theme;
         _style = style;
         _site = site;
@@ -53,9 +62,11 @@ public sealed class CMUNetBoardView : BoxContainer
         HorizontalExpand = true;
         SeparationOverride = 10;
 
+        _hijackSlot = new BoxContainer { Orientation = LayoutOrientation.Vertical, HorizontalExpand = true };
         _composerSlot = new BoxContainer { Orientation = LayoutOrientation.Vertical, HorizontalExpand = true };
         _posts = new BoxContainer { Orientation = LayoutOrientation.Vertical, HorizontalExpand = true, SeparationOverride = 14 };
         AddChild(new CMUTerminalRule { Color = Link.WithAlpha(0.5f), Margin = new Thickness(0, 4) });
+        AddChild(_hijackSlot);
         AddChild(_composerSlot);
         AddChild(_posts);
 
@@ -66,8 +77,6 @@ public sealed class CMUNetBoardView : BoxContainer
         }
 
         _posts.AddChild(new Label { Text = Loc.GetString("cmu-net-board-loading") });
-        host.StateReceived += OnState;
-        host.Request(site.ID);
     }
 
     private Color Text => _style.Text ?? _theme.Phosphor;
@@ -75,11 +84,32 @@ public sealed class CMUNetBoardView : BoxContainer
     private Color Link => _style.Link ?? _theme.Phosphor;
     private Color Background => _style.Background ?? _theme.Background;
 
+    // Subscribed while on screen, so popping the computer out to its own window keeps the board live.
+    protected override void EnteredTree()
+    {
+        base.EnteredTree();
+        if (_host == null)
+            return;
+
+        _host.StateReceived += OnState;
+        _host.Request(_site.ID);
+    }
+
     protected override void ExitedTree()
     {
         base.ExitedTree();
         if (_host != null)
             _host.StateReceived -= OnState;
+    }
+
+    protected override void FrameUpdate(FrameEventArgs args)
+    {
+        base.FrameUpdate(args);
+        if (_hijackUntil is not { } until || _timing.CurTime < until)
+            return;
+
+        _hijackUntil = null;
+        _host?.Request(_site.ID);
     }
 
     private void OnState(CMUNetBoardStateMessage state)
@@ -91,14 +121,63 @@ public sealed class CMUNetBoardView : BoxContainer
             _drafts[id] = field.Text;
 
         _commentFields.Clear();
-        BuildComposer(state.CanPost);
         _posts.RemoveAllChildren();
+        _hijackSlot.RemoveAllChildren();
+        _hijackUntil = null;
+        if (state.Hijack is { } hijack && _timing.CurTime < hijack.Until)
+        {
+            _hijackUntil = hijack.Until;
+            _composerSlot.RemoveAllChildren();
+            _hijackSlot.AddChild(BuildHijack(hijack, state.CanPost));
+            return;
+        }
+
+        BuildComposer(state.CanPost);
 
         if (state.Posts.Count == 0)
             _posts.AddChild(new Label { Text = Loc.GetString(_site.Board!.Empty) });
 
         foreach (var post in state.Posts)
             _posts.AddChild(BuildPost(post, state));
+    }
+
+    /// <summary>The seized front page: the faction's banner and message, and a way back for the board's posters.</summary>
+    private Control BuildHijack(CMUNetBoardHijack hijack, bool canPost)
+    {
+        var red = Color.FromHex("#E0303A");
+        var box = new BoxContainer { Orientation = LayoutOrientation.Vertical, Margin = new Thickness(8), SeparationOverride = 6 };
+        box.AddChild(new Label
+        {
+            Text = Loc.GetString("cmu-net-board-hijacked", ("faction", hijack.Faction.ToUpperInvariant())),
+            StyleClasses = { "LabelHeading" },
+            FontColorOverride = red,
+        });
+        box.AddChild(new Label { Text = hijack.Title, StyleClasses = { "LabelHeadingBigger" }, FontColorOverride = red });
+        box.AddChild(Plain(hijack.Body, Color.White));
+        box.AddChild(new Label
+        {
+            Text = Loc.GetString("cmu-net-board-hijacked-signed", ("faction", hijack.Faction)),
+            FontColorOverride = red.WithAlpha(0.8f),
+        });
+
+        if (canPost)
+        {
+            var restore = PageButton(Loc.GetString("cmu-net-board-restore"));
+            restore.HorizontalAlignment = HAlignment.Left;
+            restore.OnPressed += _ =>
+            {
+                OnClicked?.Invoke();
+                _host?.Restore(_site.ID);
+            };
+            box.AddChild(restore);
+        }
+
+        return new PanelContainer
+        {
+            PanelOverride = _theme.Box(Color.FromHex("#120204"), red, 2),
+            HorizontalExpand = true,
+            Children = { box },
+        };
     }
 
     private void BuildComposer(bool canPost)

@@ -30,6 +30,8 @@
   board:
     postLabel: cmu-net-board-herald-post
     empty: cmu-net-board-herald-empty
+    # Insurgents on a hacked computer can cover the front page with propaganda.
+    hijackable: true
     posters:
     - AU14JobCivilianJournalist
 

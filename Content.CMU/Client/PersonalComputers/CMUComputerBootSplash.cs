@@ -13,7 +13,8 @@ namespace Content.Client.CMU14.PersonalComputers;
 /// The startup sequence: the tube warms up, then each OS logo builds in interlaced lines and holds. Under the
 /// last one the boot log runs with a progress bar. A logo whose file does not exist yet is skipped, and with
 /// none the OS name takes their place, animated the same way, so dropping a file at a logo path is all a new
-/// logo needs. Clicking skips the sequence.
+/// logo needs. Clicking skips the sequence. A computer jacked into the deep web boots corrupted: intrusion lines
+/// break into the log, characters scramble, the logo drops out and torn bands roll across the raster.
 /// </summary>
 public sealed class CMUComputerBootSplash : Control
 {
@@ -34,6 +35,10 @@ public sealed class CMUComputerBootSplash : Control
     private readonly float _logEnd;
     private readonly float _end;
 
+    private const string GlitchChars = "#$%&@!?/|<>{}[]~^*";
+
+    private readonly bool _corrupted;
+    private readonly Random _glitch = new();
     private float _time;
     private bool _finished;
 
@@ -44,9 +49,10 @@ public sealed class CMUComputerBootSplash : Control
         public Vector2 Size => State != null ? State.Size : Texture!.Size;
     }
 
-    public CMUComputerBootSplash(CMUComputerTheme theme)
+    public CMUComputerBootSplash(CMUComputerTheme theme, bool corrupted = false)
     {
         _theme = theme;
+        _corrupted = corrupted;
         HorizontalExpand = true;
         VerticalExpand = true;
         MouseFilter = MouseFilterMode.Stop;
@@ -62,8 +68,16 @@ public sealed class CMUComputerBootSplash : Control
 
         _name = Loc.GetString(theme.Os.Name);
         _nameFont = theme.GetFont(CMUNetFont.Display, 30, true);
+        var intrusion = 1;
         foreach (var line in theme.Os.BootLines)
+        {
             _lines.Add(Loc.GetString(line));
+            if (corrupted && intrusion <= 4 && _lines.Count % 2 == 0)
+                _lines.Add(Loc.GetString($"cmu-deep-boot-{intrusion++}"));
+        }
+
+        if (corrupted)
+            _lines.Add(Loc.GetString("cmu-deep-boot-5"));
 
         var lastStart = WarmUp + Math.Max(0, _logos.Count - 1) * (Reveal + Hold + Swap);
         _logEnd = lastStart + Reveal + _lines.Count * LineEvery;
@@ -124,6 +138,9 @@ public sealed class CMUComputerBootSplash : Control
         var box = LogoBox(logo, size);
         var flicker = 0.9f + 0.1f * MathF.Sin(_time * 37f) * MathF.Max(0, 1 - local / Reveal);
         var pulse = local > Reveal ? 0.85f + 0.15f * MathF.Sin(_time * 2.4f) : 1f;
+        if (_corrupted && _glitch.NextSingle() < 0.08f)
+            pulse *= 0.25f;
+
         DrawLogo(handle, logo, box, scale, flicker * pulse);
 
         var reveal = Math.Clamp(local / Reveal, 0f, 1f);
@@ -141,9 +158,42 @@ public sealed class CMUComputerBootSplash : Control
 
         DrawLog(handle, size, box, scale, local - Reveal);
 
+        if (_corrupted)
+            DrawTears(handle, size);
+
         var fade = (_time - _logEnd - FinalHold) / FadeOut;
         if (fade > 0)
             handle.DrawRect(PixelSizeBox, _theme.Background.WithAlpha(Math.Clamp(fade, 0f, 1f)));
+    }
+
+    /// <summary>A few bands torn out of the raster each frame: a bright smear and a dark gap under it.</summary>
+    private void DrawTears(DrawingHandleScreen handle, Vector2i size)
+    {
+        var bands = _glitch.Next(0, 4);
+        for (var i = 0; i < bands; i++)
+        {
+            var y = _glitch.NextSingle() * size.Y;
+            var height = 2 + _glitch.NextSingle() * 10;
+            var shift = (_glitch.NextSingle() - 0.5f) * size.X * 0.3f;
+            handle.DrawRect(new UIBox2(shift, y, size.X + shift, y + height), _theme.Phosphor.WithAlpha(0.12f + _glitch.NextSingle() * 0.2f));
+            handle.DrawRect(new UIBox2(0, y + height, size.X, y + height + 2), Color.Black.WithAlpha(0.6f));
+        }
+    }
+
+    /// <summary>Scrambles a share of a line's characters, freshly each frame.</summary>
+    private string Corrupt(string line)
+    {
+        if (!_corrupted)
+            return line;
+
+        var chars = line.ToCharArray();
+        for (var i = 0; i < chars.Length; i++)
+        {
+            if (chars[i] != ' ' && _glitch.NextSingle() < 0.07f)
+                chars[i] = GlitchChars[_glitch.Next(GlitchChars.Length)];
+        }
+
+        return new string(chars);
     }
 
     /// <summary>A dot stretches into a line across the middle, then the line opens into the full raster.</summary>
@@ -265,9 +315,10 @@ public sealed class CMUComputerBootSplash : Control
         const int visible = 3;
         for (var i = Math.Max(0, shown - visible); i < shown; i++)
         {
-            var width = Measure(_theme.Font, _lines[i], scale);
+            var text = Corrupt(_lines[i]);
+            var width = Measure(_theme.Font, text, scale);
             var color = i == shown - 1 ? _theme.Phosphor : _theme.Dim;
-            handle.DrawString(_theme.Font, new Vector2((size.X - width) / 2f, y), _lines[i], scale, color);
+            handle.DrawString(_theme.Font, new Vector2((size.X - width) / 2f, y), text, scale, color);
             y += lineHeight;
         }
     }

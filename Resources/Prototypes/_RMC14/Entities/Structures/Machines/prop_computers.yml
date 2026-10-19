@@ -73,6 +73,20 @@
     interfaces:
       enum.CMUPersonalComputerUiKey.Key:
         type: CMUPersonalComputerBui
+      enum.CMUDeepHackUiKey.Key:
+        type: CMUDeepHackBui
+      enum.RMCCameraUiKey.Key:
+        type: RMCCameraBui
+      enum.CMUComputerToolUiKey.Key:
+        type: CMUComputerToolBui
+      enum.CMUComputerLogUiKey.Key:
+        type: CMUComputerLogBui
+  - type: CMUDeepWebHackable
+  # Camera feeds tapped from the deep web; the network is set when a cam:// link is followed.
+  - type: RMCCameraComputer
+    title: cmu-deep-eyes-camera-title
+  - type: CameraNetworkReceiver
+    supportedSources: All
   # CMU14 End
 
 - type: entity

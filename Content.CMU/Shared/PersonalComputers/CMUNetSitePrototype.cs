@@ -61,4 +61,18 @@ public sealed partial class CMUNetSitePrototype : IPrototype
     /// <summary>Hidden sites still resolve but are left out of directory listings.</summary>
     [DataField]
     public bool Unlisted;
+
+    /// <summary>
+    /// Only reachable through the deep web's ad maze: scans never turn it up, and a computer cannot open it until
+    /// it has reached a page that links to it.
+    /// </summary>
+    [DataField]
+    public bool Hidden;
+
+    /// <summary>
+    /// Ending of the random address a deep site gets every round, e.g. <c>.deep</c>, <c>.file</c> or <c>.cam</c>.
+    /// Deep sites only answer at that address; <see cref="Address"/> is just how pages link to them.
+    /// </summary>
+    [DataField]
+    public string AliasSuffix = ".deep";
 }

@@ -1,0 +1,7 @@
+<Document>
+  <CMUNetStyle Background="#1E1A14" Text="#EDE3CF" Heading="#F2A33A" Link="#8CCB6A" Font="Sans"/>
+  # SOUP
+  Something warm for a cold colony night. Hover an underlined ingredient to see how it is made.
+
+  <CMUNetRecipes Kind="Food" Group="Soup"/>
+</Document>

@@ -1,5 +1,7 @@
+using Content.Client.CMU14.PersonalComputers.DeepWeb;
 using Content.Client.Guidebook.RichText;
 using Content.Shared.CMU14.PersonalComputers;
+using Content.Shared.CMU14.PersonalComputers.DeepWeb;
 using Robust.Client.UserInterface;
 using Robust.Client.UserInterface.Controls;
 using Robust.Shared.ContentPack;
@@ -9,7 +11,9 @@ using Robust.Shared.Utility;
 namespace Content.Client.CMU14.PersonalComputers;
 
 /// <summary>
-/// The ExtraNet browser: navigation bar, page and status line, in a desktop window.
+/// The ExtraNet browser: navigation bar, page and status line, in a desktop window. With a deep host it is The
+/// deeps.exi: it also loads ad pages from the server, follows <c>cam://</c> links and opens hidden sites once
+/// they are unlocked.
 /// </summary>
 public sealed partial class CMUNetBrowser : BoxContainer, ILinkClickHandler
 {
@@ -17,24 +21,34 @@ public sealed partial class CMUNetBrowser : BoxContainer, ILinkClickHandler
 
     [Dependency] private IEntityManager _entities = default!;
     [Dependency] private IResourceManager _resources = default!;
+    [Dependency] private IPrototypeManager _prototype = default!;
 
     private readonly CMUExtraNetSystem _net;
     private readonly CMUComputerTheme _theme;
     private readonly ICMUNetBoardHost? _boards;
     private readonly string? _colony;
     private readonly string? _colonyName;
+    private readonly ICMUDeepHost? _deep;
+    private readonly ICMUComputerHost? _shortcuts;
     private readonly HashSet<ProtoId<CMUNetworkPrototype>> _networks;
     private readonly string _home;
 
     private readonly LineEdit _address;
     private readonly Button _back;
     private readonly Button _forward;
+    private readonly Button _save;
     private readonly CMUNetPageView _view;
     private readonly BoxContainer _tabs;
     private readonly Label _status;
 
     private readonly List<string> _history = new();
     private int _historyIndex = -1;
+
+    /// <summary>The ad host waiting on the server, if the page on screen is one.</summary>
+    private string? _pendingAd;
+
+    /// <summary>The address on screen when it is a page that can be saved to the desktop.</summary>
+    private string? _saveable;
 
     /// <summary>Site title of the page on screen, for the window title.</summary>
     public string PageTitle { get; private set; } = string.Empty;
@@ -49,7 +63,9 @@ public sealed partial class CMUNetBrowser : BoxContainer, ILinkClickHandler
         string home,
         ICMUNetBoardHost? boards,
         string? colony,
-        string? colonyName)
+        string? colonyName,
+        ICMUDeepHost? deep = null,
+        ICMUComputerHost? shortcuts = null)
     {
         IoCManager.InjectDependencies(this);
         _net = _entities.System<CMUExtraNetSystem>();
@@ -57,6 +73,8 @@ public sealed partial class CMUNetBrowser : BoxContainer, ILinkClickHandler
         _boards = boards;
         _colony = colony;
         _colonyName = colonyName;
+        _deep = deep;
+        _shortcuts = shortcuts;
         _networks = networks;
         _home = home;
 
@@ -69,6 +87,10 @@ public sealed partial class CMUNetBrowser : BoxContainer, ILinkClickHandler
         var homeButton = theme.Button(Loc.GetString("cmu-pc-browser-home"));
         var directory = theme.Button(Loc.GetString("cmu-pc-browser-directory"));
         var go = theme.Button(Loc.GetString("cmu-pc-browser-go"));
+        _save = theme.Button(Loc.GetString("cmu-pc-browser-save"), Loc.GetString("cmu-pc-browser-save-tooltip"));
+        _save.Disabled = true;
+        _save.Visible = shortcuts != null;
+        _save.OnPressed += _ => Save();
 
         _address = new LineEdit
         {
@@ -100,7 +122,7 @@ public sealed partial class CMUNetBrowser : BoxContainer, ILinkClickHandler
             Orientation = LayoutOrientation.Horizontal,
             Margin = new Thickness(4, 4, 4, 4),
             SeparationOverride = 4,
-            Children = { _back, _forward, homeButton, directory, _address, go },
+            Children = { _back, _forward, homeButton, directory, _address, go, _save },
         });
         AddChild(new CMUTerminalRule { Color = theme.Phosphor.WithAlpha(0.6f) });
         AddChild(_tabs);
@@ -114,29 +136,66 @@ public sealed partial class CMUNetBrowser : BoxContainer, ILinkClickHandler
         });
     }
 
+    protected override void EnteredTree()
+    {
+        base.EnteredTree();
+        if (_deep != null)
+            _deep.PageReceived += OnPageReceived;
+    }
+
+    protected override void ExitedTree()
+    {
+        base.ExitedTree();
+        if (_deep != null)
+            _deep.PageReceived -= OnPageReceived;
+    }
+
     public void HandleClick(string link)
     {
         Click(link);
     }
 
+    private void Save()
+    {
+        if (_saveable == null || _shortcuts == null)
+            return;
+
+        OnClicked?.Invoke();
+        _shortcuts.SaveShortcut(_saveable, PageTitle.Length == 0 ? _saveable : PageTitle);
+        _status.Text = Loc.GetString("cmu-pc-browser-status-saved");
+    }
+
+    /// <summary>Links and tabs on pages may use a deep site's fixed name; the address bar may not.</summary>
     private void Click(string address)
     {
         OnClicked?.Invoke();
-        Navigate(address);
+        Navigate(address, true);
     }
 
     public void Navigate(string address)
     {
+        Navigate(address, false);
+    }
+
+    private void Navigate(string address, bool fromPage)
+    {
         address = address.Trim();
         if (address.Length == 0)
             return;
+
+        // Camera links open a feed on the computer instead of a page.
+        if (address.StartsWith(CMUDeepAddress.CameraScheme, StringComparison.OrdinalIgnoreCase))
+        {
+            _deep?.OpenCamera(address[CMUDeepAddress.CameraScheme.Length..].Trim('/'));
+            return;
+        }
 
         if (_historyIndex < _history.Count - 1)
             _history.RemoveRange(_historyIndex + 1, _history.Count - _historyIndex - 1);
 
         _history.Add(address);
         _historyIndex = _history.Count - 1;
-        Show(address);
+        Show(address, fromPage);
     }
 
     private void GoHistory(int offset)
@@ -147,13 +206,43 @@ public sealed partial class CMUNetBrowser : BoxContainer, ILinkClickHandler
 
         OnClicked?.Invoke();
         _historyIndex = index;
-        Show(_history[index]);
+        Show(_history[index], false);
     }
 
-    private void Show(string address)
+    private void Show(string address, bool fromPage)
     {
         _back.Disabled = _historyIndex <= 0;
         _forward.Disabled = _historyIndex >= _history.Count - 1;
+        _pendingAd = null;
+        SetSaveable(null);
+
+        if (_deep != null && address.Equals(CMUDeepHome.Address, StringComparison.OrdinalIgnoreCase))
+        {
+            _tabs.Visible = false;
+            _address.Text = CMUDeepHome.Address;
+            _view.ShowControls((page, _) =>
+            {
+                var home = new CMUDeepHome(_theme, _deep);
+                home.OnClicked += () => OnClicked?.Invoke();
+                home.OnKeyTyped += () => OnKeyTyped?.Invoke();
+                page.AddChild(home);
+            });
+            SetStatus(Loc.GetString("cmu-deep-home-title"), "cmu-pc-browser-status-done");
+            SetSaveable(CMUDeepHome.Address);
+            return;
+        }
+
+        var host = CMUExtraNetSystem.Split(address).Host;
+        if (_deep != null && CMUDeepAddress.IsAd(host))
+        {
+            _tabs.Visible = false;
+            _address.Text = host;
+            _pendingAd = host;
+            ShowSystemPage("cmu-deep-ad-loading-title", "cmu-deep-ad-loading-body", host);
+            SetStatus(Loc.GetString("cmu-deep-ad-title"), "cmu-pc-browser-status-loading");
+            _deep.RequestPage(host);
+            return;
+        }
 
         if (address.Equals(DirectoryAddress, StringComparison.OrdinalIgnoreCase))
         {
@@ -161,10 +250,20 @@ public sealed partial class CMUNetBrowser : BoxContainer, ILinkClickHandler
             _address.Text = DirectoryAddress;
             ShowDirectory();
             SetStatus(Loc.GetString("cmu-pc-browser-directory-title"), "cmu-pc-browser-status-done");
+            SetSaveable(DirectoryAddress);
             return;
         }
 
-        var page = _net.Resolve(address, _networks);
+        var page = Resolve(address, fromPage);
+
+        // History keeps the address as shown, so going back to a deep page needs no fixed name.
+        if (_historyIndex >= 0 && page.Result != CMUNetResolveResult.UnknownHost)
+            _history[_historyIndex] = page.Address;
+
+        // A hidden site does not exist until this computer has followed the ads to it.
+        if (page.Site is { Hidden: true } hidden && (_deep == null || !_deep.Unlocked.Contains(hidden.ID)))
+            page = new CMUNetPage(CMUNetResolveResult.UnknownHost, page.Address, null, null);
+
         _address.Text = page.Address;
         ShowTabs(page);
         var siteTitle = page.Site == null ? string.Empty : Loc.GetString(page.Site.Title);
@@ -184,6 +283,8 @@ public sealed partial class CMUNetBrowser : BoxContainer, ILinkClickHandler
                 {
                     _view.ShowDocument(FillColony(reader.ReadToEnd()), page.Site!.Style);
                 }
+
+                SetSaveable(page.Address);
 
                 // A board's postings run under its index page.
                 if (page.Site.Board != null && CMUExtraNetSystem.Split(page.Address).Path.Length == 0)
@@ -213,6 +314,53 @@ public sealed partial class CMUNetBrowser : BoxContainer, ILinkClickHandler
                 SetStatus(string.Empty, "cmu-pc-browser-status-error");
                 break;
         }
+    }
+
+    /// <summary>
+    /// Deep sites only answer at this round's random address, which is what the address bar shows. Their fixed
+    /// names still work in links on pages, so pages can link to each other, but typed in they go nowhere.
+    /// </summary>
+    private CMUNetPage Resolve(string address, bool fromPage)
+    {
+        var (host, path) = CMUExtraNetSystem.Split(address);
+        if (_deep != null)
+        {
+            foreach (var (siteId, alias) in _deep.Aliases)
+            {
+                if (alias != host || !_prototype.TryIndex(siteId, out var aliased))
+                    continue;
+
+                var found = _net.Resolve(path.Length == 0 ? aliased.Address : $"{aliased.Address}/{path}", _networks);
+                return found with { Address = path.Length == 0 ? alias : $"{alias}/{path}" };
+            }
+        }
+
+        var page = _net.Resolve(address, _networks);
+        if (page.Site == null || !CMUExtraNetSystem.IsDeep(page.Site))
+            return page;
+
+        if (!fromPage || _deep == null || !_deep.Aliases.TryGetValue(page.Site.ID, out var known))
+            return new CMUNetPage(CMUNetResolveResult.UnknownHost, page.Address, null, null);
+
+        var pagePath = CMUExtraNetSystem.Split(page.Address).Path;
+        return page with { Address = pagePath.Length == 0 ? known : $"{known}/{pagePath}" };
+    }
+
+    private void OnPageReceived(CMUDeepPageMessage message)
+    {
+        if (message.Host != _pendingAd)
+            return;
+
+        _pendingAd = null;
+        _view.ShowDocument(message.Markup, null);
+        SetStatus(Loc.GetString("cmu-deep-ad-title"), "cmu-pc-browser-status-done");
+        SetSaveable(message.Host);
+    }
+
+    private void SetSaveable(string? address)
+    {
+        _saveable = address;
+        _save.Disabled = address == null;
     }
 
     /// <summary>This colony's (or map's) own version of a page, <c>&lt;root&gt;/&lt;colony&gt;/&lt;file&gt;</c>, when the site has one.</summary>
@@ -262,7 +410,14 @@ public sealed partial class CMUNetBrowser : BoxContainer, ILinkClickHandler
         PageTitle = title;
         _status.Text = Loc.GetString(status);
         OnTitleChanged?.Invoke(title);
+
+        // Every finished load goes to the terminal's log; failed lookups of live deep addresses alert the Marshals.
+        if (status != "cmu-pc-browser-status-loading")
+            _shortcuts?.Visited(_address.Text, status == "cmu-pc-browser-status-done");
     }
+
+    /// <summary>The computer this browser runs on, for page tags that talk to the server.</summary>
+    public ICMUComputerHost? Host => _shortcuts;
 
     private void ShowSystemPage(string title, string body, string address)
     {

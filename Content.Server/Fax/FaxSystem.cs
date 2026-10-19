@@ -613,6 +613,10 @@ public sealed partial class FaxSystem : EntitySystem
             NotifyAdmins(faxName, uid);
 
         component.PrintingQueue.Enqueue(printout);
+        // CMU14 PersonalComputers Begin: the Marshals keep copies of every fax
+        var cmuReceived = new Content.Server.CMU14.PersonalComputers.CMUFaxReceivedEvent(uid, printout);
+        RaiseLocalEvent(ref cmuReceived);
+        // CMU14 End
     }
 
     private void SpawnPaperFromQueue(EntityUid uid, FaxMachineComponent? component = null)

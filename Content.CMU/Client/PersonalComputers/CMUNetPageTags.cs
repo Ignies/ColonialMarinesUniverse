@@ -8,6 +8,11 @@ using Robust.Client.Graphics;
 using Robust.Client.ResourceManagement;
 using Robust.Client.UserInterface;
 using Robust.Client.UserInterface.Controls;
+using Content.Client.Station;
+using Content.Shared.Preferences;
+using Content.Shared.Roles;
+using Robust.Shared.Map;
+using Robust.Shared.Prototypes;
 using Robust.Shared.Serialization.TypeSerializers.Implementations;
 using Robust.Shared.Timing;
 using Robust.Shared.Utility;
@@ -201,5 +206,284 @@ public sealed partial class CMUNetMarquee : Control, IDocumentTag
         return TryGetStyleProperty<Font>("font", out var font)
             ? font
             : UserInterfaceManager.ThemeDefaults.DefaultFont;
+    }
+}
+
+/// <summary>
+/// A pop up drawn over the page inside the browser window, with a title bar and a close box:
+/// <c>&lt;CMUNetPopup Title="..." Text="..." Link="host" LinkText="..." Icon="/Textures/..." X="0.6" Y="0.2"
+/// Delay="1.5" Background="#202020" Accent="#FFD200"/&gt;</c>. X and Y place it as a fraction of the page view,
+/// Delay is how long after the page opens it appears. Only Title and Text are required.
+/// </summary>
+[UsedImplicitly]
+public sealed partial class CMUNetPopup : PanelContainer, IDocumentTag
+{
+    [Dependency] private IResourceCache _cache = default!;
+
+    public Vector2 Place = new(0.5f, 0.3f);
+    public float Delay = 1f;
+    public bool Closed;
+
+    public CMUNetPopup()
+    {
+        IoCManager.InjectDependencies(this);
+    }
+
+    public bool TryParseTag(Dictionary<string, string> args, [NotNullWhen(true)] out Control? control)
+    {
+        control = null;
+        if (!args.TryGetValue("Title", out var title) || !args.TryGetValue("Text", out var text))
+            return false;
+
+        var culture = System.Globalization.CultureInfo.InvariantCulture;
+        if (args.TryGetValue("X", out var x) && float.TryParse(x, culture, out var px))
+            Place.X = Math.Clamp(px, 0, 1);
+        if (args.TryGetValue("Y", out var y) && float.TryParse(y, culture, out var py))
+            Place.Y = Math.Clamp(py, 0, 1);
+        if (args.TryGetValue("Delay", out var delay) && float.TryParse(delay, culture, out var pd))
+            Delay = Math.Max(0, pd);
+
+        var background = args.TryGetValue("Background", out var bg) && Color.TryFromHex(bg, out var b) ? b : Color.FromHex("#1A1A1A");
+        var accent = args.TryGetValue("Accent", out var ac) && Color.TryFromHex(ac, out var a) ? a : Color.FromHex("#FFD200");
+
+        // Text goes dark on light pop ups and light on dark ones, whatever page they sit on.
+        var ink = background.R * 0.299f + background.G * 0.587f + background.B * 0.114f > 0.55f
+            ? Color.FromHex("#141414")
+            : Color.FromHex("#F2F2F2");
+        var close = new Button { Text = "X", ModulateSelfOverride = Color.White };
+        close.StyleBoxOverride = new StyleBoxFlat { BackgroundColor = background, BorderColor = Color.Black, BorderThickness = new Thickness(1) };
+        close.Label.FontColorOverride = accent;
+        close.OnPressed += _ =>
+        {
+            Closed = true;
+            Visible = false;
+        };
+
+        var body = new BoxContainer { Orientation = BoxContainer.LayoutOrientation.Horizontal, SeparationOverride = 8, Margin = new Thickness(6) };
+        if (args.TryGetValue("Icon", out var icon) && _cache.TryGetResource<TextureResource>(new ResPath(icon), out var texture))
+        {
+            body.AddChild(new TextureRect
+            {
+                Texture = texture.Texture,
+                TextureScale = new Vector2(2, 2),
+                VerticalAlignment = VAlignment.Top,
+            });
+        }
+
+        var message = new RichTextLabel { HorizontalExpand = true };
+        var formatted = new FormattedMessage();
+        formatted.PushColor(ink);
+        formatted.AddText(text);
+        formatted.Pop();
+        message.SetMessage(formatted);
+        var column = new BoxContainer { Orientation = BoxContainer.LayoutOrientation.Vertical, HorizontalExpand = true, SeparationOverride = 6 };
+        column.AddChild(message);
+        if (args.TryGetValue("Link", out var link))
+        {
+            var label = new CMUNetLinkLabel(args.TryGetValue("LinkText", out var linkText) ? linkText : link, link)
+            {
+                HorizontalAlignment = HAlignment.Left,
+                ClipText = true,
+            };
+            label.SetColors(accent, background);
+            column.AddChild(label);
+        }
+
+        body.AddChild(column);
+        PanelOverride = new StyleBoxFlat { BackgroundColor = background, BorderColor = accent, BorderThickness = new Thickness(2) };
+        SetWidth = 250;
+        MouseFilter = MouseFilterMode.Stop;
+        Visible = false;
+        AddChild(new BoxContainer
+        {
+            Orientation = BoxContainer.LayoutOrientation.Vertical,
+            Children =
+            {
+                new PanelContainer
+                {
+                    PanelOverride = new StyleBoxFlat { BackgroundColor = accent },
+                    Children =
+                    {
+                        new BoxContainer
+                        {
+                            Orientation = BoxContainer.LayoutOrientation.Horizontal,
+                            Margin = new Thickness(4, 1, 1, 1),
+                            Children =
+                            {
+                                new Label { Text = title, FontColorOverride = background, HorizontalExpand = true, ClipText = true },
+                                close,
+                            },
+                        },
+                    },
+                },
+                body,
+            },
+        });
+
+        control = this;
+        return true;
+    }
+}
+
+/// <summary>
+/// A product ad from a <see cref="Content.Shared.CMU14.PersonalComputers.DeepWeb.CMUDeepAdPrototype"/>:
+/// <c>&lt;CMUNetAd Id="CMUDeepAdPowerLoader" Flip="true"/&gt;</c>. The product is the entity itself, drawn
+/// from its sprite, on a banner in the ad's colours. Flip puts the product on the right.
+/// </summary>
+[UsedImplicitly]
+public sealed partial class CMUNetAd : Control, IDocumentTag
+{
+    private const string BadgeRsi = "/Textures/CMU14/PersonalComputers/Sites/Ads/badges.rsi";
+
+    [Dependency] private IEntityManager _entities = default!;
+    [Dependency] private IPrototypeManager _prototypes = default!;
+
+    private Color _top;
+    private Color _bottom;
+    private Color _accent;
+    private ProtoId<StartingGearPrototype>? _gear;
+    private SpriteView? _person;
+    private EntityUid? _dummy;
+
+    public CMUNetAd()
+    {
+        IoCManager.InjectDependencies(this);
+        Margin = new Thickness(0, 6);
+        HorizontalExpand = true;
+        MinHeight = 104;
+    }
+
+    public bool TryParseTag(Dictionary<string, string> args, [NotNullWhen(true)] out Control? control)
+    {
+        control = null;
+        if (!args.TryGetValue("Id", out var id)
+            || !_prototypes.TryIndex<Content.Shared.CMU14.PersonalComputers.DeepWeb.CMUDeepAdPrototype>(id, out var ad)
+            || ad.Gear is { } gear && !_prototypes.HasIndex(gear)
+            || ad.Gear == null && (ad.Entity is not { } entity || !_prototypes.HasIndex(entity)))
+            return false;
+
+        _top = ad.Top;
+        _bottom = ad.Bottom;
+        _accent = ad.Accent;
+
+        _gear = ad.Gear;
+        _person = new SpriteView(_entities)
+        {
+            Scale = new Vector2(ad.Scale, ad.Scale),
+            OverrideDirection = Direction.South,
+            MinSize = new Vector2(32 * ad.Scale, 32 * ad.Scale),
+            VerticalAlignment = VAlignment.Center,
+        };
+        Control product = ad.Gear != null
+            ? _person
+            : new EntityPrototypeView(ad.Entity, _entities)
+            {
+                Scale = new Vector2(ad.Scale, ad.Scale),
+                OverrideDirection = Direction.South,
+                MinSize = new Vector2(32 * ad.Scale, 32 * ad.Scale),
+                VerticalAlignment = VAlignment.Center,
+            };
+
+        var words = new BoxContainer
+        {
+            Orientation = BoxContainer.LayoutOrientation.Vertical,
+            HorizontalExpand = true,
+            VerticalAlignment = VAlignment.Center,
+            Children =
+            {
+                new Label { Text = Loc.GetString(ad.Brand).ToUpperInvariant(), StyleClasses = { "LabelKeyText" }, FontColorOverride = ad.Accent },
+                new Label { Text = Loc.GetString(ad.Product), StyleClasses = { "LabelHeadingBigger" }, FontColorOverride = ad.Text, ClipText = true },
+                new Label { Text = Loc.GetString(ad.Slogan), FontColorOverride = ad.Text.WithAlpha(0.85f), ClipText = true },
+            },
+        };
+
+        var corner = new BoxContainer { Orientation = BoxContainer.LayoutOrientation.Vertical, VerticalAlignment = VAlignment.Center, SeparationOverride = 4 };
+        if (ad.Badge.Length > 0)
+        {
+            var badge = new AnimatedTextureRect { HorizontalAlignment = HAlignment.Center };
+            badge.SetFromSpriteSpecifier(new SpriteSpecifier.Rsi(new ResPath(BadgeRsi).RelativeTo(SpriteSpecifierSerializer.TextureRoot), ad.Badge));
+            badge.DisplayRect.TextureScale = new Vector2(2, 2);
+            corner.AddChild(badge);
+        }
+
+        if (ad.Price.Length > 0)
+        {
+            corner.AddChild(new PanelContainer
+            {
+                PanelOverride = new StyleBoxFlat { BackgroundColor = ad.Accent, BorderColor = Color.Black, BorderThickness = new Thickness(1) },
+                Children = { new Label { Text = ad.Price, StyleClasses = { "LabelHeading" }, FontColorOverride = ad.Bottom, Margin = new Thickness(6, 0) } },
+            });
+        }
+
+        var row = new BoxContainer
+        {
+            Orientation = BoxContainer.LayoutOrientation.Horizontal,
+            SeparationOverride = 12,
+            Margin = new Thickness(10, 6),
+        };
+        var flip = args.TryGetValue("Flip", out var flipText) && bool.TryParse(flipText, out var flipped) && flipped;
+        if (flip)
+        {
+            row.AddChild(words);
+            row.AddChild(corner);
+            row.AddChild(product);
+        }
+        else
+        {
+            row.AddChild(product);
+            row.AddChild(words);
+            row.AddChild(corner);
+        }
+
+        AddChild(row);
+        control = this;
+        return true;
+    }
+
+    // A dressed doll lives only while the ad is on screen, so popping the window out spawns it again.
+    protected override void EnteredTree()
+    {
+        base.EnteredTree();
+        if (_gear is not { } gear || _person == null || _dummy != null)
+            return;
+
+        var doll = _prototypes.Index(HumanoidCharacterProfile.DefaultSpecies).DollPrototype;
+        var dummy = _entities.SpawnEntity(doll, MapCoordinates.Nullspace);
+        _entities.System<StationSpawningSystem>().EquipStartingGear(dummy, gear);
+        _dummy = dummy;
+        _person.SetEntity(dummy);
+    }
+
+    protected override void ExitedTree()
+    {
+        base.ExitedTree();
+        if (_dummy is not { } dummy)
+            return;
+
+        _person?.SetEntity(null);
+        _entities.QueueDeleteEntity(dummy);
+        _dummy = null;
+    }
+
+    /// <summary>A gradient banner with a frame and faint scanlines, like a CRT commercial.</summary>
+    protected override void Draw(DrawingHandleScreen handle)
+    {
+        var bands = 24;
+        var height = PixelHeight / (float) bands;
+        for (var i = 0; i < bands; i++)
+        {
+            var colour = Color.InterpolateBetween(_top, _bottom, i / (float) (bands - 1));
+            handle.DrawRect(new UIBox2(0, i * height, PixelWidth, (i + 1) * height + 1), colour);
+        }
+
+        var line = Color.Black.WithAlpha(0.12f);
+        for (var y = 0f; y < PixelHeight; y += 3 * UIScale)
+            handle.DrawLine(new Vector2(0, y), new Vector2(PixelWidth, y), line);
+
+        var frame = MathF.Max(1, MathF.Round(2 * UIScale));
+        handle.DrawRect(new UIBox2(0, 0, PixelWidth, frame), _accent);
+        handle.DrawRect(new UIBox2(0, PixelHeight - frame, PixelWidth, PixelHeight), _accent);
+        handle.DrawRect(new UIBox2(0, 0, frame, PixelHeight), _accent);
+        handle.DrawRect(new UIBox2(PixelWidth - frame, 0, PixelWidth, PixelHeight), _accent);
     }
 }

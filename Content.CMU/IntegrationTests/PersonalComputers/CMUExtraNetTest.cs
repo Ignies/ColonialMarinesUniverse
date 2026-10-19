@@ -6,7 +6,9 @@ using Content.Client.Guidebook.Controls;
 using Content.Client.Guidebook.Richtext;
 using Content.IntegrationTests.Fixtures;
 using Content.Shared.Maps;
+using Content.Shared.Camera;
 using Content.Shared.CMU14.PersonalComputers;
+using Content.Shared.CMU14.PersonalComputers.DeepWeb;
 using Robust.Client.UserInterface;
 using Robust.Shared.ContentPack;
 using Robust.Shared.Prototypes;
@@ -116,6 +118,15 @@ public sealed class CMUExtraNetTest : GameTest
         foreach (var link in controls.OfType<CMUNetLinkLabel>())
         {
             links++;
+
+            // Camera links open a camera network instead of a page.
+            if (link.Link.StartsWith(CMUDeepAddress.CameraScheme, StringComparison.Ordinal))
+            {
+                var network = link.Link[CMUDeepAddress.CameraScheme.Length..];
+                Assert.That(IoCManager.Resolve<IPrototypeManager>().HasIndex<CameraNetworkPrototype>(network),
+                    $"Document {resPath} links to camera network {network}, which does not exist.");
+                continue;
+            }
             Assert.That(net.Resolve(link.Link, null).Result, Is.EqualTo(CMUNetResolveResult.Found),
                 $"Document {resPath} links to {link.Link}, which is not a page.");
         }
@@ -140,8 +151,10 @@ public sealed class CMUExtraNetTest : GameTest
             {
                 foreach (var os in protoMan.EnumeratePrototypes<CMUComputerOsPrototype>())
                 {
-                    Assert.That(net.Resolve(os.HomePage, os.Networks).Result, Is.EqualTo(CMUNetResolveResult.Found),
-                        $"{os.ID} home page {os.HomePage} is not a reachable page.");
+                    // Built in pages, like The deeps.exi home, are drawn by the browser rather than loaded.
+                    if (!CMUExtraNetSystem.IsBuiltIn(os.HomePage))
+                        Assert.That(net.Resolve(os.HomePage, os.Networks).Result, Is.EqualTo(CMUNetResolveResult.Found),
+                            $"{os.ID} home page {os.HomePage} is not a reachable page.");
 
                     // The logo file may not exist yet, but the path must be one the splash can load once it does.
                     foreach (var logo in os.Logos)

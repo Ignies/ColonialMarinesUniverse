@@ -1,5 +1,8 @@
+using System.Linq;
 using System.Numerics;
+using Content.Client.CMU14.PersonalComputers.DeepWeb;
 using Content.Shared.CMU14.PersonalComputers;
+using Robust.Client.ResourceManagement;
 using Robust.Client.Graphics;
 using Robust.Client.UserInterface;
 using Robust.Client.UserInterface.Controls;
@@ -25,12 +28,18 @@ public sealed partial class CMUComputerDesktop : BoxContainer
     private readonly ICMUNetBoardHost? _boards;
     private readonly string? _colony;
     private readonly string? _colonyName;
+    private readonly ICMUDeepHost? _deep;
+    private readonly ICMUComputerHost? _shortcuts;
+    private readonly ProtoId<CMUNetworkPrototype> _deepNetwork = "CMUNetDeep";
 
     private readonly LayoutContainer _area;
     private readonly BoxContainer _tasks;
     private readonly Label _clock;
     private readonly PanelContainer _startMenu;
+    private readonly GridContainer _iconGrid;
     private readonly List<CMUDesktopIcon> _icons = new();
+    private string _shownShortcuts = string.Empty;
+    private float _shortcutCheck;
     private readonly List<CMUDesktopWindow> _windows = new();
     private readonly Dictionary<CMUDesktopWindow, Button> _taskButtons = new();
     private readonly TimeSpan _bootedAt;
@@ -48,9 +57,13 @@ public sealed partial class CMUComputerDesktop : BoxContainer
         string terminalName,
         ICMUNetBoardHost? boards,
         string? colony,
-        string? colonyName)
+        string? colonyName,
+        ICMUDeepHost? deep,
+        ICMUComputerHost? shortcuts = null)
     {
         IoCManager.InjectDependencies(this);
+        _deep = deep;
+        _shortcuts = shortcuts;
         _boards = boards;
         _colony = colony;
         _colonyName = colonyName;
@@ -77,16 +90,11 @@ public sealed partial class CMUComputerDesktop : BoxContainer
             _startMenu!.Visible = false;
         };
 
-        var icons = new BoxContainer
-        {
-            Orientation = LayoutOrientation.Vertical,
-            SeparationOverride = 6,
-        };
-        AddIcon(icons, CMUComputerApp.Browser, "cmu-pc-app-browser");
-        AddIcon(icons, CMUComputerApp.Files, "cmu-pc-app-files");
-        AddIcon(icons, CMUComputerApp.System, "cmu-pc-app-system");
-        _area.AddChild(icons);
-        LayoutContainer.SetPosition(icons, new Vector2(10, 10));
+        // Programs then saved links, filling down a column and on to the next, like a real desktop.
+        _iconGrid = new GridContainer { Rows = 5, VSeparationOverride = 6, HSeparationOverride = 6 };
+        BuildIcons();
+        _area.AddChild(_iconGrid);
+        LayoutContainer.SetPosition(_iconGrid, new Vector2(10, 10));
 
         _startMenu = BuildStartMenu();
         _area.AddChild(_startMenu);
@@ -131,13 +139,70 @@ public sealed partial class CMUComputerDesktop : BoxContainer
         });
     }
 
-    private void AddIcon(BoxContainer column, CMUComputerApp app, string label)
+    private void BuildIcons()
+    {
+        _icons.Clear();
+        _iconGrid.RemoveAllChildren();
+        AddIcon(CMUComputerApp.Browser, "cmu-pc-app-browser");
+        AddIcon(CMUComputerApp.Files, "cmu-pc-app-files");
+        AddIcon(CMUComputerApp.System, "cmu-pc-app-system");
+        if (_deep != null)
+            AddIcon(CMUComputerApp.Deeps, "cmu-pc-app-deeps");
+
+        if (_shortcuts == null)
+            return;
+
+        foreach (var shortcut in _shortcuts.Shortcuts)
+        {
+            var app = _deep != null && IsDeepLink(shortcut.Address) ? CMUComputerApp.Deeps : CMUComputerApp.Browser;
+            var icon = new CMUDesktopIcon(_theme, app, shortcut.Title, shortcut.Address);
+            icon.OnSelect += SelectIcon;
+            icon.OnOpen += _ => OpenLink(shortcut.Address);
+            icon.OnRemove += _ =>
+            {
+                OnClicked?.Invoke();
+                _shortcuts.RemoveShortcut(shortcut.Address);
+            };
+            _icons.Add(icon);
+            _iconGrid.AddChild(icon);
+        }
+    }
+
+    private void AddIcon(CMUComputerApp app, string label)
     {
         var icon = new CMUDesktopIcon(_theme, app, Loc.GetString(label));
         icon.OnSelect += SelectIcon;
         icon.OnOpen += Open;
         _icons.Add(icon);
-        column.AddChild(icon);
+        _iconGrid.AddChild(icon);
+    }
+
+    /// <summary>Deep sites, ad pages and The deeps.exi home open in The deeps.exi.</summary>
+    private bool IsDeepLink(string address)
+    {
+        if (address.StartsWith("deeps://", StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        var host = CMUExtraNetSystem.Split(address).Host;
+        return Content.Shared.CMU14.PersonalComputers.DeepWeb.CMUDeepAddress.IsAd(host)
+            || _deep != null && _deep.Aliases.Values.Contains(host);
+    }
+
+    /// <summary>A saved page, always in a new window of the browser it belongs to.</summary>
+    private void OpenLink(string address)
+    {
+        OnClicked?.Invoke();
+        if (_deep != null && IsDeepLink(address))
+        {
+            var deeps = NewDeepsBrowser(_deep);
+            deeps.Navigate(address);
+            AddWindow(CMUComputerApp.Deeps, Loc.GetString("cmu-pc-app-deeps"), deeps, new Vector2(640, 440));
+            return;
+        }
+
+        var browser = NewBrowser();
+        browser.Navigate(address);
+        AddWindow(CMUComputerApp.Browser, Loc.GetString("cmu-pc-app-browser"), browser, new Vector2(640, 440));
     }
 
     private void SelectIcon(CMUDesktopIcon? selected)
@@ -160,8 +225,12 @@ public sealed partial class CMUComputerDesktop : BoxContainer
                      (CMUComputerApp.Browser, "cmu-pc-app-browser"),
                      (CMUComputerApp.Files, "cmu-pc-app-files"),
                      (CMUComputerApp.System, "cmu-pc-app-system"),
+                     (CMUComputerApp.Deeps, "cmu-pc-app-deeps"),
                  })
         {
+            if (app == CMUComputerApp.Deeps && _deep == null)
+                continue;
+
             var button = _theme.AppButton(app, Loc.GetString(label));
             button.HorizontalExpand = true;
             button.OnPressed += _ =>
@@ -170,6 +239,19 @@ public sealed partial class CMUComputerDesktop : BoxContainer
                 Open(app);
             };
             list.AddChild(button);
+        }
+
+        if (_shortcuts is { RequireLogin: true })
+        {
+            var logOff = _theme.Button(Loc.GetString("cmu-pc-start-log-off"));
+            logOff.HorizontalExpand = true;
+            logOff.OnPressed += _ =>
+            {
+                _startMenu.Visible = false;
+                OnClicked?.Invoke();
+                _shortcuts.Logout();
+            };
+            list.AddChild(logOff);
         }
 
         var shutDown = _theme.Button(Loc.GetString("cmu-pc-start-shut-down"));
@@ -189,9 +271,32 @@ public sealed partial class CMUComputerDesktop : BoxContainer
     protected override void FrameUpdate(FrameEventArgs args)
     {
         base.FrameUpdate(args);
+        RefreshShortcuts(args.DeltaSeconds);
         // Shift clock: the round starts at 06:00 colony time.
         var time = TimeSpan.FromHours(6) + _timing.CurTime;
         _clock.Text = $"{time.Hours:00}:{time.Minutes:00}";
+    }
+
+    /// <summary>Rebuilds the icons when the saved links change, checked twice a second.</summary>
+    private void RefreshShortcuts(float frameTime)
+    {
+        if (_shortcuts == null)
+            return;
+
+        _shortcutCheck -= frameTime;
+        if (_shortcutCheck > 0)
+            return;
+
+        _shortcutCheck = 0.5f;
+        var shown = string.Empty;
+        foreach (var shortcut in _shortcuts.Shortcuts)
+            shown += $"{shortcut.Address}\t{shortcut.Title}\n";
+
+        if (shown == _shownShortcuts)
+            return;
+
+        _shownShortcuts = shown;
+        BuildIcons();
     }
 
     protected override void Draw(DrawingHandleScreen handle)
@@ -276,15 +381,33 @@ public sealed partial class CMUComputerDesktop : BoxContainer
             case CMUComputerApp.Files:
                 AddWindow(app, Loc.GetString("cmu-pc-app-files"), BuildFiles(), new Vector2(560, 380));
                 break;
+            case CMUComputerApp.Deeps when _deep != null:
+                var deeps = NewDeepsBrowser(_deep);
+                deeps.Navigate(CMUDeepHome.Address);
+                AddWindow(app, Loc.GetString("cmu-pc-app-deeps"), deeps, new Vector2(640, 440));
+                break;
             default:
                 AddWindow(app, Loc.GetString("cmu-pc-app-system"), BuildSystem(), new Vector2(560, 300));
                 break;
         }
     }
 
+    /// <summary>The ExtraNet browser. It stays off the deep network: only The deeps.exi goes there.</summary>
     private CMUNetBrowser NewBrowser()
     {
-        var browser = new CMUNetBrowser(_theme, _networks, _home, _boards, _colony, _colonyName);
+        var networks = new HashSet<ProtoId<CMUNetworkPrototype>>(_networks);
+        networks.Remove(_deepNetwork);
+        var browser = new CMUNetBrowser(_theme, networks, _home, _boards, _colony, _colonyName, null, _shortcuts);
+        browser.OnKeyTyped += () => OnKeyTyped?.Invoke();
+        browser.OnClicked += () => OnClicked?.Invoke();
+        return browser;
+    }
+
+    /// <summary>The deeps.exi: the same browser in the deep skin, reaching everything this computer can.</summary>
+    private CMUNetBrowser NewDeepsBrowser(ICMUDeepHost deep)
+    {
+        var skin = new CMUComputerTheme(_prototype.Index<CMUComputerOsPrototype>("CMUOsDeeps"), IoCManager.Resolve<IResourceCache>());
+        var browser = new CMUNetBrowser(skin, _networks, CMUDeepHome.Address, _boards, _colony, _colonyName, deep, _shortcuts);
         browser.OnKeyTyped += () => OnKeyTyped?.Invoke();
         browser.OnClicked += () => OnClicked?.Invoke();
         return browser;
@@ -437,6 +560,12 @@ public sealed partial class CMUComputerDesktop : BoxContainer
 
         box.AddChild(new CMUTerminalRule { Color = _theme.Accent, Margin = new Thickness(0, 4) });
         box.AddChild(_theme.Label(Loc.GetString("cmu-pc-system-terminal", ("name", _terminalName))));
+        if (_shortcuts != null)
+        {
+            box.AddChild(_theme.Label(Loc.GetString("cmu-pc-system-terminal-id", ("id", _shortcuts.TerminalId))));
+            if (_shortcuts.SessionUser is { } user)
+                box.AddChild(_theme.Label(Loc.GetString("cmu-pc-system-user", ("name", user), ("job", _shortcuts.SessionJob ?? "-"))));
+        }
 
         var names = new List<string>();
         foreach (var network in _networks)

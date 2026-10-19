@@ -1,0 +1,7 @@
+<Document>
+  <CMUNetStyle Background="#1E1A14" Text="#EDE3CF" Heading="#F2A33A" Link="#8CCB6A" Font="Sans"/>
+  # BREADS
+  Loaves and buns for the mess line. Hover an underlined ingredient to see how it is made.
+
+  <CMUNetRecipes Kind="Food" Group="Breads"/>
+</Document>

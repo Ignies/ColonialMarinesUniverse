@@ -1,5 +1,6 @@
 using System.Numerics;
 using Content.Client.CMU14.Interface;
+using Content.Client.CMU14.PersonalComputers.DeepWeb;
 using Content.Shared.CMU14.PersonalComputers;
 using Robust.Client.Graphics;
 using Robust.Client.ResourceManagement;
@@ -28,6 +29,13 @@ public sealed partial class CMUPersonalComputerWindow : DefaultWindow
     private CMUComputerDesktop? _desktop;
     private OSWindow? _popOut;
     private CMUComputerBootSplash? _finishedSplash;
+    private ICMUComputerHost? _host;
+    private Func<CMUComputerDesktop>? _newDesktop;
+    private bool _booted;
+    private bool _sessionShown;
+    private bool _showingDesktop;
+    private bool _desktopUsed;
+    private string? _shownUser;
 
     public event Action? OnKeyTyped;
     public event Action? OnClicked;
@@ -91,7 +99,9 @@ public sealed partial class CMUPersonalComputerWindow : DefaultWindow
         string terminalName,
         ICMUNetBoardHost? boards,
         string? colony,
-        string? colonyName)
+        string? colonyName,
+        ICMUDeepHost? deep = null,
+        ICMUComputerHost? shortcuts = null)
     {
         _theme = new CMUComputerTheme(os, _cache);
         Title = Loc.GetString(os.Name);
@@ -99,12 +109,24 @@ public sealed partial class CMUPersonalComputerWindow : DefaultWindow
         _crt.Phosphor = os.Phosphor;
 
         _layer.RemoveAllChildren();
-        _desktop = new CMUComputerDesktop(_theme, networks, home, documents, terminalName, boards, colony, colonyName);
-        _desktop.OnKeyTyped += () => OnKeyTyped?.Invoke();
-        _desktop.OnClicked += () => OnClicked?.Invoke();
-        _desktop.OnShutDown += Close;
+        _host = shortcuts;
+        _sessionShown = false;
+        _desktopUsed = false;
+        _newDesktop = () =>
+        {
+            var desktop = new CMUComputerDesktop(_theme!, networks, home, documents, terminalName, boards, colony, colonyName, deep, shortcuts);
+            desktop.OnKeyTyped += () => OnKeyTyped?.Invoke();
+            desktop.OnClicked += () => OnClicked?.Invoke();
+            desktop.OnShutDown += Close;
+            return desktop;
+        };
+        _desktop = _newDesktop();
+        _booted = false;
 
-        var splash = new CMUComputerBootSplash(_theme);
+        // A jacked terminal never boots clean: the tube tears and smears all the way to the desktop.
+        _crt.ArtifactAmount = deep != null ? 0.9f : 0f;
+        _crt.ArtifactPeriod = 2.5f;
+        var splash = new CMUComputerBootSplash(_theme, deep != null);
         splash.Finished += () => _finishedSplash = splash;
         _layer.AddChild(splash);
     }
@@ -114,11 +136,47 @@ public sealed partial class CMUPersonalComputerWindow : DefaultWindow
     protected override void FrameUpdate(FrameEventArgs args)
     {
         base.FrameUpdate(args);
-        if (_finishedSplash == null || _desktop == null)
+        if (_finishedSplash != null && _desktop != null)
+        {
+            _finishedSplash.Orphan();
+            _finishedSplash = null;
+            _booted = true;
+            if (_crt.ArtifactAmount > 0)
+            {
+                _crt.ArtifactAmount = 0.2f;
+                _crt.ArtifactPeriod = 9f;
+            }
+        }
+
+        if (_booted)
+            UpdateSession();
+    }
+
+    /// <summary>
+    /// Shows the login screen while nobody is logged in, and a fresh desktop for each new session, so one user
+    /// never finds the last one's windows still open.
+    /// </summary>
+    private void UpdateSession()
+    {
+        var user = _host?.SessionUser;
+        var loggedIn = _host is not { RequireLogin: true } || user != null;
+        if (_sessionShown && loggedIn == _showingDesktop && user == _shownUser)
             return;
 
-        _finishedSplash.Orphan();
-        _finishedSplash = null;
+        _sessionShown = true;
+        _showingDesktop = loggedIn;
+        _shownUser = user;
+        _layer.RemoveAllChildren();
+        if (!loggedIn)
+        {
+            _layer.AddChild(new CMUComputerLogin(_theme!, _host!.TerminalId));
+            return;
+        }
+
+        if (_desktop == null || _desktopUsed)
+            _desktop = _newDesktop!();
+
+        _desktopUsed = true;
         _layer.AddChild(_desktop);
     }
 

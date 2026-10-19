@@ -11,11 +11,12 @@ public enum CMUComputerApp : byte
     Browser,
     Files,
     System,
+    Deeps,
 }
 
 /// <summary>
 /// A desktop shortcut: the program's icon at twice its size, or a phosphor glyph when the OS has none.
-/// Double click opens the program.
+/// Double click opens the program. A saved page link shows its browser's icon; right click removes it.
 /// </summary>
 public sealed class CMUDesktopIcon : Control
 {
@@ -27,19 +28,24 @@ public sealed class CMUDesktopIcon : Control
     private TimeSpan _lastClick;
 
     public readonly CMUComputerApp App;
+
+    /// <summary>The saved page this icon opens, or null for a program.</summary>
+    public readonly string? Link;
     public bool Selected;
 
     public event Action<CMUDesktopIcon>? OnSelect;
     public event Action<CMUComputerApp>? OnOpen;
+    public event Action<CMUDesktopIcon>? OnRemove;
 
-    public CMUDesktopIcon(CMUComputerTheme theme, CMUComputerApp app, string label)
+    public CMUDesktopIcon(CMUComputerTheme theme, CMUComputerApp app, string label, string? link = null)
     {
         _theme = theme;
         App = app;
-        _label = label;
+        Link = link;
+        _label = Shorten(label);
         MinSize = new Vector2(84, 70);
         MouseFilter = MouseFilterMode.Stop;
-        ToolTip = label;
+        ToolTip = link == null ? label : $"{label}\n{link}";
 
         _texture = theme.AppIcon(app);
     }
@@ -47,6 +53,13 @@ public sealed class CMUDesktopIcon : Control
     protected override void KeyBindDown(GUIBoundKeyEventArgs args)
     {
         base.KeyBindDown(args);
+        if (args.Function == EngineKeyFunctions.UIRightClick && Link != null)
+        {
+            args.Handle();
+            OnRemove?.Invoke(this);
+            return;
+        }
+
         if (args.Function != EngineKeyFunctions.UIClick)
             return;
 
@@ -91,6 +104,13 @@ public sealed class CMUDesktopIcon : Control
             handle.DrawRect(new UIBox2(textPos.X - 2 * scale, textPos.Y, textPos.X + width + 2 * scale, textPos.Y + font.GetLineHeight(scale)), _theme.Accent);
 
         handle.DrawString(font, textPos, _label, scale, Selected ? _theme.Background : _theme.Phosphor);
+    }
+
+    /// <summary>Cuts long page titles so the label stays under the icon.</summary>
+    private static string Shorten(string label)
+    {
+        const int max = 13;
+        return label.Length <= max ? label : label[..(max - 1)] + "~";
     }
 
     private void DrawGlyph(DrawingHandleScreen handle, UIBox2 box, float scale)

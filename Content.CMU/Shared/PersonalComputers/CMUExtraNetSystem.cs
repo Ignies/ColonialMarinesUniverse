@@ -55,12 +55,19 @@ public sealed partial class CMUExtraNetSystem : EntitySystem
 
     public IEnumerable<CMUNetSitePrototype> Sites => _sites.Values;
 
-    public HashSet<ProtoId<CMUNetworkPrototype>> GetNetworks(CMUPersonalComputerComponent computer)
+    /// <summary>The networks a computer reaches: its own or its OS's, plus the deep web once hacked.</summary>
+    public HashSet<ProtoId<CMUNetworkPrototype>> GetNetworks(Entity<CMUPersonalComputerComponent> computer)
     {
-        if (computer.Networks != null)
-            return computer.Networks;
+        var networks = new HashSet<ProtoId<CMUNetworkPrototype>>();
+        if (computer.Comp.Networks != null)
+            networks.UnionWith(computer.Comp.Networks);
+        else if (_prototype.TryIndex(computer.Comp.Os, out var os))
+            networks.UnionWith(os.Networks);
 
-        return _prototype.TryIndex(computer.Os, out var os) ? os.Networks : new HashSet<ProtoId<CMUNetworkPrototype>>();
+        if (TryComp(computer, out DeepWeb.CMUDeepWebAccessComponent? deep))
+            networks.Add(deep.Network);
+
+        return networks;
     }
 
     public string GetHomePage(CMUPersonalComputerComponent computer)
@@ -69,6 +76,31 @@ public sealed partial class CMUExtraNetSystem : EntitySystem
             return computer.HomePage;
 
         return _prototype.TryIndex(computer.Os, out var os) ? os.HomePage : string.Empty;
+    }
+
+    public static readonly ProtoId<CMUNetworkPrototype> DeepNetwork = "CMUNetDeep";
+
+    /// <summary>Deep sites get a new random address every round; see <see cref="CMUNetSitePrototype.AliasSuffix"/>.</summary>
+    public static bool IsDeep(CMUNetSitePrototype site)
+    {
+        return site.Networks.Contains(DeepNetwork);
+    }
+
+    /// <summary>Addresses the browser draws itself, such as the directory and The deeps.exi home.</summary>
+    public static bool IsBuiltIn(string address)
+    {
+        return address.StartsWith("sys://", StringComparison.OrdinalIgnoreCase)
+            || address.StartsWith("deeps://", StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>Whether a computer can open a site: on its networks, and unlocked through the ad maze if hidden.</summary>
+    public bool CanOpen(EntityUid computer, CMUNetSitePrototype site, IReadOnlySet<ProtoId<CMUNetworkPrototype>> networks)
+    {
+        if (!CanReach(site, networks))
+            return false;
+
+        return !site.Hidden
+            || TryComp(computer, out DeepWeb.CMUDeepWebAccessComponent? deep) && deep.Unlocked.Contains(site.ID);
     }
 
     public static bool CanReach(CMUNetSitePrototype site, IReadOnlySet<ProtoId<CMUNetworkPrototype>> networks)
