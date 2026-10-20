@@ -69,6 +69,10 @@ public sealed partial class CMUComputerOsPrototype : IPrototype
     [DataField]
     public Color Background = Color.FromHex("#040805");
 
+    /// <summary>How the desktop is laid out: its menus, taskbar and window frames.</summary>
+    [DataField]
+    public CMUComputerShell Shell = CMUComputerShell.Classic;
+
     /// <summary>Taskbar, window frames and selection highlight. Defaults to the phosphor colour.</summary>
     [DataField]
     public Color? Accent;
@@ -138,6 +142,24 @@ public sealed partial class CMUComputerOsPrototype : IPrototype
 /// The machine a computer is built into: its OS's by default, or the computer's own. Each has its own art in
 /// Textures/CMU14/PersonalComputers/Machine/, named after it in lower case.
 /// </summary>
+public enum CMUComputerShell : byte
+{
+    /// <summary>Icons on the desktop, a start button and a taskbar.</summary>
+    Classic,
+
+    /// <summary>
+    /// A Sevastolink style terminal: a header with the network name, a numbered main menu down the left in
+    /// inverted blocks, chunky boxed windows and a strip of open programs.
+    /// </summary>
+    Seegson,
+
+    /// <summary>
+    /// A MU/TH/UR style Company workstation: the winged logo and slogan across the top, Semiotic Standard
+    /// tiles down a dock, thin double ruled windows and an inquiry line along the bottom.
+    /// </summary>
+    Weyland,
+}
+
 public enum CMUComputerCasing : byte
 {
     /// <summary>Seegson beige, the colony's own machines.</summary>

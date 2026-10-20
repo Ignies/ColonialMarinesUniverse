@@ -50,6 +50,9 @@ public sealed partial class CMUNetBrowser : BoxContainer, ILinkClickHandler
     private readonly Random _random = new();
     private int _historyIndex = -1;
 
+    /// <summary>The page being put back on screen is not a new visit, so it is not reported.</summary>
+    private bool _quiet;
+
     /// <summary>The ad host waiting on the server, if the page on screen is one.</summary>
     private string? _pendingAd;
 
@@ -182,8 +185,21 @@ public sealed partial class CMUNetBrowser : BoxContainer, ILinkClickHandler
 
     public void Navigate(string address)
     {
+        _quiet = false;
         Navigate(address, false);
     }
+
+    /// <summary>
+    /// Puts a page back on screen the way it was left on the terminal, without logging it again as a new visit.
+    /// </summary>
+    public void Reopen(string address)
+    {
+        _quiet = true;
+        Navigate(address, false);
+    }
+
+    /// <summary>The page on screen, or null before the first.</summary>
+    public string? Address => _historyIndex >= 0 ? _history[_historyIndex] : null;
 
     private void Navigate(string address, bool fromPage)
     {
@@ -460,8 +476,13 @@ public sealed partial class CMUNetBrowser : BoxContainer, ILinkClickHandler
         OnTitleChanged?.Invoke(title);
 
         // Every finished load goes to the terminal's log; failed lookups of live deep addresses alert the Marshals.
-        if (status != "cmu-pc-browser-status-loading")
+        if (status == "cmu-pc-browser-status-loading")
+            return;
+
+        if (!_quiet)
             _shortcuts?.Visited(_address.Text, status == "cmu-pc-browser-status-done");
+
+        _quiet = false;
     }
 
     /// <summary>The computer this browser runs on, for page tags that talk to the server.</summary>
