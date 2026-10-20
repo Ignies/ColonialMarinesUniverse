@@ -4,6 +4,7 @@ using Content.Client.Resources;
 using Content.Client.Station;
 using Content.Shared.CMU14.PersonalComputers;
 using Content.Shared.Preferences;
+using Robust.Client.GameObjects;
 using Robust.Client.Graphics;
 using Robust.Client.ResourceManagement;
 using Robust.Client.UserInterface;
@@ -11,74 +12,155 @@ using Robust.Client.UserInterface.Controls;
 using Robust.Shared.Map;
 using Robust.Shared.Prototypes;
 using Robust.Shared.Timing;
+using Robust.Shared.Utility;
 
 namespace Content.Client.CMU14.PersonalComputers;
 
 /// <summary>
 /// Plays a sportsbook match live with dressed dolls and real item sprites. Before kickoff the lineup waits on the
 /// field; from kickoff everyone watches the same match, worked out from the seed and winner the server reveals.
+/// Each sport draws its own arena; this base holds the dolls, the scoreboard text and the effects they share:
+/// particles, blood decals that stay on the floor, screen shake, flashes and sounds.
 /// </summary>
-public sealed class CMUSportsArena : LayoutContainer
+public abstract class CMUSportsArena : LayoutContainer
 {
     public const float ArenaWidth = 520;
     public const float ArenaHeight = 240;
-    private const float Bar = 26;
+    protected const float Bar = 26;
 
-    private static readonly EntProtoId Ball = "Basketball";
-    private static readonly EntProtoId Baseball = "TennisBall";
-    private static readonly EntProtoId Bat = "BaseBallBat";
-    private static readonly string[] Hits = { "POW!", "BAM!", "WHAM!", "THUD!", "SMACK!" };
+    /// <summary>An event this long ago when the arena first sees it is history: it leaves its marks, but silently.</summary>
+    private const float Fresh = 0.5f;
 
-    [Dependency] private IEntityManager _entities = default!;
-    [Dependency] private IPrototypeManager _prototypes = default!;
-    [Dependency] private IGameTiming _timing = default!;
-    [Dependency] private IResourceCache _cache = default!;
+    private const int MaxDecals = 160;
+    private const int MaxParticles = 600;
+
+    private static readonly ResPath Splatter = new("/Textures/Fluids/splatter.rsi");
+    private const int SplatterStates = 6;
+
+    protected static readonly Color Blood = Color.FromHex("#9E0B0B");
+    protected static readonly Color DarkBlood = Color.FromHex("#5E0606");
+
+    [Dependency] protected IEntityManager Entities = default!;
+    [Dependency] protected IPrototypeManager Prototypes = default!;
+    [Dependency] protected IGameTiming Timing = default!;
+    [Dependency] protected IResourceCache Cache = default!;
+
+    /// <summary>For effects only. The match itself comes from its seed, never from this.</summary>
+    protected readonly System.Random FxRandom = new();
+
+    protected readonly Font BigFont;
+    protected readonly Font SmallFont;
 
     private readonly List<Doll> _dolls = new();
+    private readonly List<SpriteView> _items = new();
     private readonly List<(string Text, Vector2 Position, Color Colour, bool Big, bool Right)> _texts = new();
+    private readonly List<Popup> _popups = new();
+    private readonly List<Particle> _particles = new();
+    private readonly List<Decal> _decals = new();
+    private readonly Dictionary<string, Texture> _textures = new();
+    private readonly FxLayer _fx;
     private readonly TextLayer _layer;
-    private readonly EntityPrototypeView _ball;
-    private readonly EntityPrototypeView _bat;
-    private readonly Font _big;
-    private readonly Font _small;
     private CMUBetMatch? _match;
     private CMUSportsPlay? _play;
     private TimeSpan _start;
+    private bool _replay;
+    private float _seen = float.NegativeInfinity;
+    private bool _caughtUp;
+    private float _shake;
+    private float _shakeTime;
+    private Vector2 _shakeOffset;
+    private Color _flash;
+    private float _flashLife;
+    private float _flashAge;
     private string _header = string.Empty;
-    private string _clock = string.Empty;
+
+    /// <summary>The clock in the top right. Sports set their own after the base's default.</summary>
+    protected string Clock = string.Empty;
 
     private sealed class Doll(SpriteView view, string kit)
     {
         public readonly SpriteView View = view;
         public readonly string Kit = kit;
         public EntityUid? Dummy;
+
+        /// <summary>Whether <see cref="Pose"/> turned the doll's sprite, so an upright pose turns it back.</summary>
+        public bool Turned;
     }
 
-    public CMUSportsArena()
+    private struct Particle
+    {
+        public Vector2 Position;
+        public Vector2 Velocity;
+        public float Age;
+        public float Life;
+        public float Size;
+        public Color Colour;
+        public float Gravity;
+        public float Drag;
+
+        /// <summary>The floor this particle lands on, or NaN to fly until it fades.</summary>
+        public float Floor;
+
+        /// <summary>Lands as a small blood decal.</summary>
+        public bool Stains;
+
+        /// <summary>Drawn as a streak along its velocity, like a spark.</summary>
+        public bool Streak;
+    }
+
+    private readonly record struct Decal(Vector2 Position, float Size, int State, Color Colour, float Rotation);
+
+    private sealed class Popup
+    {
+        public required string Text;
+        public Vector2 Position;
+        public Color Colour;
+        public bool Big;
+        public float Age;
+        public float Life;
+        public float Rise;
+    }
+
+    protected CMUSportsArena()
     {
         IoCManager.InjectDependencies(this);
         SetSize = new Vector2(ArenaWidth, ArenaHeight);
         HorizontalAlignment = HAlignment.Left;
         RectClipContent = true;
-        _big = _cache.GetFont("/Fonts/NotoSans/NotoSans-Bold.ttf", 18);
-        _small = _cache.GetFont("/Fonts/NotoSans/NotoSans-Bold.ttf", 10);
-        _ball = new EntityPrototypeView(Ball, _entities) { SetSize = new Vector2(24, 24), Visible = false };
-        _bat = new EntityPrototypeView(Bat, _entities) { SetSize = new Vector2(40, 40), Visible = false };
+        BigFont = Cache.GetFont("/Fonts/NotoSans/NotoSans-Bold.ttf", 18);
+        SmallFont = Cache.GetFont("/Fonts/NotoSans/NotoSans-Bold.ttf", 10);
+        _fx = new FxLayer(this) { SetSize = new Vector2(ArenaWidth, ArenaHeight) };
         _layer = new TextLayer(this) { SetSize = new Vector2(ArenaWidth, ArenaHeight) };
     }
 
+    /// <summary>The arena for a sport.</summary>
+    public static CMUSportsArena Create(CMUSport sport)
+    {
+        return sport switch
+        {
+            CMUSport.Sprint => new CMUSprintArena(),
+            CMUSport.Boxing => new CMUBoxingArena(),
+            CMUSport.Baseball => new CMUBaseballArena(),
+            _ => new CMUZeroGArena(),
+        };
+    }
+
     public CMUBetMatch? Match => _match;
+
+    /// <summary>Whether a replay is on rather than the live match.</summary>
+    public bool Replaying => _replay;
 
     /// <summary>Shows a match, live from its kickoff, or from now when <paramref name="replay"/> is set.</summary>
     public void Show(CMUBetMatch match, bool replay = false)
     {
         var known = _match != null && _match.Id == match.Id && _match.Winner == match.Winner;
         _match = match;
-        if (known && !replay)
+        if (known && !replay && !_replay)
             return;
 
+        _replay = replay;
         _play = match.Winner >= 0 ? CMUSports.Play(match.Sport, match.Seed, match.Entrants.Count, match.Winner) : null;
-        _start = replay ? _timing.CurTime : match.Kickoff;
+        _start = replay ? Timing.CurTime : match.Kickoff;
         Rebuild();
     }
 
@@ -86,56 +168,320 @@ public sealed class CMUSportsArena : LayoutContainer
     {
         ClearDolls();
         RemoveAllChildren();
+        _items.Clear();
+        ResetEffects();
         if (_match is not { } match)
             return;
 
-        switch (match.Sport)
-        {
-            case CMUSport.Sprint:
-                for (var lane = 0; lane < match.Entrants.Count; lane++)
-                    AddDoll("Runner", CMUSports.Colour(match.Sport, lane, match.Entrants[lane]), 1.25f);
-                break;
-            case CMUSport.Boxing:
-                AddDoll("Boxer", 0, 2f);
-                AddDoll("Boxer", 1, 2f);
-                break;
-            case CMUSport.Baseball:
-                // per side: pitcher, batter, then runners on first, second and third
-                for (var side = 0; side < 2; side++)
-                {
-                    for (var i = 0; i < 5; i++)
-                        AddDoll("Player", CMUSports.Colour(match.Sport, side, match.Entrants[side]), 1.25f);
-                }
-                break;
-            case CMUSport.ZeroGBall:
-                for (var side = 0; side < 2; side++)
-                {
-                    for (var i = 0; i < CMUSports.Squad; i++)
-                        AddDoll("Spacer", CMUSports.Colour(match.Sport, side, match.Entrants[side]), 1.25f);
-                }
-                break;
-        }
-
-        _ball.SetPrototype(match.Sport == CMUSport.Baseball ? Baseball : Ball);
-        _ball.Scale = match.Sport == CMUSport.Baseball ? new Vector2(0.75f, 0.75f) : Vector2.One;
-        AddChild(_bat);
-        AddChild(_ball);
+        Build(match);
+        AddChild(_fx);
         AddChild(_layer);
         if (IsInsideTree)
             SpawnDolls();
     }
 
-    private void AddDoll(string role, int colour, float scale)
+    /// <summary>Wipes the floor and forgets which events played, so they play again from the start.</summary>
+    private void ResetEffects()
     {
-        var view = new SpriteView(_entities)
+        _particles.Clear();
+        _decals.Clear();
+        _popups.Clear();
+        _seen = float.NegativeInfinity;
+        _caughtUp = false;
+        _shake = 0;
+        _shakeTime = 0;
+        _shakeOffset = Vector2.Zero;
+        _flashLife = 0;
+    }
+
+    #region For the sports
+
+    /// <summary>Adds the sport's dolls and items, in drawing order. Called whenever a new match is shown.</summary>
+    protected abstract void Build(CMUBetMatch match);
+
+    /// <summary>
+    /// Poses everything for <paramref name="t"/> seconds from kickoff (negative before it, and -1 while the winner
+    /// is still secret, when <paramref name="play"/> is null). Called every frame the arena is on screen.
+    /// </summary>
+    protected abstract void UpdateMatch(CMUBetMatch match, CMUSportsPlay? play, float t);
+
+    /// <summary>The field, under the decals and dolls.</summary>
+    protected abstract void DrawField(DrawingHandleScreen handle);
+
+    /// <summary>Over the decals, under the dolls: shadows, chalk, anything the blood should not cover.</summary>
+    protected virtual void DrawOverDecals(DrawingHandleScreen handle)
+    {
+    }
+
+    /// <summary>Over the dolls and particles, under the text: ropes in front, glass, lights.</summary>
+    protected virtual void DrawOverlay(DrawingHandleScreen handle)
+    {
+    }
+
+    /// <summary>
+    /// Runs once for every event of the match as its time comes. <paramref name="live"/> is false for events that
+    /// happened before the arena was looking (a late join, a tab switched back to): leave their lasting marks, like
+    /// decals, but make no sound, particles or shake. Effects calls made while not live are ignored anyway.
+    /// </summary>
+    protected virtual void OnEvent(CMUBetMatch match, CMUSportsEvent ev, int index, bool live)
+    {
+    }
+
+    /// <summary>Whether effects play now. False while catching up on events that happened off screen.</summary>
+    protected bool Live { get; private set; }
+
+    protected int AddDoll(string kit, float scale)
+    {
+        // Fit would shrink the doll to fit the box and resize it as it turns; dolls keep their own size
+        var view = new SpriteView(Entities)
         {
             Scale = new Vector2(scale, scale),
             SetSize = new Vector2(32 * scale, 32 * scale),
             OverrideDirection = Direction.South,
+            Stretch = SpriteView.StretchMode.None,
         };
-        _dolls.Add(new Doll(view, CMUSports.Kit(role, colour)));
+        _dolls.Add(new Doll(view, kit));
         AddChild(view);
+        return _dolls.Count - 1;
     }
+
+    protected int DollCount => _dolls.Count;
+
+    /// <summary>The doll's view, to tint (<c>Modulate</c>) or scale it.</summary>
+    protected SpriteView DollView(int doll)
+    {
+        return _dolls[doll].View;
+    }
+
+    /// <summary>An item sprite, hidden every frame until placed.</summary>
+    protected EntityPrototypeView AddItem(EntProtoId prototype, float size, float scale = 1)
+    {
+        var view = new EntityPrototypeView(prototype, Entities)
+        {
+            SetSize = new Vector2(size, size),
+            Scale = new Vector2(scale, scale),
+            Visible = false,
+        };
+        _items.Add(view);
+        AddChild(view);
+        return view;
+    }
+
+    /// <summary>Centres a control on a spot of the arena, shaken with it.</summary>
+    protected void Place(Control control, float x, float y)
+    {
+        control.Visible = true;
+        SetPosition(control, new Vector2(x - control.SetSize.X / 2, y - control.SetSize.Y / 2) + _shakeOffset);
+    }
+
+    /// <summary>
+    /// Stands a doll on a spot facing a way, turned by <paramref name="rotation"/> degrees anticlockwise on screen.
+    /// The turn goes on the doll's own sprite: a view's world rotation would pick another facing for anything past
+    /// 45 degrees and turn it back upright, so a boxer laid flat would still stand.
+    /// </summary>
+    protected void Pose(int doll, float x, float y, Direction direction, float rotation = 0)
+    {
+        if (doll >= _dolls.Count)
+            return;
+
+        var entry = _dolls[doll];
+        entry.View.OverrideDirection = direction;
+        if ((rotation != 0 || entry.Turned) && entry.Dummy is { } dummy && Entities.TryGetComponent<SpriteComponent>(dummy, out var sprite))
+        {
+            Entities.System<SpriteSystem>().SetRotation((dummy, sprite), Angle.FromDegrees(rotation));
+            entry.Turned = rotation != 0;
+        }
+
+        Place(entry.View, x, y);
+    }
+
+    protected void Hide(int doll)
+    {
+        if (doll < _dolls.Count)
+            _dolls[doll].View.Visible = false;
+    }
+
+    /// <summary>Text for this frame. Big calls are centred on their spot; labels hang from it, or end at it when right aligned.</summary>
+    protected void Say(string text, float x, float y, Color colour, bool big = false, bool right = false)
+    {
+        _texts.Add((text, new Vector2(x, y), colour, big, right));
+    }
+
+    /// <summary>Text that floats up and fades by itself, like a hit word.</summary>
+    protected void Pop(string text, Vector2 at, Color colour, bool big = false, float life = 0.8f, float rise = 24)
+    {
+        if (Live)
+            _popups.Add(new Popup { Text = text, Position = at, Colour = colour, Big = big, Life = life, Rise = rise });
+    }
+
+    /// <summary>A sprite state's first frame, cached. Paths are rooted, like <c>/Textures/Fluids/splatter.rsi</c>.</summary>
+    protected Texture Sprite(string rsi, string state)
+    {
+        var key = $"{rsi}:{state}";
+        if (!_textures.TryGetValue(key, out var texture))
+        {
+            texture = Entities.System<SpriteSystem>().Frame0(new SpriteSpecifier.Rsi(new ResPath(rsi), state));
+            _textures[key] = texture;
+        }
+
+        return texture;
+    }
+
+    #endregion
+
+    #region Effects
+
+    /// <summary>
+    /// Throws particles from a spot. <paramref name="direction"/> and <paramref name="spread"/> are in radians, with
+    /// 0 pointing right and positive angles turning down the screen.
+    /// </summary>
+    protected void Burst(Vector2 at, int count, Color colour, float speed, float life = 0.6f, float size = 2,
+        float direction = 0, float spread = MathF.Tau, float gravity = 0, float floor = float.NaN, bool stains = false,
+        bool streak = false, float drag = 0)
+    {
+        if (!Live)
+            return;
+
+        for (var i = 0; i < count && _particles.Count < MaxParticles; i++)
+        {
+            var angle = direction + (FxFloat() - 0.5f) * spread;
+            var velocity = new Vector2(MathF.Cos(angle), MathF.Sin(angle)) * speed * (0.35f + FxFloat() * 0.65f);
+            _particles.Add(new Particle
+            {
+                Position = at,
+                Velocity = velocity,
+                Life = life * (0.6f + FxFloat() * 0.6f),
+                Size = size * (0.6f + FxFloat() * 0.8f),
+                Colour = colour,
+                Gravity = gravity,
+                Floor = floor,
+                Stains = stains,
+                Streak = streak,
+                Drag = drag,
+            });
+        }
+    }
+
+    /// <summary>
+    /// Blood sprays from a wound towards <paramref name="direction"/>, and the drops that reach
+    /// <paramref name="floor"/> stain it. <paramref name="amount"/> 1 is a nick, 3 a gusher.
+    /// </summary>
+    protected void Bleed(Vector2 at, float floor, int amount, float direction = -MathF.PI / 2, float spread = 1.6f)
+    {
+        Burst(at, 6 + amount * 8, Blood, 70 + amount * 45, 1.4f, 1.6f + amount * 0.5f, direction, spread,
+            gravity: 420, floor: floor, stains: true);
+        Burst(at, 2 + amount * 2, DarkBlood, 30 + amount * 20, 0.9f, 2.4f + amount * 0.6f, direction, spread * 0.6f,
+            gravity: 420, floor: floor, stains: true);
+    }
+
+    /// <summary>Stamps a blood decal on the floor. Unlike the other effects it also lands while catching up.</summary>
+    protected void Splat(Vector2 at, float size, Color? colour = null)
+    {
+        if (_decals.Count >= MaxDecals)
+            _decals.RemoveAt(0);
+
+        _decals.Add(new Decal(at, size, FxRandom.Next(SplatterStates), colour ?? Blood, FxFloat() * MathF.Tau));
+    }
+
+    /// <summary>Shakes the whole arena, strongest at the start and dying out over <paramref name="time"/>.</summary>
+    protected void Shake(float strength, float time = 0.35f)
+    {
+        // a light tap does not cut short a big hit still shaking
+        if (!Live || _shakeTime > 0 && strength < _shake)
+            return;
+
+        _shake = strength;
+        _shakeTime = time;
+    }
+
+    /// <summary>Washes the arena with a colour that fades out over <paramref name="time"/>.</summary>
+    protected void Flash(Color colour, float time = 0.25f)
+    {
+        if (!Live)
+            return;
+
+        _flash = colour;
+        _flashLife = time;
+        _flashAge = 0;
+    }
+
+    /// <summary>Plays a sound from <c>/Audio/...</c> while live and on screen. Volume is in dB over the game base.</summary>
+    protected void Sound(string path, float volume = 0, float pitch = 1)
+    {
+        if (Live)
+            CMUGameAudio.Play(this, path, volume, pitch);
+    }
+
+    protected void SoundAny(IReadOnlyList<string> paths, float volume = 0, float spread = 0.08f)
+    {
+        if (Live)
+            CMUGameAudio.PlayAny(this, paths, volume, spread);
+    }
+
+    protected void Scream(bool female, float volume = 0)
+    {
+        if (Live)
+            CMUGameAudio.Scream(this, female, volume);
+    }
+
+    protected float FxFloat()
+    {
+        return (float) FxRandom.NextDouble();
+    }
+
+    private void UpdateEffects(float delta)
+    {
+        for (var i = _particles.Count - 1; i >= 0; i--)
+        {
+            var p = _particles[i];
+            p.Age += delta;
+            p.Velocity.Y += p.Gravity * delta;
+            if (p.Drag > 0)
+                p.Velocity *= MathF.Max(0, 1 - p.Drag * delta);
+
+            p.Position += p.Velocity * delta;
+            var landed = !float.IsNaN(p.Floor) && p.Position.Y >= p.Floor && p.Velocity.Y > 0;
+            if (landed && p.Stains)
+            {
+                // stamp the drop where it fell; the bigger it was, the wider it spreads
+                if (_decals.Count >= MaxDecals)
+                    _decals.RemoveAt(0);
+
+                _decals.Add(new Decal(p.Position with { Y = p.Floor }, p.Size * 2.6f, FxRandom.Next(SplatterStates), p.Colour, FxFloat() * MathF.Tau));
+            }
+
+            if (landed || p.Age >= p.Life)
+            {
+                _particles.RemoveAt(i);
+                continue;
+            }
+
+            _particles[i] = p;
+        }
+
+        for (var i = _popups.Count - 1; i >= 0; i--)
+        {
+            _popups[i].Age += delta;
+            if (_popups[i].Age >= _popups[i].Life)
+                _popups.RemoveAt(i);
+        }
+
+        if (_shakeTime > 0)
+        {
+            _shakeTime -= delta;
+            var strength = _shakeTime > 0 ? _shake * MathF.Min(1, _shakeTime * 4) : 0;
+            _shakeOffset = new Vector2((FxFloat() - 0.5f) * 2 * strength, (FxFloat() - 0.5f) * 2 * strength);
+        }
+        else
+        {
+            _shakeOffset = Vector2.Zero;
+        }
+
+        if (_flashLife > 0)
+            _flashAge += delta;
+    }
+
+    #endregion
 
     // Dolls live only while the arena is on screen, like the ads.
     protected override void EnteredTree()
@@ -152,18 +498,19 @@ public sealed class CMUSportsArena : LayoutContainer
 
     private void SpawnDolls()
     {
-        var doll = _prototypes.Index(HumanoidCharacterProfile.DefaultSpecies).DollPrototype;
-        var spawning = _entities.System<StationSpawningSystem>();
+        var doll = Prototypes.Index(HumanoidCharacterProfile.DefaultSpecies).DollPrototype;
+        var spawning = Entities.System<StationSpawningSystem>();
         foreach (var entry in _dolls)
         {
             if (entry.Dummy != null)
                 continue;
 
-            var dummy = _entities.SpawnEntity(doll, MapCoordinates.Nullspace);
-            if (_prototypes.HasIndex<Content.Shared.Roles.StartingGearPrototype>(entry.Kit))
+            var dummy = Entities.SpawnEntity(doll, MapCoordinates.Nullspace);
+            if (Prototypes.HasIndex<Content.Shared.Roles.StartingGearPrototype>(entry.Kit))
                 spawning.EquipStartingGear(dummy, entry.Kit);
 
             entry.Dummy = dummy;
+            entry.Turned = false;
             entry.View.SetEntity(dummy);
         }
     }
@@ -176,41 +523,12 @@ public sealed class CMUSportsArena : LayoutContainer
                 continue;
 
             entry.View.SetEntity(null);
-            _entities.QueueDeleteEntity(dummy);
+            Entities.QueueDeleteEntity(dummy);
             entry.Dummy = null;
         }
 
         if (forget)
             _dolls.Clear();
-    }
-
-    private void Place(Control control, float x, float y)
-    {
-        control.Visible = true;
-        SetPosition(control, new Vector2(x - control.SetSize.X / 2, y - control.SetSize.Y / 2));
-    }
-
-    private void Pose(int doll, float x, float y, Direction direction, float rotation = 0)
-    {
-        if (doll >= _dolls.Count)
-            return;
-
-        var view = _dolls[doll].View;
-        view.OverrideDirection = direction;
-        view.WorldRotation = rotation == 0 ? null : Angle.FromDegrees(rotation);
-        Place(view, x, y);
-    }
-
-    private void Hide(int doll)
-    {
-        if (doll < _dolls.Count)
-            _dolls[doll].View.Visible = false;
-    }
-
-    /// <summary>Big calls are centred on their spot; labels hang from it, or end at it when right aligned.</summary>
-    private void Say(string text, float x, float y, Color colour, bool big = false, bool right = false)
-    {
-        _texts.Add((text, new Vector2(x, y), colour, big, right));
     }
 
     protected override void FrameUpdate(FrameEventArgs args)
@@ -220,500 +538,141 @@ public sealed class CMUSportsArena : LayoutContainer
         if (_match is not { } match)
             return;
 
-        var t = (float) (_timing.CurTime - _start).TotalSeconds;
+        var t = (float) (Timing.CurTime - _start).TotalSeconds;
         var length = CMUSports.Length(match.Sport);
         _header = Loc.GetString($"cmu-sport-{match.Sport}").ToUpperInvariant();
-        _clock = _play == null
+        Clock = _play == null
             ? Loc.GetString("cmu-sport-starts", ("seconds", Math.Max(0, (int) -t)))
             : t >= length ? Loc.GetString("cmu-sport-final") : $"{(int) t / 60}:{(int) t % 60:00}";
 
-        _bat.Visible = false;
-        _ball.Visible = false;
         var play = _play;
         var time = play == null ? -1 : Math.Min(t, length);
-        switch (match.Sport)
+        if (play != null)
         {
-            case CMUSport.Sprint:
-                UpdateSprint(match, play, time);
-                break;
-            case CMUSport.Boxing:
-                UpdateBoxing(match, play, time);
-                break;
-            case CMUSport.Baseball:
-                UpdateBaseball(match, play, time);
-                break;
-            case CMUSport.ZeroGBall:
-                UpdateZeroG(match, play, time);
-                break;
+            if (time < _seen)
+                ResetEffects();
+
+            for (var i = 0; i < play.Events.Count; i++)
+            {
+                var ev = play.Events[i];
+                if (ev.Time <= _seen || ev.Time > time)
+                    continue;
+
+                Live = _caughtUp && time - ev.Time < Fresh;
+                OnEvent(match, ev, i, Live);
+            }
+
+            _seen = time;
         }
+
+        _caughtUp = true;
+        Live = true;
+        UpdateEffects(args.DeltaSeconds);
+        foreach (var item in _items)
+        {
+            item.Visible = false;
+        }
+
+        UpdateMatch(match, play, time);
 
         if (play != null && t >= length)
-        {
-            var winner = match.Name(match.Winner);
-            Say(Loc.GetString("cmu-sport-winner", ("name", winner)), ArenaWidth / 2, ArenaHeight - 30, Color.Gold, true);
-        }
+            Say(Loc.GetString("cmu-sport-winner", ("name", match.Name(match.Winner))), ArenaWidth / 2, ArenaHeight - 30, Color.Gold, true);
     }
 
-    #region Sprint
-
-    private const float TrackTop = Bar + 10;
-    private const float Lane = 38;
-    private const float StartLine = 110;
-    private const float FinishLine = 470;
-
-    private void UpdateSprint(CMUBetMatch match, CMUSportsPlay? play, float t)
+    protected override void Draw(DrawingHandleScreen handle)
     {
-        var running = t - CMUSports.SprintStart;
-        var finished = new List<int>();
-        for (var lane = 0; lane < match.Entrants.Count; lane++)
+        base.Draw(handle);
+        if (_match == null)
         {
-            var y = TrackTop + Lane * lane + Lane / 2 - 6;
-            var x = StartLine - 6;
-            if (play != null && running > 0)
-            {
-                var finish = play.Score[lane] / 100f;
-                var progress = Math.Clamp(running / finish, 0, 1);
-                var distance = progress - 0.1f * MathF.Sin(MathF.PI * progress);
-                x = StartLine + distance * (FinishLine - StartLine);
-                if (running >= finish)
-                {
-                    x = FinishLine + Math.Min(1, running - finish) * 22;
-                    finished.Add(lane);
-                }
-                else
-                {
-                    y -= MathF.Abs(MathF.Sin(running * 14 + lane)) * 3;
-                }
-            }
-
-            Pose(lane, x, y, Direction.East);
-            Say(match.Name(lane), 6, TrackTop + Lane * lane + 2, Color.White.WithAlpha(0.75f));
-        }
-
-        if (play == null || running < 0)
-        {
-            var call = play == null || running < -4 ? "cmu-sport-marks" : running < -1 ? "cmu-sport-set" : null;
-            if (call != null)
-                Say(Loc.GetString(call), ArenaWidth / 2, ArenaHeight / 2, Color.White, true);
-
-            return;
-        }
-
-        if (running < 1)
-            Say(Loc.GetString("cmu-sport-go"), ArenaWidth / 2, ArenaHeight / 2, Color.Lime, true);
-        else if (finished.Count == 0)
-            _clock = $"{running:0.00}";
-
-        var order = finished.OrderBy(lane => play.Score[lane]).ToList();
-        for (var place = 0; place < order.Count; place++)
-        {
-            var lane = order[place];
-            Say($"{place + 1}. {play.Score[lane] / 100f:0.00}", FinishLine - 70, TrackTop + Lane * lane + 2,
-                place == 0 ? Color.Gold : Color.White);
-        }
-    }
-
-    private void DrawSprint(DrawingHandleScreen handle)
-    {
-        Rect(handle, 0, Bar, ArenaWidth, ArenaHeight - Bar, Color.FromHex("#2E5A2A"));
-        var lanes = _match?.Entrants.Count ?? 5;
-        Rect(handle, 0, TrackTop, ArenaWidth, Lane * lanes, Color.FromHex("#B5482F"));
-        for (var i = 0; i <= lanes; i++)
-            Rect(handle, 0, TrackTop + Lane * i - 1, ArenaWidth, 2, Color.White.WithAlpha(0.8f));
-
-        Rect(handle, StartLine - 2, TrackTop, 3, Lane * lanes, Color.White);
-        for (var y = 0; y < Lane * lanes / 6; y++)
-        {
-            for (var x = 0; x < 2; x++)
-                Rect(handle, FinishLine + x * 6, TrackTop + y * 6, 6, 6, (x + y) % 2 == 0 ? Color.White : Color.Black);
-        }
-    }
-
-    #endregion
-
-    #region Boxing
-
-    private const float RingFloor = 132;
-    private const float BoxerY = 160;
-
-    private void UpdateBoxing(CMUBetMatch match, CMUSportsPlay? play, float t)
-    {
-        Say(match.Name(0), 40, Bar + 6, Color.FromHex("#FF6B6B"));
-        Say(match.Name(1), ArenaWidth - 40, Bar + 6, Color.FromHex("#6BA8FF"), right: true);
-        if (play == null || t < 4)
-        {
-            Pose(0, 80, BoxerY, Direction.East);
-            Pose(1, ArenaWidth - 80, BoxerY, Direction.West);
-            if (play != null)
-                Say(Loc.GetString("cmu-sport-round", ("round", 1)), ArenaWidth / 2, 80, Color.White, true);
-
-            return;
-        }
-
-        var round = Math.Min(CMUSports.BoxingRounds, (int) ((t - 4) / (CMUSports.RoundLength + CMUSports.RoundRest)) + 1);
-        var into = t - 4 - (round - 1) * (CMUSports.RoundLength + CMUSports.RoundRest);
-        var landed = new int[2];
-        float? down = null;
-        var downSide = -1;
-        var knockedOut = false;
-        foreach (var ev in play.Events)
-        {
-            if (ev.Time > t)
-                break;
-
-            if (ev.Action == CMUSportsAction.Punch && ev.Value == 1)
-                landed[ev.Side]++;
-            else if (ev.Action is CMUSportsAction.Knockdown or CMUSportsAction.Knockout && (ev.Action == CMUSportsAction.Knockout || t < ev.Time + 4))
-            {
-                down = t - ev.Time;
-                downSide = ev.Side;
-                knockedOut = ev.Action == CMUSportsAction.Knockout;
-            }
-        }
-
-        _clock = Loc.GetString("cmu-sport-round-clock", ("round", round), ("clock", $"{(int) Math.Min(into, CMUSports.RoundLength) / 60}:{(int) Math.Min(into, CMUSports.RoundLength) % 60:00}"));
-        Say(Loc.GetString("cmu-sport-landed", ("count", landed[0])), 40, Bar + 20, Color.White.WithAlpha(0.8f));
-        Say(Loc.GetString("cmu-sport-landed", ("count", landed[1])), ArenaWidth - 40, Bar + 20, Color.White.WithAlpha(0.8f), right: true);
-
-        var resting = into > CMUSports.RoundLength && !knockedOut;
-        if (resting || knockedOut && down > 6)
-        {
-            Pose(0, 80, BoxerY, Direction.East);
-            Pose(1, ArenaWidth - 80, BoxerY, Direction.West);
-            if (knockedOut)
-                Pose(downSide, downSide == 0 ? 80 : ArenaWidth - 80, BoxerY + 18, Direction.South, downSide == 0 ? -90 : 90);
-
-            if (resting && round < CMUSports.BoxingRounds)
-                Say(Loc.GetString("cmu-sport-round", ("round", round + 1)), ArenaWidth / 2, 80, Color.White, true);
-            else if (knockedOut)
-                Say(Loc.GetString("cmu-sport-ko"), ArenaWidth / 2, 80, Color.Red, true);
-
-            return;
-        }
-
-        var centre = ArenaWidth / 2 + MathF.Sin(t * 0.7f) * 50;
-        var x = new[] { centre - 36 + MathF.Sin(t * 3) * 4, centre + 36 + MathF.Sin(t * 3 + 1.5f) * 4 };
-        var y = new[] { BoxerY + MathF.Sin(t * 5) * 2, BoxerY + MathF.Sin(t * 5 + 2) * 2 };
-        var index = 0;
-        foreach (var ev in play.Events)
-        {
-            index++;
-            if (ev.Action != CMUSportsAction.Punch || ev.Time > t || t > ev.Time + 0.6f)
-                continue;
-
-            var age = t - ev.Time;
-            var towards = ev.Side == 0 ? 1 : -1;
-            if (age < 0.35f)
-                x[ev.Side] += towards * 18 * MathF.Sin(MathF.PI * age / 0.35f);
-
-            if (ev.Value != 1 || age < 0.12f)
-                continue;
-
-            var defender = 1 - ev.Side;
-            x[defender] += towards * 10 * MathF.Sin(MathF.PI * Math.Min(1, (age - 0.12f) / 0.48f));
-            Say(Hits[index % Hits.Length], x[defender], y[defender] - 46 - age * 20, Color.Yellow);
-        }
-
-        for (var side = 0; side < 2; side++)
-        {
-            if (side == downSide && down != null)
-            {
-                Pose(side, x[side] - (side == 0 ? 14 : -14), BoxerY + 18, Direction.South, side == 0 ? -90 : 90);
-                var count = Math.Min(10, (int) (down.Value / (knockedOut ? 0.6f : 0.9f)) + 1);
-                Say(knockedOut && count >= 10 ? Loc.GetString("cmu-sport-ko") : count.ToString(), ArenaWidth / 2, 80,
-                    knockedOut ? Color.Red : Color.White, true);
-                continue;
-            }
-
-            Pose(side, x[side], y[side], side == 0 ? Direction.East : Direction.West);
-        }
-    }
-
-    private void DrawBoxing(DrawingHandleScreen handle)
-    {
-        Rect(handle, 0, Bar, ArenaWidth, ArenaHeight - Bar, Color.FromHex("#14121A"));
-        // the crowd, as rows of faint heads
-        for (var row = 0; row < 3; row++)
-        {
-            for (var seat = 0; seat < 40; seat++)
-            {
-                var shade = Color.FromHex("#3A3346").WithAlpha(0.6f + 0.1f * ((seat * 7 + row * 3) % 4));
-                Circle(handle, 8 + seat * 13 + row % 2 * 6, Bar + 16 + row * 12, 5, shade);
-            }
-        }
-
-        Rect(handle, 30, RingFloor, ArenaWidth - 60, 76, Color.FromHex("#C9D3DE"));
-        Rect(handle, 30, RingFloor + 76, ArenaWidth - 60, 14, Color.FromHex("#2A3B6E"));
-        for (var rope = 0; rope < 3; rope++)
-            Rect(handle, 30, RingFloor - 52 + rope * 16, ArenaWidth - 60, 3, rope == 1 ? Color.White : Color.FromHex("#C8102E"));
-
-        Rect(handle, 26, RingFloor - 60, 8, 150, Color.FromHex("#C8102E"));
-        Rect(handle, ArenaWidth - 34, RingFloor - 60, 8, 150, Color.FromHex("#1F4FC8"));
-    }
-
-    #endregion
-
-    #region Baseball
-
-    private static readonly Vector2 Home = new(260, 214);
-    private static readonly Vector2 Mound = new(260, 150);
-    private static readonly Vector2[] Bases = { new(340, 150), new(260, 92), new(180, 150) };
-
-    private void UpdateBaseball(CMUBetMatch match, CMUSportsPlay? play, float t)
-    {
-        var runs = new int[2];
-        var batting = 1;
-        var inning = 1;
-        var state = 0;
-        CMUSportsEvent? current = null;
-        CMUSportsEvent? next = null;
-        if (play != null)
-        {
-            foreach (var ev in play.Events)
-            {
-                if (ev.Time > t)
-                {
-                    if (ev.Action == CMUSportsAction.AtBat)
-                        next = ev;
-
-                    break;
-                }
-
-                if (ev.Action == CMUSportsAction.Bell)
-                {
-                    batting = ev.Side;
-                    inning = ev.Value;
-                    state = 0;
-                    current = null;
-                }
-                else if (ev.Action == CMUSportsAction.AtBat)
-                {
-                    current = ev;
-                    runs[ev.Side] += ev.Extra;
-                    if (t > ev.Time + 0.8f)
-                        state = ev.State;
-                }
-            }
-        }
-
-        var fielding = 1 - batting;
-        Pose(fielding * 5, Mound.X, Mound.Y - 14, Direction.South);
-        Pose(batting * 5 + 1, Home.X - 26, Home.Y - 12, Direction.East);
-        Hide(batting * 5);
-        Hide(fielding * 5 + 1);
-        for (var i = 0; i < 3; i++)
-        {
-            Hide(fielding * 5 + 2 + i);
-            if ((state & 1 << i) != 0)
-                Pose(batting * 5 + 2 + i, Bases[i].X, Bases[i].Y - 14, Direction.South);
-            else
-                Hide(batting * 5 + 2 + i);
-        }
-
-        _clock = Loc.GetString("cmu-sport-inning", ("inning", inning), ("half", batting == 1 ? "▲" : "▼"));
-        Say($"{Short(match.Name(1))} {runs[1]}", 12, Bar + 6, batting == 1 ? Color.Gold : Color.White);
-        Say($"{Short(match.Name(0))} {runs[0]}", 12, Bar + 20, batting == 0 ? Color.Gold : Color.White);
-        Say(Loc.GetString("cmu-sport-outs", ("outs", state >> 4)), ArenaWidth - 70, Bar + 6, Color.White);
-
-        // the bat rests on the shoulder and swings through the zone at contact
-        var swing = next is { } pitch && t > pitch.Time - 0.12f ? Math.Min(1, (t - pitch.Time + 0.12f) / 0.25f) : 0;
-        if (current is { } hit && t - hit.Time < 0.3f)
-            swing = 1;
-
-        _bat.WorldRotation = Angle.FromDegrees(-45 - 150 * swing);
-        Place(_bat, Home.X - 12, Home.Y - 22);
-
-        if (next is { } coming && t > coming.Time - 0.5f && t <= coming.Time)
-        {
-            var travel = (t - (coming.Time - 0.5f)) / 0.5f;
-            var ball = Vector2.Lerp(Mound, Home - new Vector2(0, 10), travel);
-            Place(_ball, ball.X, ball.Y);
-            return;
-        }
-
-        if (current is not { } last || t - last.Time > 1.6f)
-            return;
-
-        var age = t - last.Time;
-        var word = last.Value switch
-        {
-            0 => "cmu-sport-out",
-            1 => "cmu-sport-single",
-            2 => "cmu-sport-double",
-            3 => "cmu-sport-triple",
-            _ => "cmu-sport-homer",
-        };
-        Say(Loc.GetString(word), ArenaWidth / 2, 70, last.Value == 4 ? Color.Gold : last.Value == 0 ? Color.White : Color.Lime, true);
-        if (last.Extra > 0)
-            Say(Loc.GetString("cmu-sport-runs", ("runs", last.Extra)), ArenaWidth / 2, 96, Color.Gold);
-
-        if (age > 0.9f)
-            return;
-
-        // hits fly to the outfield, home runs out of the park, outs drop into a glove
-        var angle = ((int) (last.Time * 7) % 3 - 1) * 0.6f;
-        var reach = last.Value switch { 0 => 60f, 4 => 260f, _ => 90f + last.Value * 30 };
-        var flight = age / 0.9f;
-        var target = Home + new Vector2(MathF.Sin(angle), -MathF.Cos(angle)) * reach;
-        var arc = MathF.Sin(MathF.PI * flight) * (last.Value == 4 ? 60 : 25);
-        var at = Vector2.Lerp(Home, target, flight) - new Vector2(0, arc);
-        Place(_ball, at.X, at.Y);
-    }
-
-    private static string Short(string team)
-    {
-        var words = team.Split(' ');
-        return words[^1].ToUpperInvariant();
-    }
-
-    private void DrawBaseball(DrawingHandleScreen handle)
-    {
-        Rect(handle, 0, Bar, ArenaWidth, ArenaHeight - Bar, Color.FromHex("#3E7D34"));
-        for (var stripe = 0; stripe < 10; stripe++)
-            Rect(handle, stripe * 52, Bar, 26, ArenaHeight - Bar, Color.FromHex("#468C3B"));
-
-        var dirt = Color.FromHex("#B07A4A");
-        var grow = 18f;
-        Poly(handle, dirt, Home + new Vector2(0, grow), Bases[0] + new Vector2(grow, 0), Bases[1] - new Vector2(0, grow), Bases[2] - new Vector2(grow, 0));
-        Poly(handle, Color.FromHex("#3E7D34"), Home - new Vector2(0, 26), Bases[0] - new Vector2(26, 0), Bases[1] + new Vector2(0, 26), Bases[2] + new Vector2(26, 0));
-        Circle(handle, Mound.X, Mound.Y, 12, dirt);
-        Circle(handle, Home.X, Home.Y, 16, dirt);
-        foreach (var bag in Bases)
-            Rect(handle, bag.X - 5, bag.Y - 5, 10, 10, Color.White);
-
-        Poly(handle, Color.White, Home + new Vector2(-6, -4), Home + new Vector2(6, -4), Home + new Vector2(6, 2), Home + new Vector2(0, 6), Home + new Vector2(-6, 2));
-    }
-
-    #endregion
-
-    #region Zero-g ball
-
-    private const float CageLeft = 16;
-    private const float CageRight = ArenaWidth - 16;
-    private const float CageTop = Bar + 8;
-    private const float CageBottom = ArenaHeight - 8;
-
-    private static readonly Vector2[] Formation = { new(150, 80), new(200, 136), new(150, 192) };
-
-    private Vector2 Player(int side, int player, float t)
-    {
-        var spot = Formation[player % Formation.Length];
-        if (side == 1)
-            spot = spot with { X = ArenaWidth - spot.X };
-
-        var phase = side * 3 + player * 1.7f + (_match?.Id ?? 0);
-        return spot + new Vector2(MathF.Sin(t * 0.6f + phase) * 40, MathF.Cos(t * 0.8f + phase * 1.3f) * 22);
-    }
-
-    private Vector2 Goal(int side)
-    {
-        // side 0 shoots at the right goal, side 1 at the left
-        return new Vector2(side == 0 ? CageRight - 6 : CageLeft + 6, (CageTop + CageBottom) / 2);
-    }
-
-    private void UpdateZeroG(CMUBetMatch match, CMUSportsPlay? play, float t)
-    {
-        var score = new int[2];
-        CMUSportsEvent? holder = null;
-        CMUSportsEvent? previous = null;
-        CMUSportsEvent? goal = null;
-        if (play != null)
-        {
-            foreach (var ev in play.Events)
-            {
-                if (ev.Time > t)
-                    break;
-
-                if (ev.Action == CMUSportsAction.Pass)
-                {
-                    previous = holder;
-                    holder = ev;
-                    goal = null;
-                }
-                else if (ev.Action == CMUSportsAction.Goal)
-                {
-                    score[ev.Side]++;
-                    goal = ev;
-                }
-            }
-        }
-
-        var clock = Math.Max(0, t);
-        for (var side = 0; side < 2; side++)
-        {
-            for (var player = 0; player < CMUSports.Squad; player++)
-            {
-                var at = Player(side, player, clock);
-                var spin = (clock * 25 + side * 90 + player * 50) % 360;
-                Pose(side * CMUSports.Squad + player, at.X, at.Y, side == 0 ? Direction.East : Direction.West, play == null ? 0 : spin);
-            }
-        }
-
-        Say($"{Short(match.Name(0))} {score[0]}", 30, Bar + 4, Color.White);
-        Say($"{score[1]} {Short(match.Name(1))}", ArenaWidth - 30, Bar + 4, Color.White, right: true);
-
-        Vector2 ball;
-        if (goal is { } scored)
-        {
-            var age = t - scored.Time;
-            var from = Player(scored.Side, scored.Value, scored.Time);
-            ball = Vector2.Lerp(from, Goal(scored.Side), Math.Min(1, age / 0.6f));
-            if (age < 2.5f)
-                Say(Loc.GetString("cmu-sport-goal", ("team", match.Name(scored.Side))), ArenaWidth / 2, ArenaHeight / 2 - 10, Color.Gold, true);
-        }
-        else if (holder is { } has)
-        {
-            var at = Player(has.Side, has.Value, clock) + new Vector2(has.Side == 0 ? 12 : -12, -4);
-            var age = t - has.Time;
-            if (previous is { } from && age < 0.5f)
-            {
-                var start = Player(from.Side, from.Value, has.Time) + new Vector2(from.Side == 0 ? 12 : -12, -4);
-                at = Vector2.Lerp(start, at, age / 0.5f);
-            }
-
-            ball = at;
+            Rect(handle, 0, 0, ArenaWidth, ArenaHeight, Color.Black);
         }
         else
         {
-            ball = new Vector2(ArenaWidth / 2, (CageTop + CageBottom) / 2 + MathF.Sin(t * 2) * 4);
+            DrawField(handle);
+            foreach (var decal in _decals)
+            {
+                DrawDecal(handle, decal);
+            }
+
+            DrawOverDecals(handle);
         }
 
-        _ball.WorldRotation = Angle.FromDegrees(clock * 90 % 360);
-        Place(_ball, ball.X, ball.Y);
+        // the scoreboard bar stays still while the field shakes
+        handle.DrawRect(new UIBox2(0, 0, ArenaWidth * UIScale, Bar * UIScale), Color.FromHex("#0C0F14"));
+        handle.DrawRect(new UIBox2(0, (Bar - 2) * UIScale, ArenaWidth * UIScale, Bar * UIScale), Color.FromHex("#7CFF00"));
     }
 
-    private void DrawZeroG(DrawingHandleScreen handle)
+    private void DrawDecal(DrawingHandleScreen handle, Decal decal)
     {
-        Rect(handle, 0, Bar, ArenaWidth, ArenaHeight - Bar, Color.FromHex("#05060E"));
-        var seed = (_match?.Id ?? 1) * 7919;
-        for (var star = 0; star < 70; star++)
-        {
-            seed = seed * 1103515245 + 12345 & int.MaxValue;
-            var x = seed % (int) ArenaWidth;
-            seed = seed * 1103515245 + 12345 & int.MaxValue;
-            var y = Bar + seed % (int) (ArenaHeight - Bar);
-            Rect(handle, x, y, 1.5f, 1.5f, Color.White.WithAlpha(0.3f + star % 5 * 0.12f));
-        }
-
-        var cage = Color.FromHex("#3FD8FF");
-        Frame(handle, CageLeft, CageTop, CageRight - CageLeft, CageBottom - CageTop, cage.WithAlpha(0.7f));
-        Rect(handle, ArenaWidth / 2 - 1, CageTop, 2, CageBottom - CageTop, cage.WithAlpha(0.25f));
-        handle.DrawCircle(new Vector2(ArenaWidth / 2, (CageTop + CageBottom) / 2) * UIScale, 30 * UIScale, cage.WithAlpha(0.25f), false);
-        for (var side = 0; side < 2; side++)
-        {
-            var colour = TeamColour(side);
-            var goal = Goal(1 - side);
-            Rect(handle, goal.X - 6, goal.Y - 34, 12, 68, colour.WithAlpha(0.35f));
-            Frame(handle, goal.X - 6, goal.Y - 34, 12, 68, colour);
-        }
+        var texture = Sprite(Splatter.ToString(), $"splatter-{decal.State}");
+        var centre = (decal.Position + _shakeOffset) * UIScale;
+        var half = new Vector2(decal.Size, decal.Size) * UIScale / 2;
+        var transform = handle.GetTransform();
+        handle.SetTransform(Matrix3x2.Multiply(Matrix3x2.CreateRotation(decal.Rotation) * Matrix3x2.CreateTranslation(centre), transform));
+        handle.DrawTextureRect(texture, new UIBox2(-half, half), decal.Colour);
+        handle.SetTransform(transform);
     }
 
-    private Color TeamColour(int side)
+    #region Drawing helpers
+
+    /// <summary>A filled rectangle in arena units, shaken with the field.</summary>
+    protected void Rect(DrawingHandleScreen handle, float x, float y, float width, float height, Color colour)
     {
-        if (_match is not { } match || side >= match.Entrants.Count)
+        handle.DrawRect(Box(x, y, width, height), colour);
+    }
+
+    protected void Frame(DrawingHandleScreen handle, float x, float y, float width, float height, Color colour)
+    {
+        handle.DrawRect(Box(x, y, width, height), colour, false);
+    }
+
+    protected UIBox2 Box(float x, float y, float width, float height)
+    {
+        x += _shakeOffset.X;
+        y += _shakeOffset.Y;
+        return new UIBox2(x * UIScale, y * UIScale, (x + width) * UIScale, (y + height) * UIScale);
+    }
+
+    protected void Circle(DrawingHandleScreen handle, float x, float y, float radius, Color colour, bool filled = true)
+    {
+        handle.DrawCircle((new Vector2(x, y) + _shakeOffset) * UIScale, radius * UIScale, colour, filled);
+    }
+
+    protected void Line(DrawingHandleScreen handle, Vector2 from, Vector2 to, Color colour)
+    {
+        handle.DrawLine((from + _shakeOffset) * UIScale, (to + _shakeOffset) * UIScale, colour);
+    }
+
+    protected void Poly(DrawingHandleScreen handle, Color colour, params Vector2[] points)
+    {
+        var scaled = points.Select(p => (p + _shakeOffset) * UIScale).ToArray();
+        handle.DrawPrimitives(DrawPrimitiveTopology.TriangleFan, scaled, colour);
+    }
+
+    /// <summary>Draws a texture centred on a spot, at a size in arena units, turned by <paramref name="rotation"/> radians.</summary>
+    protected void Texture(DrawingHandleScreen handle, Texture texture, Vector2 at, Vector2 size, float rotation = 0, Color? modulate = null)
+    {
+        var centre = (at + _shakeOffset) * UIScale;
+        var half = size * UIScale / 2;
+        if (rotation == 0)
+        {
+            handle.DrawTextureRect(texture, new UIBox2(centre - half, centre + half), modulate);
+            return;
+        }
+
+        var transform = handle.GetTransform();
+        handle.SetTransform(Matrix3x2.Multiply(Matrix3x2.CreateRotation(rotation) * Matrix3x2.CreateTranslation(centre), transform));
+        handle.DrawTextureRect(texture, new UIBox2(-half, half), modulate);
+        handle.SetTransform(transform);
+    }
+
+    /// <summary>The colour a match entrant wears, by slot.</summary>
+    protected static Color KitColour(CMUBetMatch match, int slot)
+    {
+        if (slot < 0 || slot >= match.Entrants.Count)
             return Color.White;
 
-        return CMUSports.Colours[CMUSports.Colour(match.Sport, side, match.Entrants[side])] switch
+        return CMUSports.Colours[CMUSports.Colour(match.Sport, slot, match.Entrants[slot])] switch
         {
             "Red" => Color.FromHex("#E04040"),
             "Blue" => Color.FromHex("#4080FF"),
@@ -726,58 +685,42 @@ public sealed class CMUSportsArena : LayoutContainer
         };
     }
 
+    /// <summary>The last word of a team's name, for the scoreboard.</summary>
+    protected static string Short(string team)
+    {
+        var words = team.Split(' ');
+        return words[^1].ToUpperInvariant();
+    }
+
     #endregion
 
-    protected override void Draw(DrawingHandleScreen handle)
+    /// <summary>Particles and the flash, over the dolls.</summary>
+    private sealed class FxLayer(CMUSportsArena arena) : Control
     {
-        base.Draw(handle);
-        switch (_match?.Sport)
+        protected override void Draw(DrawingHandleScreen handle)
         {
-            case CMUSport.Sprint:
-                DrawSprint(handle);
-                break;
-            case CMUSport.Boxing:
-                DrawBoxing(handle);
-                break;
-            case CMUSport.Baseball:
-                DrawBaseball(handle);
-                break;
-            case CMUSport.ZeroGBall:
-                DrawZeroG(handle);
-                break;
-            default:
-                Rect(handle, 0, 0, ArenaWidth, ArenaHeight, Color.Black);
-                break;
+            var scale = UIScale;
+            foreach (var p in arena._particles)
+            {
+                var colour = p.Colour.WithAlpha(p.Colour.A * Math.Clamp(1 - p.Age / p.Life, 0, 1) * 1.4f);
+                var at = (p.Position + arena._shakeOffset) * scale;
+                if (p.Streak)
+                {
+                    handle.DrawLine(at, at - p.Velocity * 0.03f * scale, colour);
+                    continue;
+                }
+
+                var half = p.Size * scale / 2;
+                handle.DrawRect(new UIBox2(at.X - half, at.Y - half, at.X + half, at.Y + half), colour);
+            }
+
+            arena.DrawOverlay(handle);
+            if (arena._flashLife > 0 && arena._flashAge < arena._flashLife)
+            {
+                var alpha = arena._flash.A * (1 - arena._flashAge / arena._flashLife);
+                handle.DrawRect(new UIBox2(0, Bar * scale, ArenaWidth * scale, ArenaHeight * scale), arena._flash.WithAlpha(alpha));
+            }
         }
-
-        Rect(handle, 0, 0, ArenaWidth, Bar, Color.FromHex("#0C0F14"));
-        Rect(handle, 0, Bar - 2, ArenaWidth, 2, Color.FromHex("#7CFF00"));
-    }
-
-    private void Rect(DrawingHandleScreen handle, float x, float y, float width, float height, Color colour)
-    {
-        handle.DrawRect(Box(x, y, width, height), colour);
-    }
-
-    private void Frame(DrawingHandleScreen handle, float x, float y, float width, float height, Color colour)
-    {
-        handle.DrawRect(Box(x, y, width, height), colour, false);
-    }
-
-    private UIBox2 Box(float x, float y, float width, float height)
-    {
-        return new UIBox2(x * UIScale, y * UIScale, (x + width) * UIScale, (y + height) * UIScale);
-    }
-
-    private void Circle(DrawingHandleScreen handle, float x, float y, float radius, Color colour)
-    {
-        handle.DrawCircle(new Vector2(x, y) * UIScale, radius * UIScale, colour);
-    }
-
-    private void Poly(DrawingHandleScreen handle, Color colour, params Vector2[] points)
-    {
-        var scaled = points.Select(p => p * UIScale).ToArray();
-        handle.DrawPrimitives(DrawPrimitiveTopology.TriangleFan, scaled, colour);
     }
 
     /// <summary>Text above the dolls: the scoreboard, calls and hit words.</summary>
@@ -787,21 +730,56 @@ public sealed class CMUSportsArena : LayoutContainer
         {
             var outline = new TextOutline(2, Color.Black);
             var scale = UIScale;
-            handle.DrawString(arena._small, new Vector2(8, 7) * scale, arena._header, scale, Color.FromHex("#7CFF00"));
-            var clock = handle.GetDimensions(arena._small, arena._clock, scale);
-            handle.DrawString(arena._small, new Vector2(ArenaWidth - 8, 7) * scale - clock with { Y = 0 }, arena._clock, scale, Color.White);
+            handle.DrawString(arena.SmallFont, new Vector2(8, 7) * scale, arena._header, scale, Color.FromHex("#7CFF00"));
+            DrawBadge(handle, scale);
+            var clock = handle.GetDimensions(arena.SmallFont, arena.Clock, scale);
+            handle.DrawString(arena.SmallFont, new Vector2(ArenaWidth - 8, 7) * scale - clock with { Y = 0 }, arena.Clock, scale, Color.White);
             foreach (var (text, position, colour, big, right) in arena._texts)
             {
-                var font = big ? arena._big : arena._small;
-                var size = handle.GetDimensions(font, text, scale);
-                var at = position * scale;
-                if (big)
-                    at -= size / 2;
-                else if (right)
-                    at.X -= size.X;
-
-                handle.DrawString(font, at, text, scale, colour, outline);
+                Text(handle, text, position + arena._shakeOffset, colour, big, right, outline);
             }
+
+            foreach (var popup in arena._popups)
+            {
+                var progress = popup.Age / popup.Life;
+                var at = popup.Position + arena._shakeOffset - new Vector2(0, popup.Rise * progress);
+                Text(handle, popup.Text, at, popup.Colour.WithAlpha(Math.Clamp(2 - progress * 2, 0, 1)), popup.Big, false, outline);
+            }
+        }
+
+        /// <summary>A blinking LIVE light while a match plays, or REPLAY while one is watched again.</summary>
+        private void DrawBadge(DrawingHandleScreen handle, float scale)
+        {
+            if (arena._match is not { } match || arena._play == null)
+                return;
+
+            var t = (float) (arena.Timing.CurTime - arena._start).TotalSeconds;
+            if (t < 0 || t >= CMUSports.Length(match.Sport))
+                return;
+
+            var text = Loc.GetString(arena._replay ? "cmu-game-arena-replay" : "cmu-game-arena-live");
+            var header = handle.GetDimensions(arena.SmallFont, arena._header, scale);
+            var x = 8 * scale + header.X + 10 * scale;
+            var on = arena.Timing.RealTime.TotalSeconds % 1 < 0.6;
+            var colour = arena._replay ? Color.FromHex("#F2C230") : Color.FromHex("#FF3030");
+            if (on)
+                handle.DrawCircle(new Vector2(x + 4 * scale, 13 * scale), 4 * scale, colour);
+
+            handle.DrawString(arena.SmallFont, new Vector2(x + 11 * scale, 7 * scale), text, scale, colour);
+        }
+
+        private void Text(DrawingHandleScreen handle, string text, Vector2 position, Color colour, bool big, bool right, TextOutline outline)
+        {
+            var scale = UIScale;
+            var font = big ? arena.BigFont : arena.SmallFont;
+            var size = handle.GetDimensions(font, text, scale);
+            var at = position * scale;
+            if (big)
+                at -= size / 2;
+            else if (right)
+                at.X -= size.X;
+
+            handle.DrawString(font, at, text, scale, colour, outline);
         }
     }
 }

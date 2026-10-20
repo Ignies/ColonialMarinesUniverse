@@ -15,8 +15,8 @@ namespace Content.Server.CMU14.PersonalComputers;
 
 /// <summary>
 /// The break room on the ExtraNet: arcade high score boards for the round, and a sportsbook where colonists bet
-/// ATM credits on sprints, boxing, baseball and zero-g ball played live every few minutes. A new arcade record makes
-/// the Herald wire.
+/// ATM credits on sprints, boxing, baseball and zero-g ball. Every sport runs its own schedule, a match every few
+/// minutes, so each has its own tab on the page. A new arcade record makes the Herald wire.
 /// </summary>
 public sealed partial class CMUComputerFunSystem : EntitySystem
 {
@@ -137,24 +137,25 @@ public sealed partial class CMUComputerFunSystem : EntitySystem
 
     private void SendBets(Entity<CMUPersonalComputerComponent> ent, EntityUid actor)
     {
-        var slips = new List<string>();
+        var slips = new List<CMUBetSlip>();
         foreach (var bet in _bets.Where(b => b.Account == ent.Comp.SessionAccount && b.Account != 0))
         {
             var match = _matches.FirstOrDefault(m => m.Id == bet.Match);
             if (match != null)
-                slips.Add(Loc.GetString("cmu-bet-slip", ("amount", bet.Amount), ("team", match.Name(bet.Entrant)),
-                    ("sport", Loc.GetString($"cmu-sport-{match.Sport}"))));
+                slips.Add(new CMUBetSlip(match.Id, match.Sport, bet.Entrant, match.Name(bet.Entrant), bet.Amount));
         }
 
         var now = _timing.CurTime;
-        var shown = _matches.Where(m => m.Result == null)
-            .Concat(_matches.Where(m => m.Result != null).TakeLast(6).Reverse())
-            .Select(m => m.Public(now))
-            .ToList();
+        var shown = new List<CMUBetMatch>();
+        foreach (var sport in Enum.GetValues<CMUSport>())
+        {
+            var played = _matches.Where(m => m.Sport == sport && m.Result != null).TakeLast(CMUBetLimits.Results).Reverse();
+            shown.AddRange(_matches.Where(m => m.Sport == sport && m.Result == null).Concat(played).Select(m => m.Public(now)));
+        }
         _ui.ServerSendUiMessage(ent.Owner, CMUPersonalComputerUiKey.Key, new CMUBetStateMessage(shown, slips), actor);
     }
 
-    /// <summary>Keeps a couple of matches taking bets, reveals each at kickoff and settles it when it ends.</summary>
+    /// <summary>Keeps every sport taking bets on its next match, reveals each at kickoff and settles it when it ends.</summary>
     public override void Update(float frameTime)
     {
         base.Update(frameTime);
@@ -162,8 +163,11 @@ public sealed partial class CMUComputerFunSystem : EntitySystem
             return;
 
         var now = _timing.CurTime;
-        while (_matches.Count(m => m.Kickoff > now) < CMUBetLimits.Upcoming)
-            Schedule(now);
+        foreach (var sport in Enum.GetValues<CMUSport>())
+        {
+            while (_matches.Count(m => m.Sport == sport && m.Kickoff > now) < CMUBetLimits.Upcoming)
+                Schedule(sport, now);
+        }
 
         for (var i = 0; i < _matches.Count; i++)
         {
@@ -176,18 +180,16 @@ public sealed partial class CMUComputerFunSystem : EntitySystem
     }
 
     /// <summary>
-    /// Kicks off after the last scheduled match ends, never a different sport twice in a row. Odds come from each
-    /// entrant's chance with a house cut, and the winner is drawn from those chances now.
+    /// Kicks off after the sport's last scheduled match ends. Odds come from each entrant's chance with a house cut,
+    /// and the winner is drawn from those chances now.
     /// </summary>
-    private void Schedule(TimeSpan now)
+    private void Schedule(CMUSport sport, TimeSpan now)
     {
-        var last = _matches.Count > 0 ? _matches[^1] : null;
+        var last = _matches.LastOrDefault(m => m.Sport == sport);
         var kickoff = now + CMUBetLimits.BettingWindow;
         if (last != null && last.End + CMUBetLimits.Gap > kickoff)
             kickoff = last.End + CMUBetLimits.Gap;
 
-        var sports = Enum.GetValues<CMUSport>().Where(s => s != last?.Sport).ToList();
-        var sport = _random.Pick(sports);
         var roster = Enumerable.Range(0, CMUSports.UsesTeams(sport) ? CMUSports.Teams.Length : CMUSports.Athletes.Length).ToList();
         _random.Shuffle(roster);
         var entrants = roster.Take(CMUSports.Entrants(sport)).ToList();
@@ -205,8 +207,11 @@ public sealed partial class CMUComputerFunSystem : EntitySystem
         }
 
         _matches.Add(new CMUBetMatch(_nextMatch++, sport, entrants, odds, kickoff, _random.Next(), winner, null));
-        if (_matches.Count > 12)
-            _matches.RemoveAt(0);
+
+        // played matches past the board fall off; open ones still hold bets
+        var played = _matches.Where(m => m.Sport == sport && m.Result != null).ToList();
+        for (var i = 0; i < played.Count - CMUBetLimits.Results; i++)
+            _matches.Remove(played[i]);
     }
 
     public IReadOnlyList<CMUBetMatch> Matches => _matches;

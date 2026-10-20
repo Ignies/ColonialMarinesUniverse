@@ -250,15 +250,17 @@ public sealed class CMUPersonalComputerPreview
 
         public void RequestBets()
         {
-            // the preview plays a sprint that started a moment ago, so the arena has something to show
+            // every sport plays a match that started a moment ago, so each tab's arena has something to show
             var now = IoCManager.Resolve<IGameTiming>().CurTime;
             BetsReceived?.Invoke(new CMUBetStateMessage(new List<CMUBetMatch>
             {
                 new(3, CMUSport.Sprint, new List<int> { 0, 1, 2, 3, 4 }, new List<float> { 3.1f, 4.4f, 6.0f, 3.8f, 5.2f }, now - TimeSpan.FromSeconds(4), 7, 3, null),
-                new(4, CMUSport.Boxing, new List<int> { 5, 6 }, new List<float> { 1.6f, 2.4f }, now + TimeSpan.FromMinutes(2), 0, -1, null),
-                new(2, CMUSport.ZeroGBall, new List<int> { 0, 1 }, new List<float> { 1.8f, 2.2f }, TimeSpan.Zero, 11, 0, "3 - 1"),
-                new(1, CMUSport.Baseball, new List<int> { 2, 4 }, new List<float> { 2.1f, 1.6f }, TimeSpan.Zero, 5, 1, "2 - 4"),
-            }, new List<string>()));
+                new(7, CMUSport.Sprint, new List<int> { 5, 6, 7, 8, 9 }, new List<float> { 2.9f, 4.1f, 5.5f, 3.6f, 6.2f }, now + TimeSpan.FromMinutes(2), 0, -1, null),
+                new(4, CMUSport.Boxing, new List<int> { 5, 6 }, new List<float> { 1.6f, 2.4f }, now - TimeSpan.FromSeconds(10), 9, 0, null),
+                new(5, CMUSport.Baseball, new List<int> { 2, 4 }, new List<float> { 2.1f, 1.6f }, now - TimeSpan.FromSeconds(10), 5, 1, null),
+                new(1, CMUSport.Baseball, new List<int> { 3, 6 }, new List<float> { 1.7f, 2.0f }, TimeSpan.Zero, 8, 0, "5 - 2"),
+                new(6, CMUSport.ZeroGBall, new List<int> { 0, 1 }, new List<float> { 1.8f, 2.2f }, now - TimeSpan.FromSeconds(10), 11, 0, null),
+            }, new List<CMUBetSlip> { new(7, CMUSport.Sprint, 0, "June Sato", 100) }));
         }
 
         public void PlaceBet(int match, int entrant, int amount)

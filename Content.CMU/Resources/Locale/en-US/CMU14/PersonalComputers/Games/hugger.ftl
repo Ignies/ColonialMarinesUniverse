@@ -1,0 +1,20 @@
+# hugger: strings for this game only.
+cmu-game-hugger-help = Space, W, Up or 8 jumps, hold it to leap higher; S, Down or 2 ducks. Dodge the bullets. Land on a face to infect and win, or leap clean over; never touch the legs.
+cmu-game-hugger-title = HUGGER RUN
+cmu-game-hugger-start = SPACE OR 8 TO RUN
+cmu-game-hugger-keys = JUMP: SPACE / W / 8    DUCK: S / 2
+cmu-game-hugger-again = SPACE TO RUN AGAIN
+cmu-game-hugger-paused = PAUSED
+cmu-game-hugger-best = HI {$score}
+cmu-game-hugger-shot = SHOT DOWN
+cmu-game-hugger-kicked = KICKED FLAT
+cmu-game-hugger-infected = INFECTED!
+cmu-game-hugger-bonus = +{$bonus}
+cmu-game-hugger-win = HOST INFECTED - SCORE {$score}
+cmu-game-hugger-contact = CONTACT!
+cmu-game-hugger-sign-0 = MED
+cmu-game-hugger-sign-1 = SEC
+cmu-game-hugger-sign-2 = ENG
+cmu-game-hugger-sign-3 = HYDRO
+cmu-game-hugger-sign-4 = CARGO
+cmu-game-hugger-sign-5 = OPS
