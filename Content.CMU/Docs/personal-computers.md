@@ -224,7 +224,8 @@ The guidebook basics work (`#` headings, lists, `[bold]`, `[italic]`, `[color=#h
 | `<CMUNetPopup Title="..." Text="..." Link="host" LinkText="..." Icon="/Textures/....png" X="0.6" Y="0.2" Delay="1.5"/>` | A pop up over the page, inside the browser window. |
 | `<CMUNetWallpaper Id="CMUWallpaperSynthwave"/>` | A wallpaper players can put on their desktop (`wallpapers.yml`). |
 | `<CMUNetRecipes Kind="Food" Group="Savory"/>` | The cookbook, built live from the game's microwave recipes. |
-| `<CMUNetArcade Game="HuggerRun"/>`, `<CMUNetSportsbook/>`, `<CMUNetSpaceGpt/>` | The arcade, the zero-g ball sportsbook, SpaceGPT. |
+| `<CMUNetArcade/>` or `<CMUNetArcade Game="HuggerRun"/>` | The arcade: with no `Game`, a tab per cabinet (Hugger Run, Tracker Reflex); with one, just that cabinet. The games play from the keyboard: click the screen, arrows / WASD / numpad to play, Space to start, Esc to let go. |
+| `<CMUNetSportsbook/>`, `<CMUNetSpaceGpt/>` | The sportsbook, with a tab per sport, each on its own schedule; SpaceGPT. |
 | `<CMUNetMarket/>` | The deep contraband market. |
 | `<CMUNetCmbPanel Kind="Alerts"/>` | A Marshals' panel: `Alerts`, `Map`, `Faxes` or `Records`. |
 

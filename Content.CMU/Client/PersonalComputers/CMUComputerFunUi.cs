@@ -5,6 +5,7 @@ using Content.Client.Guidebook.Richtext;
 using Content.Shared.CMU14.PersonalComputers;
 using JetBrains.Annotations;
 using Robust.Client.Graphics;
+using Robust.Client.Input;
 using Robust.Client.UserInterface;
 using Robust.Client.UserInterface.Controls;
 using Robust.Shared.Input;
@@ -27,19 +28,46 @@ public static class CMUNetPageHost
     }
 }
 
+/// <summary>A button that mutes or unmutes every game and arena on this client.</summary>
+public sealed class CMUGameSoundButton : Button
+{
+    public CMUGameSoundButton()
+    {
+        HorizontalAlignment = HAlignment.Left;
+        ToggleMode = true;
+        OnToggled += args => CMUGameAudio.SetMuted(!args.Pressed);
+        Refresh();
+    }
+
+    protected override void EnteredTree()
+    {
+        base.EnteredTree();
+        CMUGameAudio.MutedChanged += Refresh;
+        Refresh();
+    }
+
+    protected override void ExitedTree()
+    {
+        base.ExitedTree();
+        CMUGameAudio.MutedChanged -= Refresh;
+    }
+
+    private void Refresh()
+    {
+        Pressed = !CMUGameAudio.Muted;
+        Text = Loc.GetString(CMUGameAudio.Muted ? "cmu-game-sound-off" : "cmu-game-sound-on");
+    }
+}
+
 /// <summary>
-/// An arcade cabinet on a page: <c>&lt;CMUNetArcade Game="HuggerRun"/&gt;</c> or <c>Game="TrackerReflex"</c>.
-/// The game runs on the client; its score goes to the round's high score board under it.
+/// The arcade on a page: <c>&lt;CMUNetArcade/&gt;</c> puts every cabinet in its own tab, and
+/// <c>&lt;CMUNetArcade Game="HuggerRun"/&gt;</c> or <c>Game="TrackerReflex"</c> shows just that one.
+/// The games run on the client; their scores go to the round's high score boards.
 /// </summary>
 [UsedImplicitly]
 public sealed partial class CMUNetArcade : BoxContainer, IDocumentTag
 {
     [Dependency] private IGameTiming _timing = default!;
-
-    private CMUArcadeGame _game;
-    private readonly BoxContainer _scores;
-    private ICMUComputerHost? _host;
-    private CMUArcadeScreen? _screen;
 
     public CMUNetArcade()
     {
@@ -47,31 +75,75 @@ public sealed partial class CMUNetArcade : BoxContainer, IDocumentTag
         Orientation = LayoutOrientation.Vertical;
         SeparationOverride = 6;
         Margin = new Thickness(0, 6);
-        _scores = new BoxContainer { Orientation = LayoutOrientation.Vertical };
     }
 
     public bool TryParseTag(Dictionary<string, string> args, [NotNullWhen(true)] out Control? control)
     {
         control = null;
-        if (!args.TryGetValue("Game", out var game) || !Enum.TryParse(game, out _game))
-            return false;
+        if (args.TryGetValue("Game", out var name))
+        {
+            if (!Enum.TryParse<CMUArcadeGame>(name, out var game))
+                return false;
 
-        _screen = _game == CMUArcadeGame.HuggerRun ? new CMUHuggerRun(_timing) : new CMUTrackerReflex(_timing);
-        _screen.OnGameOver += score => _host?.SubmitScore(_game, score);
+            AddChild(new CMUArcadeCabinet(game, _timing));
+            control = this;
+            return true;
+        }
 
-        AddChild(new Label { Text = Loc.GetString($"cmu-arcade-{_game}"), StyleClasses = { "LabelHeading" } });
-        AddChild(new Label { Text = Loc.GetString(_game == CMUArcadeGame.HuggerRun ? "cmu-arcade-help-hugger" : "cmu-arcade-help-tracker") });
-        AddChild(_screen);
-        if (_screen is CMUHuggerRun hugger)
-            AddChild(hugger.Pad());
+        var tabs = new TabContainer { HorizontalExpand = true };
+        var games = Enum.GetValues<CMUArcadeGame>();
+        foreach (var game in games)
+        {
+            tabs.AddChild(new CMUArcadeCabinet(game, _timing));
+        }
 
-        var start = new Button { Text = Loc.GetString("cmu-arcade-start"), HorizontalAlignment = HAlignment.Left };
-        start.OnPressed += _ => _screen.Start();
-        AddChild(start);
-        AddChild(new Label { Text = Loc.GetString("cmu-arcade-scores"), StyleClasses = { "LabelKeyText" } });
-        AddChild(_scores);
+        for (var i = 0; i < games.Length; i++)
+        {
+            tabs.SetTabTitle(i, Loc.GetString($"cmu-arcade-{games[i]}"));
+        }
+
+        // a game left in a hidden tab must not keep the keyboard
+        tabs.OnTabChanged += _ =>
+        {
+            foreach (var cabinet in tabs.Children.OfType<CMUArcadeCabinet>())
+            {
+                cabinet.Screen.ReleaseKeyboardFocus();
+            }
+        };
+        AddChild(new CMUGameSoundButton());
+        AddChild(tabs);
         control = this;
         return true;
+    }
+}
+
+/// <summary>One arcade game: its screen, how to play it, and the round's high scores under it.</summary>
+public sealed class CMUArcadeCabinet : BoxContainer
+{
+    private readonly CMUArcadeGame _game;
+    private readonly BoxContainer _scores = new() { Orientation = LayoutOrientation.Vertical };
+    private ICMUComputerHost? _host;
+
+    public readonly CMUArcadeScreen Screen;
+
+    public CMUArcadeCabinet(CMUArcadeGame game, IGameTiming timing)
+    {
+        _game = game;
+        Orientation = LayoutOrientation.Vertical;
+        SeparationOverride = 6;
+        Margin = new Thickness(0, 4);
+        Screen = game switch
+        {
+            CMUArcadeGame.HuggerRun => new CMUHuggerRun(timing),
+            _ => new CMUTrackerReflex(timing),
+        };
+        Screen.OnGameOver += score => _host?.SubmitScore(_game, score);
+
+        AddChild(new Label { Text = Loc.GetString($"cmu-arcade-{game}"), StyleClasses = { "LabelHeading" } });
+        AddChild(new Label { Text = Screen.Help });
+        AddChild(Screen);
+        AddChild(new Label { Text = Loc.GetString("cmu-arcade-scores"), StyleClasses = { "LabelKeyText" } });
+        AddChild(_scores);
     }
 
     protected override void EnteredTree()
@@ -109,7 +181,28 @@ public sealed partial class CMUNetArcade : BoxContainer, IDocumentTag
     }
 }
 
-/// <summary>A game screen: green phosphor on black, a score line, and a game over when it ends.</summary>
+/// <summary>What an arcade key means. Arrows, WASD and the numpad's 8, 4, 6 and 2 steer; Space, Enter and numpad 5 act.</summary>
+public enum CMUArcadeKey : byte
+{
+    None,
+    Up,
+    Down,
+    Left,
+    Right,
+    Action,
+}
+
+/// <summary>
+/// A key on the arcade's keyboard. <see cref="Pad"/> is the digit for the numpad and number row keys, 0 otherwise,
+/// so a game can use the keypad as a 3 by 3 grid (7 8 9 on top) as well as for steering.
+/// </summary>
+public readonly record struct CMUArcadeInput(CMUArcadeKey Key, int Pad, bool Down, bool Repeat);
+
+/// <summary>
+/// A game screen: green phosphor on black, a score line, and a game over when it ends. It plays from the keyboard:
+/// click the screen to take the keys, Space or Enter to start, Esc to let go. While it holds the keys the
+/// character at the computer does not walk off.
+/// </summary>
 public abstract class CMUArcadeScreen : Control
 {
     protected static readonly Color Green = Color.FromHex("#3FE05A");
@@ -117,6 +210,7 @@ public abstract class CMUArcadeScreen : Control
     protected readonly IGameTiming Timing;
     protected bool Running;
     protected int Score;
+    private readonly IInputManager _input;
     private string _status = string.Empty;
 
     public event Action<int>? OnGameOver;
@@ -124,6 +218,7 @@ public abstract class CMUArcadeScreen : Control
     protected CMUArcadeScreen(IGameTiming timing)
     {
         Timing = timing;
+        _input = IoCManager.Resolve<IInputManager>();
         SetSize = new Vector2(320, 224);
         HorizontalAlignment = HAlignment.Left;
         MouseFilter = MouseFilterMode.Stop;
@@ -131,10 +226,14 @@ public abstract class CMUArcadeScreen : Control
         CanKeyboardFocus = true;
     }
 
+    /// <summary>How to play, shown above the screen.</summary>
+    public abstract string Help { get; }
+
     public virtual void Start()
     {
         Score = 0;
         Running = true;
+        _status = string.Empty;
         GrabKeyboardFocus();
     }
 
@@ -150,6 +249,89 @@ public abstract class CMUArcadeScreen : Control
         _status = status;
     }
 
+    /// <summary>Plays a game sound while the screen is on show and the games are not muted.</summary>
+    protected void Sound(string path, float volume = 0, float pitch = 1)
+    {
+        CMUGameAudio.Play(this, path, volume, pitch);
+    }
+
+    /// <summary>A key went down or up while the screen has the keyboard. Space and Enter start a game that is not running.</summary>
+    protected virtual void OnKey(CMUArcadeInput input)
+    {
+    }
+
+    protected override void EnteredTree()
+    {
+        base.EnteredTree();
+        _input.FirstChanceOnKeyEvent += OnRawKey;
+    }
+
+    protected override void ExitedTree()
+    {
+        base.ExitedTree();
+        _input.FirstChanceOnKeyEvent -= OnRawKey;
+    }
+
+    private void OnRawKey(KeyEventArgs args, KeyEventType type)
+    {
+        if (!HasKeyboardFocus() || !VisibleInTree)
+            return;
+
+        if (args.Key == Keyboard.Key.Escape)
+        {
+            if (type == KeyEventType.Down)
+                ReleaseKeyboardFocus();
+
+            args.Handle();
+            return;
+        }
+
+        var (key, pad) = Map(args.Key);
+        if (key == CMUArcadeKey.None && pad == 0)
+            return;
+
+        args.Handle();
+        var down = type != KeyEventType.Up;
+        if (!Running && down && type != KeyEventType.Repeat && key == CMUArcadeKey.Action)
+        {
+            Start();
+            return;
+        }
+
+        OnKey(new CMUArcadeInput(key, pad, down, type == KeyEventType.Repeat));
+    }
+
+    private static (CMUArcadeKey Key, int Pad) Map(Keyboard.Key key)
+    {
+        return key switch
+        {
+            Keyboard.Key.Up or Keyboard.Key.W => (CMUArcadeKey.Up, 0),
+            Keyboard.Key.Down or Keyboard.Key.S => (CMUArcadeKey.Down, 0),
+            Keyboard.Key.Left or Keyboard.Key.A => (CMUArcadeKey.Left, 0),
+            Keyboard.Key.Right or Keyboard.Key.D => (CMUArcadeKey.Right, 0),
+            Keyboard.Key.Space or Keyboard.Key.Return or Keyboard.Key.NumpadEnter => (CMUArcadeKey.Action, 0),
+            Keyboard.Key.NumpadNum8 => (CMUArcadeKey.Up, 8),
+            Keyboard.Key.NumpadNum2 => (CMUArcadeKey.Down, 2),
+            Keyboard.Key.NumpadNum4 => (CMUArcadeKey.Left, 4),
+            Keyboard.Key.NumpadNum6 => (CMUArcadeKey.Right, 6),
+            Keyboard.Key.NumpadNum5 => (CMUArcadeKey.Action, 5),
+            >= Keyboard.Key.NumpadNum1 and <= Keyboard.Key.NumpadNum9 => (CMUArcadeKey.None, (int) (key - Keyboard.Key.NumpadNum0)),
+            >= Keyboard.Key.Num1 and <= Keyboard.Key.Num9 => (CMUArcadeKey.None, (int) (key - Keyboard.Key.Num0)),
+            _ => (CMUArcadeKey.None, 0),
+        };
+    }
+
+    protected override void KeyboardFocusExited()
+    {
+        base.KeyboardFocusExited();
+        OnFocusLost();
+    }
+
+    /// <summary>The keys went elsewhere: let go of anything held.</summary>
+    protected virtual void OnFocusLost()
+    {
+    }
+
     protected override void Draw(DrawingHandleScreen handle)
     {
         handle.DrawRect(PixelSizeBox, Color.FromHex("#020602"));
@@ -157,242 +339,35 @@ public abstract class CMUArcadeScreen : Control
         handle.DrawRect(PixelSizeBox, Green, false);
         var font = UserInterfaceManager.ThemeDefaults.DefaultFont;
         handle.DrawString(font, new Vector2(6, 4) * UIScale, _status.Length > 0 ? _status : Loc.GetString("cmu-arcade-score", ("score", Score)), UIScale, Green);
+        if (HasKeyboardFocus())
+            return;
+
+        // without the keys the game cannot hear you, so say how to give them back
+        var prompt = Loc.GetString(Running ? "cmu-game-arcade-resume" : "cmu-game-arcade-focus");
+        var size = handle.GetDimensions(font, prompt, UIScale);
+        var at = PixelSizeBox.Center - size / 2 + new Vector2(0, PixelHeight * 0.32f);
+        handle.DrawRect(UIBox2.FromDimensions(at - new Vector2(6, 3) * UIScale, size + new Vector2(12, 6) * UIScale), Color.Black.WithAlpha(0.8f));
+        if (Timing.RealTime.TotalSeconds % 1.2 < 0.8)
+            handle.DrawString(font, at, prompt, UIScale, Green);
     }
 
     protected abstract void DrawGame(DrawingHandleScreen handle);
 }
 
-/// <summary>Snake: steer the hugger to the eggs; every egg makes it longer; hitting a wall or its tail ends it.</summary>
-public sealed class CMUHuggerRun : CMUArcadeScreen
-{
-    private const int Width = 20;
-    private const int Height = 14;
-    private const float Step = 0.14f;
-
-    private readonly List<Vector2i> _body = new();
-    private readonly Random _random = new();
-    private Vector2i _direction = new(1, 0);
-    private Vector2i _next = new(1, 0);
-    private Vector2i _egg;
-    private float _timer;
-
-    public CMUHuggerRun(IGameTiming timing) : base(timing)
-    {
-    }
-
-    /// <summary>Buttons for those who would rather click than use the arrow keys.</summary>
-    public Control Pad()
-    {
-        Button Arrow(string text, Vector2i direction)
-        {
-            var button = new Button { Text = text, MinWidth = 32 };
-            button.OnPressed += _ => Turn(direction);
-            return button;
-        }
-
-        return new BoxContainer
-        {
-            Orientation = BoxContainer.LayoutOrientation.Horizontal,
-            SeparationOverride = 4,
-            Children = { Arrow("<", new Vector2i(-1, 0)), Arrow("^", new Vector2i(0, -1)), Arrow("v", new Vector2i(0, 1)), Arrow(">", new Vector2i(1, 0)) },
-        };
-    }
-
-    public override void Start()
-    {
-        base.Start();
-        _body.Clear();
-        _body.Add(new Vector2i(5, 7));
-        _body.Add(new Vector2i(4, 7));
-        _body.Add(new Vector2i(3, 7));
-        _direction = _next = new Vector2i(1, 0);
-        SetStatus(string.Empty);
-        PlaceEgg();
-    }
-
-    private void Turn(Vector2i direction)
-    {
-        // No turning straight back into the tail.
-        if (direction + _direction != Vector2i.Zero)
-            _next = direction;
-    }
-
-    protected override void KeyBindDown(GUIBoundKeyEventArgs args)
-    {
-        base.KeyBindDown(args);
-        if (args.Function == EngineKeyFunctions.TextCursorUp)
-            Turn(new Vector2i(0, -1));
-        else if (args.Function == EngineKeyFunctions.TextCursorDown)
-            Turn(new Vector2i(0, 1));
-        else if (args.Function == EngineKeyFunctions.TextCursorLeft)
-            Turn(new Vector2i(-1, 0));
-        else if (args.Function == EngineKeyFunctions.TextCursorRight)
-            Turn(new Vector2i(1, 0));
-        else
-            return;
-
-        args.Handle();
-    }
-
-    private void PlaceEgg()
-    {
-        do
-        {
-            _egg = new Vector2i(_random.Next(Width), _random.Next(1, Height));
-        } while (_body.Contains(_egg));
-    }
-
-    protected override void FrameUpdate(FrameEventArgs args)
-    {
-        base.FrameUpdate(args);
-        if (!Running)
-            return;
-
-        _timer += args.DeltaSeconds;
-        if (_timer < Step)
-            return;
-
-        _timer = 0;
-        _direction = _next;
-        var head = _body[0] + _direction;
-        if (head.X < 0 || head.Y < 1 || head.X >= Width || head.Y >= Height || _body.Contains(head))
-        {
-            GameOver();
-            return;
-        }
-
-        _body.Insert(0, head);
-        if (head == _egg)
-        {
-            Score += 10;
-            PlaceEgg();
-            return;
-        }
-
-        _body.RemoveAt(_body.Count - 1);
-    }
-
-    protected override void DrawGame(DrawingHandleScreen handle)
-    {
-        var cell = PixelWidth / (float) Width;
-        UIBox2 Box(Vector2i at) => UIBox2.FromDimensions(new Vector2(at.X * cell + 1, at.Y * cell + 1), new Vector2(cell - 2, cell - 2));
-
-        handle.DrawRect(Box(_egg), Color.FromHex("#C8C060"));
-        for (var i = 0; i < _body.Count; i++)
-            handle.DrawRect(Box(_body[i]), i == 0 ? Color.FromHex("#E8D8B0") : Color.FromHex("#B8A070"));
-    }
-}
-
-/// <summary>Reflexes: blips pop up on a tracker sweep; click them before they fade. Thirty seconds.</summary>
-public sealed class CMUTrackerReflex : CMUArcadeScreen
-{
-    private const float Length = 30f;
-    private const float Life = 1.4f;
-
-    private readonly List<(Vector2 At, float Age)> _blips = new();
-    private readonly Random _random = new();
-    private float _left;
-    private float _spawn;
-    private float _sweep;
-
-    public CMUTrackerReflex(IGameTiming timing) : base(timing)
-    {
-    }
-
-    public override void Start()
-    {
-        base.Start();
-        _blips.Clear();
-        _left = Length;
-        _spawn = 0;
-    }
-
-    protected override void FrameUpdate(FrameEventArgs args)
-    {
-        base.FrameUpdate(args);
-        _sweep = (_sweep + args.DeltaSeconds * 2) % MathF.Tau;
-        if (!Running)
-            return;
-
-        _left -= args.DeltaSeconds;
-        SetStatus(Loc.GetString("cmu-arcade-time", ("seconds", (int) MathF.Ceiling(_left))) + "  " + Loc.GetString("cmu-arcade-score", ("score", Score)));
-        if (_left <= 0)
-        {
-            GameOver();
-            return;
-        }
-
-        for (var i = _blips.Count - 1; i >= 0; i--)
-        {
-            var (at, age) = _blips[i];
-            if (age + args.DeltaSeconds > Life)
-                _blips.RemoveAt(i);
-            else
-                _blips[i] = (at, age + args.DeltaSeconds);
-        }
-
-        _spawn -= args.DeltaSeconds;
-        if (_spawn > 0)
-            return;
-
-        _spawn = 0.35f + (float) _random.NextDouble() * 0.5f;
-        var angle = (float) _random.NextDouble() * MathF.Tau;
-        var distance = 0.2f + (float) _random.NextDouble() * 0.75f;
-        _blips.Add((new Vector2(MathF.Cos(angle), MathF.Sin(angle)) * distance, 0));
-    }
-
-    protected override void KeyBindDown(GUIBoundKeyEventArgs args)
-    {
-        base.KeyBindDown(args);
-        if (args.Function != EngineKeyFunctions.UIClick || !Running)
-            return;
-
-        var center = PixelSizeBox.Center;
-        var radius = MathF.Min(PixelWidth, PixelHeight) * 0.45f;
-        for (var i = _blips.Count - 1; i >= 0; i--)
-        {
-            var spot = center + _blips[i].At * radius;
-            if ((spot - args.RelativePixelPosition).Length() > 12 * UIScale)
-                continue;
-
-            _blips.RemoveAt(i);
-            Score += 5;
-            args.Handle();
-            return;
-        }
-    }
-
-    protected override void DrawGame(DrawingHandleScreen handle)
-    {
-        var center = PixelSizeBox.Center;
-        var radius = MathF.Min(PixelWidth, PixelHeight) * 0.45f;
-        handle.DrawCircle(center, radius, Dim, false);
-        handle.DrawCircle(center, radius * 0.66f, Dim, false);
-        handle.DrawCircle(center, radius * 0.33f, Dim, false);
-        handle.DrawLine(center, center + new Vector2(MathF.Cos(_sweep), MathF.Sin(_sweep)) * radius, Green);
-        foreach (var (at, age) in _blips)
-            handle.DrawCircle(center + at * radius, 7 * UIScale, Green.WithAlpha(1 - age / Life));
-    }
-}
-
 /// <summary>
-/// The sportsbook: <c>&lt;CMUNetSportsbook/&gt;</c>. Plays the live match, or the next one's lineup, in an arena;
-/// takes bets from the logged in account until kickoff; lists the user's open bets and the latest results, each of
-/// which can be watched again.
+/// The sportsbook: <c>&lt;CMUNetSportsbook/&gt;</c>. Every sport has its own tab with its own arena, which plays
+/// that sport's live match or the next one's lineup; the tab takes bets from the logged in account until kickoff,
+/// lists the user's open bets on that sport and its latest results, each of which can be watched again.
 /// </summary>
 [UsedImplicitly]
 public sealed partial class CMUNetSportsbook : BoxContainer, IDocumentTag
 {
     [Dependency] private IGameTiming _timing = default!;
 
-    private readonly CMUSportsArena _arena = new();
-    private readonly BoxContainer _board = new() { Orientation = LayoutOrientation.Vertical, SeparationOverride = 6 };
-    private readonly List<(Label Label, TimeSpan Kickoff)> _countdowns = new();
+    private readonly TabContainer _tabs = new() { HorizontalExpand = true };
+    private readonly List<CMUSportsbookTab> _sports = new();
     private ICMUComputerHost? _host;
     private TimeSpan _next;
-    private CMUBetStateMessage? _state;
-    private string _shown = string.Empty;
-    private TimeSpan? _replayEnds;
 
     public CMUNetSportsbook()
     {
@@ -404,14 +379,17 @@ public sealed partial class CMUNetSportsbook : BoxContainer, IDocumentTag
 
     public bool TryParseTag(Dictionary<string, string> args, [NotNullWhen(true)] out Control? control)
     {
-        AddChild(new PanelContainer
+        foreach (var sport in Enum.GetValues<CMUSport>())
         {
-            HorizontalAlignment = HAlignment.Left,
-            PanelOverride = new StyleBoxFlat { BorderColor = Color.FromHex("#7CFF00"), BorderThickness = new Thickness(2) },
-            Children = { _arena },
-        });
-        AddChild(_board);
-        _board.AddChild(new Label { Text = Loc.GetString("cmu-cmb-loading") });
+            var tab = new CMUSportsbookTab(sport, _timing);
+            tab.OnPlace += (match, entrant, amount) => _host?.PlaceBet(match, entrant, amount);
+            _sports.Add(tab);
+            _tabs.AddChild(tab);
+        }
+
+        AddChild(new CMUGameSoundButton());
+        AddChild(_tabs);
+        RefreshTitles();
         control = this;
         return true;
     }
@@ -434,6 +412,88 @@ public sealed partial class CMUNetSportsbook : BoxContainer, IDocumentTag
     protected override void FrameUpdate(FrameEventArgs args)
     {
         base.FrameUpdate(args);
+        if (_host == null || _timing.RealTime < _next)
+            return;
+
+        _next = _timing.RealTime + TimeSpan.FromSeconds(5);
+        _host.RequestBets();
+        RefreshTitles();
+    }
+
+    private void OnState(CMUBetStateMessage state)
+    {
+        foreach (var tab in _sports)
+        {
+            tab.SetState(state, _host?.SessionUser != null);
+        }
+
+        RefreshTitles();
+    }
+
+    /// <summary>A tab whose sport is in play says so in its title.</summary>
+    private void RefreshTitles()
+    {
+        for (var i = 0; i < _sports.Count; i++)
+        {
+            var name = Loc.GetString($"cmu-sport-{_sports[i].Sport}");
+            _tabs.SetTabTitle(i, _sports[i].InPlay ? Loc.GetString("cmu-game-tab-live", ("name", name)) : name);
+        }
+    }
+}
+
+/// <summary>One sport's tab on the sportsbook: its arena, its open match, the user's bets on it, its results.</summary>
+public sealed class CMUSportsbookTab : BoxContainer
+{
+    private readonly IGameTiming _timing;
+    private readonly CMUSportsArena _arena;
+    // the board keeps to the arena's width, so long lineups wrap into its grid instead of running off the page
+    private readonly BoxContainer _board = new()
+    {
+        Orientation = LayoutOrientation.Vertical,
+        SeparationOverride = 6,
+        HorizontalAlignment = HAlignment.Left,
+        SetWidth = CMUSportsArena.ArenaWidth + 4,
+    };
+    private readonly List<(Label Label, TimeSpan Kickoff)> _countdowns = new();
+    private List<CMUBetMatch> _matches = new();
+    private string _shown = string.Empty;
+    private TimeSpan? _replayEnds;
+
+    public readonly CMUSport Sport;
+
+    public event Action<int, int, int>? OnPlace;
+
+    public CMUSportsbookTab(CMUSport sport, IGameTiming timing)
+    {
+        Sport = sport;
+        _timing = timing;
+        Orientation = LayoutOrientation.Vertical;
+        SeparationOverride = 6;
+        Margin = new Thickness(0, 6);
+        _arena = CMUSportsArena.Create(sport);
+        AddChild(new PanelContainer
+        {
+            HorizontalAlignment = HAlignment.Left,
+            PanelOverride = new StyleBoxFlat { BorderColor = Color.FromHex("#7CFF00"), BorderThickness = new Thickness(2) },
+            Children = { _arena },
+        });
+        AddChild(_board);
+        _board.AddChild(new Label { Text = Loc.GetString("cmu-cmb-loading") });
+    }
+
+    /// <summary>Whether this sport has a match being played right now.</summary>
+    public bool InPlay
+    {
+        get
+        {
+            var now = _timing.CurTime;
+            return _matches.Any(m => m.Result == null && m.Kickoff <= now);
+        }
+    }
+
+    protected override void FrameUpdate(FrameEventArgs args)
+    {
+        base.FrameUpdate(args);
         var now = _timing.CurTime;
         foreach (var (label, kickoff) in _countdowns)
         {
@@ -448,54 +508,57 @@ public sealed partial class CMUNetSportsbook : BoxContainer, IDocumentTag
             _replayEnds = null;
             Feature();
         }
-
-        if (_host == null || _timing.RealTime < _next)
-            return;
-
-        _next = _timing.RealTime + TimeSpan.FromSeconds(5);
-        _host.RequestBets();
     }
 
     /// <summary>The arena plays the match in progress, or else shows the lineup of the next one.</summary>
     private void Feature()
     {
-        if (_replayEnds != null || _state == null)
+        if (_replayEnds != null)
             return;
 
         var now = _timing.CurTime;
-        var live = _state.Matches.FirstOrDefault(m => m.Result == null && m.Kickoff <= now)
-            ?? _state.Matches.Where(m => m.Result == null).OrderBy(m => m.Kickoff).FirstOrDefault()
-            ?? _state.Matches.FirstOrDefault();
+        var live = _matches.FirstOrDefault(m => m.Result == null && m.Kickoff <= now)
+            ?? _matches.Where(m => m.Result == null).OrderBy(m => m.Kickoff).FirstOrDefault()
+            ?? _matches.FirstOrDefault();
         if (live != null)
             _arena.Show(live);
     }
 
-    private void OnState(CMUBetStateMessage state)
+    public void SetState(CMUBetStateMessage state, bool loggedIn)
     {
-        _state = state;
+        _matches = state.Matches.Where(m => m.Sport == Sport).ToList();
+        var slips = state.Slips.Where(s => s.Sport == Sport).ToList();
         Feature();
 
         // only rebuild when something changed, so a half typed stake survives the refresh
-        var shown = string.Join(";", state.Matches.Select(m => $"{m.Id}:{m.Winner}:{m.Result}"))
-            + string.Join(";", state.Slips) + (_host?.SessionUser != null);
+        var shown = string.Join(";", _matches.Select(m => $"{m.Id}:{m.Winner}:{m.Result}"))
+            + string.Join(";", slips.Select(s => $"{s.Match}:{s.Entrant}:{s.Amount}")) + loggedIn;
         if (shown == _shown)
             return;
 
         _shown = shown;
         _board.RemoveAllChildren();
         _countdowns.Clear();
-        foreach (var match in state.Matches.Where(m => m.Result == null).OrderBy(m => m.Kickoff))
-            AddUpcoming(match);
+        foreach (var match in _matches.Where(m => m.Result == null).OrderBy(m => m.Kickoff))
+        {
+            AddUpcoming(match, loggedIn);
+        }
 
-        if (state.Slips.Count > 0)
+        if (slips.Count > 0)
         {
             _board.AddChild(new Label { Text = Loc.GetString("cmu-bet-slips"), StyleClasses = { "LabelKeyText" } });
-            foreach (var slip in state.Slips)
-                _board.AddChild(new Label { Text = slip });
+            foreach (var slip in slips)
+            {
+                _board.AddChild(new Label
+                {
+                    Text = Loc.GetString("cmu-bet-slip", ("amount", slip.Amount), ("team", slip.Team),
+                        ("sport", Loc.GetString($"cmu-sport-{slip.Sport}"))),
+                });
+            }
         }
 
         _board.AddChild(new Label { Text = Loc.GetString("cmu-bet-results"), StyleClasses = { "LabelKeyText" } });
-        foreach (var match in state.Matches.Where(m => m.Result != null))
+        foreach (var match in _matches.Where(m => m.Result != null))
         {
             var replay = new Button { Text = Loc.GetString("cmu-bet-replay") };
             var played = match;
@@ -515,6 +578,8 @@ public sealed partial class CMUNetSportsbook : BoxContainer, IDocumentTag
                         Text = Loc.GetString("cmu-bet-result", ("sport", Loc.GetString($"cmu-sport-{match.Sport}")),
                             ("winner", match.Name(match.Winner)), ("result", match.Result ?? string.Empty)),
                         VerticalAlignment = VAlignment.Center,
+                        HorizontalExpand = true,
+                        ClipText = true,
                     },
                     replay,
                 },
@@ -522,45 +587,59 @@ public sealed partial class CMUNetSportsbook : BoxContainer, IDocumentTag
         }
     }
 
-    private void AddUpcoming(CMUBetMatch match)
+    /// <summary>
+    /// The sport's next or live match: a countdown, then its entrants two to a row, as bet buttons while it takes
+    /// bets from a logged in account and as names with their odds otherwise.
+    /// </summary>
+    private void AddUpcoming(CMUBetMatch match, bool loggedIn)
     {
-        var names = Enumerable.Range(0, match.Entrants.Count).Select(match.Name);
-        _board.AddChild(new Label
-        {
-            Text = Loc.GetString("cmu-bet-open", ("sport", Loc.GetString($"cmu-sport-{match.Sport}")), ("entrants", string.Join(" vs ", names))),
-            StyleClasses = { "LabelHeading" },
-        });
+        _board.AddChild(new Label { Text = Loc.GetString($"cmu-sport-{match.Sport}"), StyleClasses = { "LabelHeading" } });
         var countdown = new Label();
         _countdowns.Add((countdown, match.Kickoff));
         _board.AddChild(countdown);
-        if (match.Kickoff <= _timing.CurTime)
-            return;
-
-        if (_host?.SessionUser == null)
-        {
+        var open = match.Kickoff > _timing.CurTime;
+        if (open && !loggedIn)
             _board.AddChild(new Label { Text = Loc.GetString("cmu-bet-login") });
-            return;
+
+        LineEdit? amount = null;
+        if (open && loggedIn)
+        {
+            amount = new LineEdit { PlaceHolder = Loc.GetString("cmu-bet-amount"), MinWidth = 170, HorizontalAlignment = HAlignment.Left };
+            amount.IsValid = text => text.Length <= 5 && text.All(char.IsDigit);
+            _board.AddChild(amount);
         }
 
-        var amount = new LineEdit { PlaceHolder = Loc.GetString("cmu-bet-amount"), MinWidth = 120 };
-        amount.IsValid = text => text.Length <= 5 && text.All(char.IsDigit);
-        var picks = new GridContainer { Columns = 3, HSeparationOverride = 6, VSeparationOverride = 4 };
+        var picks = new GridContainer { Columns = 2, HSeparationOverride = 6, VSeparationOverride = 4, HorizontalExpand = true };
         for (var slot = 0; slot < match.Entrants.Count; slot++)
         {
-            var pick = new Button { Text = Loc.GetString("cmu-bet-on", ("team", match.Name(slot)), ("odds", match.Odds[slot])) };
+            if (amount == null)
+            {
+                picks.AddChild(new Label
+                {
+                    Text = Loc.GetString("cmu-game-bet-entrant", ("team", match.Name(slot)), ("odds", match.Odds[slot])),
+                    HorizontalExpand = true,
+                    ClipText = true,
+                });
+                continue;
+            }
+
+            var pick = new Button
+            {
+                Text = Loc.GetString("cmu-bet-on", ("team", match.Name(slot)), ("odds", match.Odds[slot])),
+                HorizontalExpand = true,
+                ClipText = true,
+            };
             var id = match.Id;
             var entrant = slot;
-            pick.OnPressed += _ => Place(id, entrant, amount.Text);
+            var stakeBox = amount;
+            pick.OnPressed += _ =>
+            {
+                if (int.TryParse(stakeBox.Text, out var stake))
+                    OnPlace?.Invoke(id, entrant, stake);
+            };
             picks.AddChild(pick);
         }
 
-        _board.AddChild(amount);
         _board.AddChild(picks);
-    }
-
-    private void Place(int match, int entrant, string amount)
-    {
-        if (int.TryParse(amount, out var stake))
-            _host?.PlaceBet(match, entrant, stake);
     }
 }

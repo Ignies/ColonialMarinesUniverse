@@ -6,10 +6,10 @@ namespace Content.Shared.CMU14.PersonalComputers;
 [Serializable, NetSerializable]
 public enum CMUArcadeGame : byte
 {
-    /// <summary>A snake game: steer the hugger to the eggs without biting its own tail.</summary>
+    /// <summary>A runner: the hugger jumps the bullets fired at it, and a leap onto a colonist's face wins the run.</summary>
     HuggerRun,
 
-    /// <summary>A reflex game: click the blips on a motion tracker before they fade.</summary>
+    /// <summary>A reflex game: hit the blips on a motion tracker from the keypad, one key per sector.</summary>
     TrackerReflex,
 }
 
@@ -113,14 +113,25 @@ public sealed class CMUBetPlaceMessage(int match, int entrant, int amount) : Bou
     public readonly int Amount = amount;
 }
 
+/// <summary>One of the logged in account's open bets.</summary>
 [Serializable, NetSerializable]
-public sealed class CMUBetStateMessage(List<CMUBetMatch> matches, List<string> slips) : BoundUserInterfaceMessage
+public sealed class CMUBetSlip(int match, CMUSport sport, int entrant, string team, int amount)
 {
-    /// <summary>Upcoming and live matches, then the latest results.</summary>
+    public readonly int Match = match;
+    public readonly CMUSport Sport = sport;
+    public readonly int Entrant = entrant;
+    public readonly string Team = team;
+    public readonly int Amount = amount;
+}
+
+[Serializable, NetSerializable]
+public sealed class CMUBetStateMessage(List<CMUBetMatch> matches, List<CMUBetSlip> slips) : BoundUserInterfaceMessage
+{
+    /// <summary>For every sport: its live and upcoming matches, then its latest results.</summary>
     public readonly List<CMUBetMatch> Matches = matches;
 
-    /// <summary>The logged in account's bets, as lines.</summary>
-    public readonly List<string> Slips = slips;
+    /// <summary>The logged in account's open bets.</summary>
+    public readonly List<CMUBetSlip> Slips = slips;
 }
 
 public static class CMUBetLimits
@@ -128,8 +139,11 @@ public static class CMUBetLimits
     public const int MinBet = 10;
     public const int MaxBet = 2000;
 
-    /// <summary>How many matches take bets at once.</summary>
-    public const int Upcoming = 2;
+    /// <summary>How many matches of each sport take bets at once. Every sport keeps its own schedule.</summary>
+    public const int Upcoming = 1;
+
+    /// <summary>How many played matches of each sport stay on the board to watch again.</summary>
+    public const int Results = 4;
 
     /// <summary>The least time a new match takes bets before kickoff.</summary>
     public static readonly TimeSpan BettingWindow = TimeSpan.FromMinutes(2);
