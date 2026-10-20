@@ -41,6 +41,7 @@ public sealed partial class CMUComputerSessionSystem : EntitySystem
     private const int TamperSkill = 3;
     private static readonly SoundSpecifier CardInSound = new SoundPathSpecifier("/Audio/CMU14/ColonyEconomy/atm_card_in.wav");
     private static readonly SoundSpecifier CardOutSound = new SoundPathSpecifier("/Audio/CMU14/ColonyEconomy/atm_card_out.wav");
+    private static readonly SoundSpecifier DeniedSound = new SoundPathSpecifier("/Audio/CMU14/PersonalComputers/error.ogg");
 
     [Dependency] private IAdminLogManager _adminLog = default!;
     [Dependency] private IConfigurationManager _cfg = default!;
@@ -317,6 +318,7 @@ public sealed partial class CMUComputerSessionSystem : EntitySystem
             AddLog(ent, Loc.GetString("cmu-pc-log-denied", ("name", refused)));
             _security.Report(ent.Owner, CMUSecurityEvent.LoginRefused, refused);
             _popup.PopupEntity(Loc.GetString("cmu-pc-access-denied"), ent, user, PopupType.SmallCaution);
+            _audio.PlayPvs(DeniedSound, ent);
             EjectCard(ent, cardUid, user);
             return;
         }

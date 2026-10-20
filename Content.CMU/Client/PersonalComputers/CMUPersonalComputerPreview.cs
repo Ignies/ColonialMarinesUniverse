@@ -213,6 +213,10 @@ public sealed class CMUPersonalComputerPreview
             On = !On;
         }
 
+        public void PopupShown()
+        {
+        }
+
         public IReadOnlyList<string> ConsoleApps { get; } = new List<string> { "colony budget console", "criminal records computer" };
 
         public void OpenConsoleApp(int app)

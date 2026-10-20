@@ -114,6 +114,8 @@ public sealed partial class CMUNetBrowser : BoxContainer, ILinkClickHandler
         go.OnPressed += _ => Click(_address.Text);
 
         _view = new CMUNetPageView(theme);
+        _view.OnPopupShown += () => _shortcuts?.PopupShown();
+
         _tabs = new BoxContainer
         {
             Orientation = LayoutOrientation.Horizontal,

@@ -17,6 +17,9 @@ namespace Content.Client.CMU14.PersonalComputers;
 /// </summary>
 public sealed partial class CMUNetPageView : Control
 {
+    /// <summary>An ad pop up appeared over the page.</summary>
+    public event Action? OnPopupShown;
+
     [Dependency] private DocumentParsingManager _documents = default!;
 
     private readonly CMUComputerTheme _theme;
@@ -71,6 +74,9 @@ public sealed partial class CMUNetPageView : Control
         {
             if (popup.Closed || _elapsed < popup.Delay)
                 continue;
+
+            if (!popup.Visible)
+                OnPopupShown?.Invoke();
 
             popup.Visible = true;
             var room = Vector2.Max(Vector2.Zero, Size - popup.DesiredSize);

@@ -109,6 +109,29 @@ public sealed partial class CMUComputerOsPrototype : IPrototype
 
     [DataField]
     public SoundSpecifier? ClickSound;
+
+    /// <summary>The machine running, looped from the end of the boot sound until it is switched off.</summary>
+    [DataField]
+    public SoundSpecifier? RunningSound;
+
+    /// <summary>How long the boot sound plays before the running loop takes over, in seconds.</summary>
+    [DataField]
+    public float BootSoundLength = 9.6f;
+
+    [DataField]
+    public SoundSpecifier? ShutdownSound;
+
+    /// <summary>Over the boot sound on a hacked terminal, whose boot never comes up clean.</summary>
+    [DataField]
+    public SoundSpecifier? GlitchSound;
+
+    /// <summary>New mail in the inbox.</summary>
+    [DataField]
+    public SoundSpecifier? MailSound;
+
+    /// <summary>An ad's pop up jumping onto the page.</summary>
+    [DataField]
+    public SoundSpecifier? ErrorSound;
 }
 
 /// <summary>

@@ -59,6 +59,9 @@ public sealed partial class CMUPersonalComputerWindow : DefaultWindow
     /// <summary>The machine starts booting after the power button.</summary>
     public event Action? OnBooting;
 
+    /// <summary>The machine was switched off, or lost power, while the window was open.</summary>
+    public event Action? OnShutDown;
+
     public CMUPersonalComputerWindow()
     {
         IoCManager.InjectDependencies(this);
@@ -231,6 +234,7 @@ public sealed partial class CMUPersonalComputerWindow : DefaultWindow
         if (_shownOn == on || _theme == null || _os == null)
             return;
 
+        var wasOn = _shownOn == true;
         _shownOn = on;
         _machine.Off = !on;
         _layer.RemoveAllChildren();
@@ -239,6 +243,9 @@ public sealed partial class CMUPersonalComputerWindow : DefaultWindow
         _sessionShown = false;
         if (!on)
         {
+            if (wasOn)
+                OnShutDown?.Invoke();
+
             _screen.PanelOverride = new StyleBoxFlat { BackgroundColor = Color.Black };
             _crt.ArtifactAmount = 0f;
             _desktopUsed = true;

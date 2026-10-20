@@ -21,6 +21,9 @@ public sealed partial class CMUPersonalComputerBui : BoundUserInterface, ICMUNet
 
     private CMUPersonalComputerWindow? _window;
     private CMUComputerOsPrototype? _os;
+    private int _inboxSeen = -1;
+    private int _boots;
+    private EntityUid? _running;
 
     public event Action<CMUNetBoardStateMessage>? StateReceived;
     public event Action<CMUDeepPageMessage>? PageReceived;
@@ -53,7 +56,27 @@ public sealed partial class CMUPersonalComputerBui : BoundUserInterface, ICMUNet
         _window = this.CreateWindow<CMUPersonalComputerWindow>();
         _window.OnKeyTyped += () => Play(_os.KeySound, -8f, _random.NextFloat(0.9f, 1.1f));
         _window.OnClicked += () => Play(_os.ClickSound, -6f, 1f);
-        _window.OnBooting += () => Play(_os.BootSound, -4f, 1f);
+        _window.OnBooting += () =>
+        {
+            StopRunning();
+            Play(_os.BootSound, -4f, 1f);
+            if (EntMan.HasComponent<CMUDeepWebAccessComponent>(Owner))
+                Play(_os.GlitchSound, -6f, 1f);
+
+            // The running hum takes over where the boot sound settles, for as long as the machine stays on.
+            var boot = ++_boots;
+            Robust.Shared.Timing.Timer.Spawn(TimeSpan.FromSeconds(_os.BootSoundLength), () =>
+            {
+                if (boot == _boots && _window != null && On)
+                    _running = Play(_os.RunningSound, -10f, 1f, true);
+            });
+        };
+        _window.OnShutDown += () =>
+        {
+            _boots++;
+            StopRunning();
+            Play(_os.ShutdownSound, -4f, 1f);
+        };
         _window.Boot(_os, net.GetNetworks((Owner, computer)), net.GetHomePage(computer), computer.Documents,
             EntMan.GetComponent<MetaDataComponent>(Owner).EntityName, this, computer.Colony, computer.ColonyName,
             EntMan.HasComponent<CMUDeepWebAccessComponent>(Owner) && _cfg.GetCVar(CMUPersonalComputerCVars.DeepWeb) ? this : null,
@@ -85,6 +108,11 @@ public sealed partial class CMUPersonalComputerBui : BoundUserInterface, ICMUNet
                 SecurityReceived?.Invoke(security);
                 break;
             case CMUMailStateMessage mail:
+                // A longer inbox than last time means something new came in while the mail was open.
+                if (_inboxSeen >= 0 && mail.Inbox.Count > _inboxSeen)
+                    Play(_os?.MailSound, -4f, 1f);
+
+                _inboxSeen = mail.Inbox.Count;
                 MailReceived?.Invoke(mail);
                 break;
             case CMUSpaceGptAnswerMessage answer:
@@ -339,12 +367,32 @@ public sealed partial class CMUPersonalComputerBui : BoundUserInterface, ICMUNet
         SendMessage(new CMUNetBoardDeleteMessage(site, post));
     }
 
-    private void Play(SoundSpecifier? sound, float volume, float pitch)
+    public void PopupShown()
+    {
+        Play(_os?.ErrorSound, -6f, 1f);
+    }
+
+    private EntityUid? Play(SoundSpecifier? sound, float volume, float pitch, bool loop = false)
     {
         if (sound == null)
-            return;
+            return null;
 
-        EntMan.System<AudioSystem>().PlayGlobal(sound, Filter.Local(), false,
-            AudioParams.Default.WithVolume(volume).WithPitchScale(pitch));
+        return EntMan.System<AudioSystem>().PlayGlobal(sound, Filter.Local(), false,
+            AudioParams.Default.WithVolume(volume).WithPitchScale(pitch).WithLoop(loop))?.Entity;
+    }
+
+    private void StopRunning()
+    {
+        if (_running is { } running)
+            EntMan.System<AudioSystem>().Stop(running);
+
+        _running = null;
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        base.Dispose(disposing);
+        _boots++;
+        StopRunning();
     }
 }

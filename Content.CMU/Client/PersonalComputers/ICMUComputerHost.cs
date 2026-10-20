@@ -40,6 +40,9 @@ public interface ICMUComputerHost
 
     void PressPower();
 
+    /// <summary>An ad's pop up jumped onto a page.</summary>
+    void PopupShown();
+
     /// <summary>A console's own screens, as program names; empty on a plain desktop.</summary>
     IReadOnlyList<string> ConsoleApps { get; }
 
