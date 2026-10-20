@@ -31,6 +31,13 @@ public sealed class CMUBaseballArena : CMUSportsArena
     private const string SmallCheerSound = "/Audio/CMU14/PersonalComputers/Games/crowd_cheer_small.ogg";
     private const string FallSound = "/Audio/CMU14/PersonalComputers/Games/fall.ogg";
 
+    /// <summary>The barrel's angle through a swing: keyframe times from the ball reaching the plate, and angles.</summary>
+    private static readonly float[] SwingTimes = { -0.14f, -0.05f, 0, 0.07f, 0.18f };
+    private static readonly float[] SwingAngles = { -128f, -225f, -360f, -450f, -510f };
+
+    /// <summary>Where first, second and third sit on the score bug's little diamond.</summary>
+    private static readonly Vector2[] BugBags = { new(9, 0), new(0, -9), new(-9, 0) };
+
     /// <summary>Big cheers, long enough that only one plays at a time.</summary>
     private static readonly string[] CheerSounds =
     {
@@ -2162,8 +2169,8 @@ public sealed class CMUBaseballArena : CMUSportsArena
     /// <summary>The barrel's angle on screen through a swing, by seconds from the ball reaching the plate.</summary>
     private static float Swing(float s)
     {
-        ReadOnlySpan<float> times = stackalloc[] { -0.14f, -0.05f, 0, 0.07f, 0.18f };
-        ReadOnlySpan<float> angles = stackalloc[] { -128f, -225f, -360f, -450f, -510f };
+        var times = SwingTimes;
+        var angles = SwingAngles;
         if (s <= times[0])
             return angles[0];
 
@@ -2558,7 +2565,7 @@ public sealed class CMUBaseballArena : CMUSportsArena
         }
 
         var centre = new Vector2(BugBox.X + 92, BugBox.Y + 16);
-        ReadOnlySpan<Vector2> bags = stackalloc[] { new Vector2(9, 0), new Vector2(0, -9), new Vector2(-9, 0) };
+        var bags = BugBags;
         for (var i = 0; i < 3; i++)
         {
             var lit = (_bases & 1 << i) != 0;

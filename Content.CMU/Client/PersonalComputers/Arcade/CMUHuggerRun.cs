@@ -366,6 +366,8 @@ public sealed class CMUHuggerRun : CMUArcadeScreen
     }
 
     private readonly System.Random _random = new();
+    // reused vertex buffers: the client sandbox rejects stackalloc, and these are drawn every frame
+    private readonly Vector2[] _quad = new Vector2[4];
     private readonly Font _font;
     private readonly Font _smallFont;
     private readonly Font _signFont;
@@ -2249,7 +2251,7 @@ public sealed class CMUHuggerRun : CMUArcadeScreen
             return;
 
         var side = new Vector2(-along.Y, along.X) / length * (width / 2);
-        Span<Vector2> points = stackalloc Vector2[4];
+        var points = _quad;
         points[0] = (from + side + _o) * _s;
         points[1] = (from - side + _o) * _s;
         points[2] = (to + side + _o) * _s;
@@ -2259,7 +2261,7 @@ public sealed class CMUHuggerRun : CMUArcadeScreen
 
     private void Quad(DrawingHandleScreen handle, Vector2 a, Vector2 b, Vector2 c, Vector2 d, Color colour)
     {
-        Span<Vector2> points = stackalloc Vector2[4];
+        var points = _quad;
         points[0] = (a + _o) * _s;
         points[1] = (b + _o) * _s;
         points[2] = (c + _o) * _s;

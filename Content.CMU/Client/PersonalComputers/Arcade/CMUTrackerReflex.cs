@@ -249,6 +249,10 @@ public sealed class CMUTrackerReflex : CMUArcadeScreen
     private const int CellEdge = 8;
 
     private readonly Random _random = new();
+    // reused vertex buffers: the client sandbox rejects stackalloc, and these are drawn every frame
+    private readonly Vector2[] _quad = new Vector2[4];
+    private readonly Vector2[] _star = new Vector2[14];
+    private readonly Vector2[] _fan = new Vector2[4 * CellEdge + 2];
     private readonly List<Xeno> _xenos = new();
     private readonly List<Particle> _particles = new();
     private readonly List<Decal> _acid = new();
@@ -344,7 +348,7 @@ public sealed class CMUTrackerReflex : CMUArcadeScreen
 
     static CMUTrackerReflex()
     {
-        Span<Vector2> corners = stackalloc Vector2[4];
+        var corners = new Vector2[4];
         for (var sector = 1; sector <= 9; sector++)
         {
             var column = (sector - 1) % 3;
@@ -1296,7 +1300,7 @@ public sealed class CMUTrackerReflex : CMUArcadeScreen
     private void DrawCell(DrawingHandleScreen handle, int sector, Color colour)
     {
         var outline = Cells[sector];
-        Span<Vector2> fan = stackalloc Vector2[4 * CellEdge + 2];
+        var fan = _fan;
         fan[0] = Px(Unit(CellCentres[sector]));
         for (var i = 0; i < outline.Length; i++)
         {
@@ -1341,7 +1345,7 @@ public sealed class CMUTrackerReflex : CMUArcadeScreen
         }
 
         // a star of a muzzle flash, then the hit spark
-        Span<Vector2> star = stackalloc Vector2[14];
+        var star = _star;
         var at = Px(Unit(muzzle));
         star[0] = at;
         for (var i = 0; i < 13; i++)
@@ -1403,7 +1407,7 @@ public sealed class CMUTrackerReflex : CMUArcadeScreen
         var hurt = _invulnerable > 0 && (int) (_time * 12) % 2 == 0;
         var colour = hurt ? Warn : _phase is Phase.Dying or Phase.Over ? BloodDark : Green;
         var at = Px(new Vector2(CentreX, CentreY));
-        Span<Vector2> chevron = stackalloc Vector2[4];
+        var chevron = _quad;
         chevron[0] = at + new Vector2(0, -5) * UIScale;
         chevron[1] = at + new Vector2(4, 4) * UIScale;
         chevron[2] = at + new Vector2(0, 2) * UIScale;
@@ -1427,7 +1431,7 @@ public sealed class CMUTrackerReflex : CMUArcadeScreen
 
     private void DrawGlare(DrawingHandleScreen handle)
     {
-        Span<Vector2> band = stackalloc Vector2[4];
+        var band = _quad;
         band[0] = Px(Unit(new Vector2(-0.82f, -0.3f)));
         band[1] = Px(Unit(new Vector2(-0.3f, -0.82f)));
         band[2] = Px(Unit(new Vector2(-0.12f, -0.66f)));
@@ -1681,7 +1685,7 @@ public sealed class CMUTrackerReflex : CMUArcadeScreen
     }
 
     /// <summary>A line with a width, in pixels: the engine's lines are one pixel thin.</summary>
-    private static void Thick(DrawingHandleScreen handle, Vector2 from, Vector2 to, float width, Color colour)
+    private void Thick(DrawingHandleScreen handle, Vector2 from, Vector2 to, float width, Color colour)
     {
         var along = to - from;
         var length = along.Length();
@@ -1689,7 +1693,7 @@ public sealed class CMUTrackerReflex : CMUArcadeScreen
             return;
 
         var side = new Vector2(-along.Y, along.X) / length * (width / 2);
-        Span<Vector2> quad = stackalloc Vector2[4];
+        var quad = _quad;
         quad[0] = from + side;
         quad[1] = from - side;
         quad[2] = to + side;
