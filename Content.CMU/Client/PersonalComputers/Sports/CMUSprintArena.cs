@@ -3,6 +3,12 @@ using Content.Shared.CMU14.PersonalComputers;
 using Robust.Client.GameObjects;
 using Robust.Client.Graphics;
 using Robust.Client.UserInterface.Controls;
+using Robust.Client.Utility;
+using Robust.Shared.ContentPack;
+using Robust.Shared.Utility;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.PixelFormats;
+using Color = Robust.Shared.Maths.Color;
 
 namespace Content.Client.CMU14.PersonalComputers;
 
@@ -126,18 +132,59 @@ public sealed class CMUSprintArena : CMUSportsArena
     private static readonly Color Bronze = Color.FromHex("#D9944A");
     private static readonly Color Alarm = Color.FromHex("#FF4A3A");
 
+    private const string Parts = "/Textures/Mobs/Species/Human/parts.rsi";
+    private const string Eyes = "/Textures/Mobs/Customization/eyes.rsi";
+    private const string Hair = "/Textures/Mobs/Customization/human_hair.rsi";
+    private const string ColourJumpsuit = "/Textures/Clothing/Uniforms/Jumpsuits/Color/color.rsi";
+    private const string Clothing = "/Textures/_RMC14/Objects/Clothing/";
+    private const string MarineUniform = Clothing + "Uniforms/Marine/standard.rsi";
+    private const string MarineCap = Clothing + "Head/Hats/cap.rsi";
+    private const int FanCell = 16;
+    private const int FanHeight = 12;
+    private const int AtlasColumns = 16;
+
     private static readonly Color[] Skins =
     {
-        Color.FromHex("#F1C27D"), Color.FromHex("#E0AC69"), Color.FromHex("#C68642"), Color.FromHex("#8D5524"),
-        Color.FromHex("#FFDBAC"), Color.FromHex("#5C3A21"),
+        Color.FromHex("#FFE1CC"), Color.FromHex("#EDC2A0"), Color.FromHex("#D9A577"), Color.FromHex("#C08A62"),
+        Color.FromHex("#8A5634"), Color.FromHex("#5C3A21"),
     };
 
-    private static readonly Color[] Shirts =
+    private static readonly Color[] HairColours =
     {
-        Color.FromHex("#E04040"), Color.FromHex("#4080FF"), Color.FromHex("#40C060"), Color.FromHex("#F0D040"),
-        Color.FromHex("#F09030"), Color.FromHex("#A060E0"), Color.FromHex("#DDDDDD"), Color.FromHex("#555A66"),
-        Color.FromHex("#2E3440"), Color.FromHex("#7A4A2A"),
+        Color.FromHex("#2A1A10"), Color.FromHex("#5A3A20"), Color.FromHex("#C89A50"), Color.FromHex("#1A1A1A"),
+        Color.FromHex("#8A3A1A"), Color.FromHex("#D8C8A8"), Color.FromHex("#6A6A6A"),
     };
+
+    private static readonly Color EyeColour = Color.FromHex("#2B1A10");
+
+    /// <summary>The colony jumpsuit's colours, as the game's coloured jumpsuits tint it.</summary>
+    private static readonly Color[] JumpsuitTints =
+    {
+        Color.FromHex("#EB0C07"), Color.FromHex("#52AECC"), Color.FromHex("#9ED63A"), Color.FromHex("#FFE14D"),
+        Color.FromHex("#FF8C19"), Color.FromHex("#9F70CC"), Color.FromHex("#A17229"),
+    };
+
+    private static readonly string[] Civilian =
+    {
+        "blue_jumpsuit", "brown_utility", "khaki_workwear", "grey_jumpsuit", "green_utility", "blue_workwear",
+        "lightbrown_jumpsuit", "red_utility", "yellow_jumpsuit", "white_jumpsuit_alt", "tartarus_mining", "weyamart",
+        "pizza_galaxy", "sanitation", "scientist_jumpsuit", "doctor", "emt", "steward", "daily_grind",
+    };
+
+    private static readonly string[] Hats =
+    {
+        "Hats/blue_trucker_cap", "Hats/red_trucker_cap", "Hats/beret_red", "Hats/cargo_cap", "Hats/weyamart_cap",
+        "Hats/pizza_galaxy_cap", "Hats/ushanka", "Hats/durag", "Beanies/beanie", "Beanies/gray", "Beanies/green", "Beanies/tan",
+    };
+
+    private static readonly string[] MaleHair = { "crewcut", "business", "bedhead", "buzzcut", "afro", "combover", "cornrows", "dreads", "emo", "curls" };
+    private static readonly string[] FemaleHair = { "ponytail", "bob", "bun", "longstraightponytail", "curls", "doublebun", "braid", "beehive", "bobcurl" };
+
+    /// <summary>The stands get darker towards the back.</summary>
+    private static readonly float[] RowShade = { 0.55f, 0.68f, 0.8f };
+
+    /// <summary>Each sprite state's south-facing first frame, read once from its PNG for the crowd's compositing.</summary>
+    private static readonly Dictionary<string, Rgba32[]?> SouthFrames = new();
 
     private static readonly Fan[] Crowd = SeatCrowd();
     private static readonly float[] Flags = { 34, 150, 372, 478 };
@@ -192,7 +239,18 @@ public sealed class CMUSprintArena : CMUSportsArena
         public bool Prone;
     }
 
-    private readonly record struct Fan(float X, float Y, Color Skin, Color Shirt, float Phase, float Speed, float Arms, float Size);
+    /// <summary>A seat in the stands. Who sits there changes with the match; see <see cref="Seat"/>.</summary>
+    private readonly record struct Fan(float X, float Y, int Row);
+
+    /// <summary>The fan in a seat for this match: how they move, and the lane flag they wave if any.</summary>
+    private struct Seat
+    {
+        public Color Skin;
+        public float Phase;
+        public float Speed;
+        public float Arms;
+        public int Flag;
+    }
 
     private Runner[] _runners = Array.Empty<Runner>();
     private Stance[] _stance = Array.Empty<Stance>();
@@ -209,6 +267,11 @@ public sealed class CMUSprintArena : CMUSportsArena
     private string[] _ranks = Array.Empty<string>();
     private (int Id, int Seed, int Winner)? _planned;
     private SpriteSystem? _sprites;
+    [Dependency] private readonly IClyde _clyde = default!;
+    private OwnedTexture? _crowd;
+    private int _crowdFor = int.MinValue;
+    private readonly Seat[] _seats = new Seat[Crowd.Length];
+    private readonly float[] _canvas = new float[32 * 32 * 4];
 
     private int _lanes;
     private bool _racing;
@@ -1400,18 +1463,34 @@ public sealed class CMUSprintArena : CMUSportsArena
             Rect(handle, x - 8, Bar + 1, 16, 4, Color.FromHex("#FFF4C8"));
         }
 
-        foreach (var fan in Crowd)
+        if (Match is { } seated && (_crowd == null || _crowdFor != seated.Id))
+            SeatFans(seated);
+
+        for (var i = 0; i < Crowd.Length && _crowd != null; i++)
         {
-            var bob = MathF.Max(0, MathF.Sin(_clock * (4 + fan.Speed) + fan.Phase)) * 3f * _excite;
+            var fan = Crowd[i];
+            var seat = _seats[i];
+            var bob = MathF.Max(0, MathF.Sin(_clock * (4 + seat.Speed) + seat.Phase)) * 3f * _excite;
             var y = fan.Y - bob;
-            Rect(handle, fan.X - 3.5f, y + 2.5f, 7, 7, fan.Shirt);
-            Circle(handle, fan.X, y, fan.Size, fan.Skin);
-            if (_excite <= 0.55f || fan.Arms >= (_excite - 0.55f) * 2.2f)
+            var cellX = i % AtlasColumns * FanCell;
+            var cellY = i / AtlasColumns * FanCell;
+            handle.DrawTextureRectRegion(_crowd, Box(fan.X - FanCell / 2f, y - 3, FanCell, FanHeight),
+                new UIBox2(cellX, cellY, cellX + FanCell, cellY + FanHeight));
+            var wave = MathF.Sin(_clock * 9 + seat.Phase) * 1.5f;
+            if (seat.Flag >= 0 && Match != null)
+            {
+                // a little flag in a lane's colour, waved harder as the crowd gets up
+                var tip = new Vector2(fan.X + 5 + wave * _excite, y - 6);
+                Line(handle, new Vector2(fan.X + 4, y + 5), tip, Color.FromHex("#8A8F99"));
+                Rect(handle, tip.X, tip.Y + MathF.Sin(_clock * 12 + seat.Phase) * _excite, 4, 3,
+                    Dim(KitColour(Match, seat.Flag), RowShade[fan.Row] + 0.15f));
+            }
+
+            if (_excite <= 0.55f || seat.Arms >= (_excite - 0.55f) * 2.2f)
                 continue;
 
-            var wave = MathF.Sin(_clock * 9 + fan.Phase) * 1.5f;
-            Line(handle, new Vector2(fan.X - 3, y + 3), new Vector2(fan.X - 5 + wave, y - 5), fan.Skin);
-            Line(handle, new Vector2(fan.X + 3, y + 3), new Vector2(fan.X + 5 + wave, y - 5), fan.Skin);
+            Line(handle, new Vector2(fan.X - 3, y + 4), new Vector2(fan.X - 5 + wave, y - 4), seat.Skin);
+            Line(handle, new Vector2(fan.X + 3, y + 4), new Vector2(fan.X + 5 + wave, y - 4), seat.Skin);
         }
 
         if (Match is { } match)
@@ -1633,20 +1712,171 @@ public sealed class CMUSprintArena : CMUSportsArena
 
         for (var row = 0; row < 3; row++)
         {
-            var shade = 0.7f + row * 0.15f;
             for (var x = 4f + row % 2 * 4; x < ArenaWidth; x += 8.5f + Next() * 2)
             {
                 if (x > ScreenX - 6 && x < ScreenX + ScreenW + 6)
                     continue;
 
-                var skin = Skins[(int) (Next() * Skins.Length) % Skins.Length];
-                var shirt = Shirts[(int) (Next() * Shirts.Length) % Shirts.Length];
-                fans.Add(new Fan(x, 41 + row * 8 + Next(), Dim(skin, shade), Dim(shirt, shade), Next() * MathF.Tau, Next() * 3,
-                    Next(), 2.6f + row * 0.3f));
+                fans.Add(new Fan(x, 41 + row * 8 + Next(), row));
             }
         }
 
         return fans.ToArray();
+    }
+
+    /// <summary>
+    /// Seats this match's crowd: who sits where comes from the match id and the seat, so every client sees the same
+    /// faces. Each fan is dressed once from the game's body, hair and clothing sprites into one small texture.
+    /// </summary>
+    private void SeatFans(CMUBetMatch match)
+    {
+        var rows = (Crowd.Length + AtlasColumns - 1) / AtlasColumns;
+        using var image = new Image<Rgba32>(AtlasColumns * FanCell, rows * FanCell);
+        for (var i = 0; i < Crowd.Length; i++)
+        {
+            var female = Roll(match.Id, i, 1) % 100 < 45;
+            var skin = Skins[Roll(match.Id, i, 2) % Skins.Length];
+            var outfit = Roll(match.Id, i, 3) % 100;
+            var marine = outfit >= 68 && outfit < 84;
+            var sex = female ? "_f" : "_m";
+            Array.Clear(_canvas);
+            Layer(Parts, "torso" + sex, skin);
+            Layer(Parts, "head" + sex, skin);
+            Layer(Eyes, "eyes", EyeColour);
+            Layer(Parts, "r_arm", skin);
+            Layer(Parts, "l_arm", skin);
+            if (marine)
+                Layer(MarineUniform, "equipped-INNERCLOTHING", Color.White);
+            else if (outfit >= 50)
+                Layer(ColourJumpsuit, "equipped-INNERCLOTHING", JumpsuitTints[Roll(match.Id, i, 4) % JumpsuitTints.Length]);
+            else
+                Layer(Clothing + "Uniforms/Civilian/" + Civilian[Roll(match.Id, i, 4) % Civilian.Length] + ".rsi", "equipped-INNERCLOTHING", Color.White);
+
+            Layer(Parts, "l_hand", skin);
+            Layer(Parts, "r_hand", skin);
+            var styles = female ? FemaleHair : MaleHair;
+            var style = marine ? (Roll(match.Id, i, 7) % 2 == 0 ? "buzzcut" : "crewcut") : styles[Roll(match.Id, i, 7) % styles.Length];
+            Layer(Hair, style, HairColours[Roll(match.Id, i, 8) % HairColours.Length]);
+            var hat = Roll(match.Id, i, 5) % 100;
+            if (marine && hat < 65)
+                Layer(MarineCap, "equipped-HELMET", Color.White);
+            else if (!marine && hat < 22)
+                Layer(Clothing + "Head/" + Hats[Roll(match.Id, i, 6) % Hats.Length] + ".rsi", "equipped-HELMET", Color.White);
+
+            var shade = RowShade[Crowd[i].Row];
+            Shrink(image.GetPixelSpan(), image.Width, i % AtlasColumns * FanCell, i / AtlasColumns * FanCell, shade);
+            _seats[i] = new Seat
+            {
+                Skin = Dim(skin, shade),
+                Phase = (Roll(match.Id, i, 11) & 0xFFFF) / 65535f * MathF.Tau,
+                Speed = (Roll(match.Id, i, 12) & 0xFFFF) / 65535f * 3,
+                Arms = (Roll(match.Id, i, 13) & 0xFFFF) / 65535f,
+                Flag = Roll(match.Id, i, 9) % 100 < 10 ? (int) (Roll(match.Id, i, 10) % (uint) Math.Max(1, _lanes)) : -1,
+            };
+        }
+
+        _crowd?.Dispose();
+        _crowd = _clyde.LoadTextureFromImage(image, "cmu-sprint-crowd");
+        _crowdFor = match.Id;
+    }
+
+    /// <summary>Lays a tinted sprite layer over the fan being dressed, the way a sprite's layers multiply their colour.</summary>
+    private void Layer(string rsi, string state, Color tint)
+    {
+        if (SouthFrame(rsi, state) is not { } frame)
+            return;
+
+        for (var p = 0; p < frame.Length; p++)
+        {
+            var src = frame[p];
+            if (src.A == 0)
+                continue;
+
+            var a = src.A / 255f * tint.A;
+            var o = p * 4;
+            var keep = 1 - a;
+            _canvas[o] = src.R / 255f * tint.R * a + _canvas[o] * keep;
+            _canvas[o + 1] = src.G / 255f * tint.G * a + _canvas[o + 1] * keep;
+            _canvas[o + 2] = src.B / 255f * tint.B * a + _canvas[o + 2] * keep;
+            _canvas[o + 3] = a + _canvas[o + 3] * keep;
+        }
+    }
+
+    /// <summary>Halves the dressed fan into its atlas cell, averaging each 2 by 2, darkened for its row.</summary>
+    private void Shrink(Span<Rgba32> atlas, int width, int cellX, int cellY, float shade)
+    {
+        for (var y = 0; y < FanCell; y++)
+        {
+            for (var x = 0; x < FanCell; x++)
+            {
+                float r = 0, g = 0, b = 0, a = 0;
+                for (var k = 0; k < 4; k++)
+                {
+                    var o = ((y * 2 + k / 2) * 32 + x * 2 + k % 2) * 4;
+                    r += _canvas[o];
+                    g += _canvas[o + 1];
+                    b += _canvas[o + 2];
+                    a += _canvas[o + 3];
+                }
+
+                var pixel = default(Rgba32);
+                if (a > 0)
+                {
+                    var scale = shade / a * 255;
+                    pixel = new Rgba32((byte) MathF.Min(255, r * scale), (byte) MathF.Min(255, g * scale),
+                        (byte) MathF.Min(255, b * scale), (byte) MathF.Min(255, a / 4 * 255));
+                }
+
+                atlas[(cellY + y) * width + cellX + x] = pixel;
+            }
+        }
+    }
+
+    /// <summary>A sprite state's south-facing first frame (the top left of its sheet), or null if it cannot be read.</summary>
+    private Rgba32[]? SouthFrame(string rsi, string state)
+    {
+        var key = rsi + "/" + state;
+        if (SouthFrames.TryGetValue(key, out var frame))
+            return frame;
+
+        using (var stream = Cache.ContentFileReadOrNull(new ResPath(key + ".png")))
+        {
+            if (stream != null)
+            {
+                using var sheet = Image.Load<Rgba32>(stream);
+                if (sheet.Width >= 32 && sheet.Height >= 32)
+                {
+                    var pixels = sheet.GetPixelSpan();
+                    frame = new Rgba32[32 * 32];
+                    for (var y = 0; y < 32; y++)
+                    {
+                        pixels.Slice(y * sheet.Width, 32).CopyTo(frame.AsSpan(y * 32, 32));
+                    }
+                }
+            }
+        }
+
+        SouthFrames[key] = frame;
+        return frame;
+    }
+
+    /// <summary>A steady pseudo-random number for a seat of a match, the same in the JS port.</summary>
+    private static uint Roll(int match, int seat, int salt)
+    {
+        var h = unchecked((uint) (match * 73856093 ^ seat * 19349663 ^ salt * 83492791) * 0x9E3779B1u);
+        h ^= h >> 15;
+        h = unchecked(h * 0x85EBCA77u);
+        h ^= h >> 13;
+        h = unchecked(h * 0xC2B2AE3Du);
+        h ^= h >> 16;
+        return h;
+    }
+
+    protected override void ExitedTree()
+    {
+        base.ExitedTree();
+        _crowd?.Dispose();
+        _crowd = null;
     }
 
     private static Vector2[] SpreadGrain()

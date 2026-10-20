@@ -2,8 +2,12 @@ using System.Numerics;
 using Content.Shared.CMU14.PersonalComputers;
 using Robust.Client.Graphics;
 using Robust.Client.ResourceManagement;
+using Robust.Client.Utility;
 using Robust.Shared.Graphics.RSI;
 using Robust.Shared.Utility;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.PixelFormats;
+using Color = Robust.Shared.Maths.Color;
 
 namespace Content.Client.CMU14.PersonalComputers;
 
@@ -14,7 +18,7 @@ namespace Content.Client.CMU14.PersonalComputers;
 /// referee's count over a knocked down boxer lying in a spreading pool, and the corner men and the ring card
 /// between rounds.
 /// </summary>
-public sealed class CMUBoxingArena : CMUSportsArena
+public sealed partial class CMUBoxingArena : CMUSportsArena
 {
     // the ring, in arena units: a canvas seen from the front row, back edge narrower than the front
     private const float Feet = 191;
@@ -124,11 +128,63 @@ public sealed class CMUBoxingArena : CMUSportsArena
     private const string Camera = "/Audio/Misc/camera_snap.ogg";
     private const string Clap = "/Audio/Effects/Emotes/clap-single.ogg";
 
-    /// <summary>One person in the stands, worked out once: where they sit and what they wear.</summary>
-    private readonly record struct Fan(float X, int Row, float Radius, Color Jacket, Color Face, float Phase, bool Arms);
+    /// <summary>A seat in the stands, worked out once: where it is, how its fan bobs, whether they throw their arms up.</summary>
+    private readonly record struct Seat(float X, int Row, float Phase, bool Arms);
+
+    /// <summary>One layer of a fan, in drawing order. Arm layers are left off when the arms go up.</summary>
+    private readonly record struct FanLayer(string Rsi, string State, Color? Tint, bool Arm);
+
+    // The fans are the game's people: body parts, eyes, hair and clothes in layer order, as Hugger Run builds them.
+    private const string FanParts = "/Textures/Mobs/Species/Human/parts.rsi";
+    private const string FanEyes = "/Textures/Mobs/Customization/eyes.rsi";
+    private const string FanHair = "/Textures/Mobs/Customization/human_hair.rsi";
+    private const string FanClothes = "/Textures/_RMC14/Objects/Clothing/";
+    private const string FanColourSuit = "/Textures/Clothing/Uniforms/Jumpsuits/Color/color.rsi";
+    private const string FanMarineCap = "Head/Hats/cap.rsi";
+    private const int FanColumns = 32;
+
+    private static readonly string[] FanCivilian =
+    {
+        "Uniforms/Civilian/blue_jumpsuit.rsi", "Uniforms/Civilian/brown_utility.rsi", "Uniforms/Civilian/khaki_workwear.rsi",
+        "Uniforms/Civilian/grey_jumpsuit.rsi", "Uniforms/Civilian/green_utility.rsi", "Uniforms/Civilian/blue_workwear.rsi",
+        "Uniforms/Civilian/lightbrown_jumpsuit.rsi", "Uniforms/Civilian/doctor.rsi", "Uniforms/Civilian/emt.rsi",
+        "Uniforms/Civilian/red_utility.rsi", "Uniforms/Civilian/yellow_jumpsuit.rsi", "Uniforms/Civilian/sanitation.rsi",
+        "Uniforms/Civilian/weyamart.rsi", "Uniforms/Civilian/daily_grind.rsi", "Uniforms/Civilian/tartarus_mining.rsi",
+        "Uniforms/Civilian/scientist_jumpsuit.rsi", "Uniforms/Civilian/pizza_galaxy.rsi", "Uniforms/Civilian/white_jumpsuit_alt.rsi",
+    };
+
+    private static readonly string[] FanMarine = { "Uniforms/Marine/standard.rsi", "Uniforms/Marine/engineer.rsi", "Uniforms/Marine/medic.rsi" };
+
+    private static readonly string[] FanHats =
+    {
+        "Head/Beanies/beanie.rsi", "Head/Beanies/gray.rsi", "Head/Beanies/green.rsi", "Head/Hats/blue_trucker_cap.rsi",
+        "Head/Hats/cargo_cap.rsi", "Head/Hats/bucket.rsi", "Head/Hats/durag.rsi", "Head/Hats/pizza_galaxy_cap.rsi",
+    };
+
+    private static readonly string[] FanMaleHair = { "crewcut", "business", "bedhead", "buzzcut", "afro", "sidecut", "bald" };
+    private static readonly string[] FanFemaleHair = { "ponytail", "bob", "bun", "longstraightponytail", "long", "pixie", "bobcurl", "ponytail2" };
+
+    private static readonly Color[] FanHairColours =
+    {
+        Color.FromHex("#2A1A10"), Color.FromHex("#5A3A20"), Color.FromHex("#C89A50"), Color.FromHex("#1A1A1A"),
+        Color.FromHex("#8A3A1A"), Color.FromHex("#D8C078"), Color.FromHex("#8C8C8C"),
+    };
+
+    private static readonly Color FanEyeColour = Color.FromHex("#2B1A10");
+
+    /// <summary>The corners' jumpsuits, ClothingUniformJumpsuitColorRed and Blue, for the fans who came for one fighter.</summary>
+    private static readonly Color[] FanCorners = { Color.FromHex("#eb0c07"), Color.FromHex("#52aecc") };
+
+    /// <summary>Fans are drawn this size per row, back to front, and darker the further back they sit.</summary>
+    private static readonly float[] FanScale = { 0.8f, 0.9f, 1f, 1.1f, 1.2f };
+
+    private static readonly float[] FanLight = { 0.22f, 0.29f, 0.36f, 0.43f, 0.5f };
+
+    /// <summary>The layer images the fans are built from, read once for every arena.</summary>
+    private static readonly Dictionary<string, Image<Rgba32>?> FanImages = new();
 
     private static readonly float[] RowY = { 50, 64, 79, 94, 109 };
-    private static readonly Fan[] Crowd = MakeCrowd();
+    private static readonly Seat[] Seats = MakeSeats();
 
     /// <summary>A knockdown or knockout: where the boxer fell, and where their head lies in the blood.</summary>
     private readonly record struct Down(float Time, int Side, int Count, bool Out, int Index, Vector2 Face, Vector2 Pool);
@@ -237,6 +293,15 @@ public sealed class CMUBoxingArena : CMUSportsArena
     private readonly Vector2[] _fan = new Vector2[18];
     private readonly Vector2[] _quad = new Vector2[4];
     private Texture[]? _spark;
+
+    [Dependency] private IClyde _clyde = default!;
+    [Dependency] private ILogManager _logs = default!;
+
+    /// <summary>The stands of the match on show: two cells per seat, arms down and arms up, darkened for its row.</summary>
+    private OwnedTexture? _crowd;
+
+    private int _crowdId = -1;
+    private readonly int[] _fanCorner = new int[Seats.Length];
     private Color[] _sleeves = { Color.White, Color.White };
     private string _apron = string.Empty;
     private readonly string[] _signs = new string[CMUSports.BoxingRounds + 1];
@@ -1511,18 +1576,23 @@ public sealed class CMUBoxingArena : CMUSportsArena
 
         // the stands: more of them on their feet and bouncing the louder it gets
         var hype = Math.Clamp(_hype, 0, 1.2f);
-        foreach (var fan in Crowd)
-        {
-            var bob = MathF.Abs(MathF.Sin(now * (5 + fan.Phase) + fan.Phase * 7)) * (0.6f + hype * 3.2f);
-            var y = RowY[fan.Row] - bob;
-            Rect(handle, fan.X - fan.Radius - 1, y + fan.Radius * 0.6f, fan.Radius * 2 + 2, 10, fan.Jacket);
-            Circle(handle, fan.X, y, fan.Radius, fan.Face);
-            if (!fan.Arms || hype < 0.45f)
-                continue;
+        if (_match is { } match && _crowdId != match.Id)
+            BuildCrowd(match.Id);
 
-            var reach = 7 + bob * 0.8f;
-            Line(handle, new Vector2(fan.X - fan.Radius, y + fan.Radius), new Vector2(fan.X - fan.Radius - 2, y - reach), fan.Jacket);
-            Line(handle, new Vector2(fan.X + fan.Radius, y + fan.Radius), new Vector2(fan.X + fan.Radius + 2, y - reach), fan.Jacket);
+        if (_crowd != null)
+        {
+            for (var seat = 0; seat < Seats.Length; seat++)
+            {
+                var fan = Seats[seat];
+                var bob = MathF.Abs(MathF.Sin(now * (5 + fan.Phase) + fan.Phase * 7)) * (0.6f + hype * 3.2f);
+
+                // the hyped throw their arms up; the ones in a corner's colours wave for their fighter
+                var up = fan.Arms && hype >= 0.45f || _fanCorner[seat] >= 0 && hype >= 0.3f && MathF.Sin(now * 4 + fan.Phase * 9) > 0;
+                var cell = seat * 2 + (up ? 1 : 0);
+                var scale = FanScale[fan.Row];
+                var source = UIBox2.FromDimensions(cell % FanColumns * 32, cell / FanColumns * 32, 32, 32);
+                handle.DrawTextureRectRegion(_crowd, Box(fan.X - 16 * scale, RowY[fan.Row] - bob - 7 * scale, 32 * scale, 32 * scale), source);
+            }
         }
 
         foreach (var flash in _flashes)
@@ -2100,11 +2170,9 @@ public sealed class CMUBoxingArena : CMUSportsArena
         return ((h >> 16) & 1023) / 1023f;
     }
 
-    private static Fan[] MakeCrowd()
+    private static Seat[] MakeSeats()
     {
-        var jackets = new[] { "#3B3550", "#4A2A2A", "#27384A", "#3D4A2C", "#4E4234", "#2E2E36", "#5A3046", "#30464A" };
-        var faces = new[] { "#E2B08A", "#C68C62", "#8D5A3B", "#F0C8A8", "#5E3B28" };
-        var fans = new List<Fan>();
+        var seats = new List<Seat>();
         var seed = 12345u;
         float Next()
         {
@@ -2114,20 +2182,207 @@ public sealed class CMUBoxingArena : CMUSportsArena
 
         for (var row = 0; row < RowY.Length; row++)
         {
-            var light = 0.35f + row * 0.13f;
-            var radius = 3.4f + row * 0.5f;
             var spacing = 10.5f + row * 1.4f;
             for (var x = 4 + (row % 2) * spacing / 2; x < ArenaWidth; x += spacing)
             {
-                var jacket = Color.FromHex(jackets[(int) (Next() * jackets.Length) % jackets.Length]);
-                var face = Color.FromHex(faces[(int) (Next() * faces.Length) % faces.Length]);
-                fans.Add(new Fan(x + (Next() - 0.5f) * 2, row, radius,
-                    new Color(jacket.R * light, jacket.G * light, jacket.B * light),
-                    new Color(face.R * light, face.G * light, face.B * light), Next(), Next() < 0.3f));
+                Next();
+                Next();
+                seats.Add(new Seat(x + (Next() - 0.5f) * 2, row, Next(), Next() < 0.3f));
             }
         }
 
-        return fans.ToArray();
+        return seats.ToArray();
+    }
+
+    /// <summary>The game's human skin tones (HumanTonedSkinColoration.FromUnary), 0 the lightest and 100 the darkest.</summary>
+    private static Color SkinTone(float tone)
+    {
+        var offset = tone - 20;
+        var hue = offset <= 0 ? 25 - offset : 25;
+        var sat = offset <= 0 ? 20 : 20 + offset;
+        var val = offset <= 0 ? 100 : 100 - offset;
+        return Color.FromHsv(new Vector4(hue / 360f, sat / 100f, val / 100f, 1));
+    }
+
+    /// <summary>
+    /// What the fan in a seat looks like in a match, the same for every client (and the web emulator) from the match
+    /// id and the seat: their layers in drawing order, and the corner they came for, or -1.
+    /// </summary>
+    private static int FanLook(int matchId, int seat, List<FanLayer> layers, out Color skin)
+    {
+        var s = unchecked((uint) matchId * 2654435761u ^ (uint) (seat + 1) * 40503u);
+        double Next()
+        {
+            s = unchecked(s * 1664525u + 1013904223u);
+            return (s >> 8) / 16777216.0;
+        }
+
+        Next();
+        var female = Next() < 0.45;
+        skin = SkinTone((float) (Next() * 90));
+        var outfitRoll = Next();
+        var outfitPick = Next();
+        var hairPick = Next();
+        var hairColourPick = Next();
+        var hatRoll = Next();
+        var hatPick = Next();
+        var corner = outfitRoll < 0.11 ? 0 : outfitRoll < 0.22 ? 1 : -1;
+        var marine = corner < 0 && outfitRoll < 0.36;
+        var sex = female ? "_f" : "_m";
+
+        layers.Clear();
+        layers.Add(new FanLayer(FanParts, "torso" + sex, skin, false));
+        layers.Add(new FanLayer(FanParts, "head" + sex, skin, false));
+        layers.Add(new FanLayer(FanEyes, "eyes", FanEyeColour, false));
+        layers.Add(new FanLayer(FanParts, "r_arm", skin, true));
+        layers.Add(new FanLayer(FanParts, "l_arm", skin, true));
+        if (corner >= 0)
+        {
+            layers.Add(new FanLayer(FanColourSuit, "equipped-INNERCLOTHING", FanCorners[corner], false));
+        }
+        else
+        {
+            var outfits = marine ? FanMarine : FanCivilian;
+            layers.Add(new FanLayer(FanClothes + outfits[(int) (outfitPick * outfits.Length)], "equipped-INNERCLOTHING", null, false));
+        }
+
+        layers.Add(new FanLayer(FanParts, "l_hand", skin, true));
+        layers.Add(new FanLayer(FanParts, "r_hand", skin, true));
+        var styles = female ? FanFemaleHair : FanMaleHair;
+        layers.Add(new FanLayer(FanHair, styles[(int) (hairPick * styles.Length)], FanHairColours[(int) (hairColourPick * FanHairColours.Length)], false));
+        if (marine && hatRoll < 0.5)
+            layers.Add(new FanLayer(FanClothes + FanMarineCap, "equipped-HELMET", null, false));
+        else if (!marine && hatRoll < 0.15)
+            layers.Add(new FanLayer(FanClothes + FanHats[(int) (hatPick * FanHats.Length)], "equipped-HELMET", null, false));
+
+        return corner;
+    }
+
+    /// <summary>
+    /// Composites every fan of a match once, on the CPU, into one texture of 32 by 32 cells: arms down, then arms up
+    /// with the arm layers left off and the sleeves painted over the head.
+    /// </summary>
+    private void BuildCrowd(int matchId)
+    {
+        _crowdId = matchId;
+        _crowd?.Dispose();
+        _crowd = null;
+        var rows = (Seats.Length * 2 + FanColumns - 1) / FanColumns;
+        using var atlas = new Image<Rgba32>(FanColumns * 32, rows * 32);
+        var pixels = atlas.GetPixelSpan();
+        var width = atlas.Width;
+        var layers = new List<FanLayer>();
+        for (var seat = 0; seat < Seats.Length; seat++)
+        {
+            _fanCorner[seat] = FanLook(matchId, seat, layers, out var skin);
+            var light = FanLight[Seats[seat].Row];
+            for (var pose = 0; pose < 2; pose++)
+            {
+                var cell = seat * 2 + pose;
+                var ox = cell % FanColumns * 32;
+                var oy = cell / FanColumns * 32;
+                foreach (var layer in layers)
+                {
+                    if (layer.Arm && pose == 1 || FanImage(layer.Rsi, layer.State) is not { } image)
+                        continue;
+
+                    Composite(image, layer.Tint, pixels, width, ox, oy);
+                }
+
+                if (pose == 1)
+                {
+                    // arms thrown up: the sleeves from the shoulders past the head, the hands at the top
+                    var sleeve = pixels[(oy + 15) * width + ox + 16];
+                    sleeve.A = 255;
+                    var hand = new Rgba32(skin.R, skin.G, skin.B, 1f);
+                    Fill(pixels, width, ox + 8, oy + 6, 2, 8, sleeve);
+                    Fill(pixels, width, ox + 22, oy + 6, 2, 8, sleeve);
+                    Fill(pixels, width, ox + 8, oy + 4, 2, 2, hand);
+                    Fill(pixels, width, ox + 22, oy + 4, 2, 2, hand);
+                }
+
+                // darker the further back the seat
+                for (var y = 0; y < 32; y++)
+                {
+                    for (var x = 0; x < 32; x++)
+                    {
+                        ref var p = ref pixels[(oy + y) * width + ox + x];
+                        p.R = (byte) (p.R * light);
+                        p.G = (byte) (p.G * light);
+                        p.B = (byte) (p.B * light);
+                    }
+                }
+            }
+        }
+
+        _crowd = _clyde.LoadTextureFromImage(atlas, "cmu-boxing-crowd");
+    }
+
+    /// <summary>The south-facing first frame of a layer, read once, or null when it cannot be read.</summary>
+    private Image<Rgba32>? FanImage(string rsi, string state)
+    {
+        var path = $"{rsi}/{state}.png";
+        if (FanImages.TryGetValue(path, out var image))
+            return image;
+
+        try
+        {
+            using var stream = Cache.ContentFileRead(new ResPath(path));
+            image = Image.Load<Rgba32>(stream);
+        }
+        catch (Exception e)
+        {
+            _logs.GetSawmill("cmu.boxing").Warning($"Cannot read {path}: {e.Message}");
+            image = null;
+        }
+
+        FanImages[path] = image;
+        return image;
+    }
+
+    /// <summary>Draws a layer's south frame (the top left 32 by 32 of its sheet) over a cell, tinted like a sprite layer.</summary>
+    private static void Composite(Image<Rgba32> layer, Color? tint, Span<Rgba32> pixels, int width, int ox, int oy)
+    {
+        var source = layer.GetPixelSpan();
+        var size = Math.Min(32, Math.Min(layer.Width, layer.Height));
+        var (tr, tg, tb) = tint is { } t ? (t.R, t.G, t.B) : (1f, 1f, 1f);
+        for (var y = 0; y < size; y++)
+        {
+            for (var x = 0; x < size; x++)
+            {
+                var src = source[y * layer.Width + x];
+                if (src.A == 0)
+                    continue;
+
+                ref var dst = ref pixels[(oy + y) * width + ox + x];
+                var a = src.A / 255f;
+                var under = dst.A / 255f * (1 - a);
+                var outA = a + under;
+                dst.R = (byte) Math.Clamp((src.R * tr * a + dst.R * under) / outA, 0, 255);
+                dst.G = (byte) Math.Clamp((src.G * tg * a + dst.G * under) / outA, 0, 255);
+                dst.B = (byte) Math.Clamp((src.B * tb * a + dst.B * under) / outA, 0, 255);
+                dst.A = (byte) Math.Clamp(outA * 255, 0, 255);
+            }
+        }
+    }
+
+    private static void Fill(Span<Rgba32> pixels, int width, int x, int y, int w, int h, Rgba32 colour)
+    {
+        for (var row = y; row < y + h; row++)
+        {
+            for (var column = x; column < x + w; column++)
+            {
+                pixels[row * width + column] = colour;
+            }
+        }
+    }
+
+    protected override void ExitedTree()
+    {
+        base.ExitedTree();
+        _crowd?.Dispose();
+        _crowd = null;
+        _crowdId = -1;
     }
 
     #endregion

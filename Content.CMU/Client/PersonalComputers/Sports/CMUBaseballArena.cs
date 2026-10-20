@@ -1,7 +1,11 @@
 using System.Linq;
 using System.Numerics;
 using Content.Shared.CMU14.PersonalComputers;
+using Robust.Client.GameObjects;
 using Robust.Client.Graphics;
+using Robust.Shared.Graphics;
+using Robust.Shared.Graphics.RSI;
+using Robust.Shared.Utility;
 
 namespace Content.Client.CMU14.PersonalComputers;
 
@@ -175,6 +179,55 @@ public sealed class CMUBaseballArena : CMUSportsArena
 
     /// <summary>The fans in the lower stands a foul ball can reach: third base side, then first.</summary>
     private static readonly int[][] FoulSeats;
+
+    // The fans in the nearer seats are dressed like the game's people, from the same sprites. Up in the far deck a
+    // dressed sprite would shrink to a smudge of a few pixels, so those fans stay simple blocks of shirt and face.
+    private const string PartsRsi = "/Textures/Mobs/Species/Human/parts.rsi";
+    private const string EyesRsi = "/Textures/Mobs/Customization/eyes.rsi";
+    private const string HairRsi = "/Textures/Mobs/Customization/human_hair.rsi";
+    private const string SuitRsi = "/Textures/Clothing/Uniforms/Jumpsuits/Color/color.rsi";
+    private const string Civilians = "/Textures/_RMC14/Objects/Clothing/Uniforms/Civilian/";
+
+    /// <summary>Seats this low on screen or lower get dressed sprite fans.</summary>
+    private const float SpriteRows = 96;
+
+    /// <summary>How many different fans a match dresses; every seat wears one of them.</summary>
+    private const int Looks = 40;
+
+    /// <summary>The head and shoulders of a 32 px person: the seat in front hides the rest.</summary>
+    private static readonly UIBox2 UpperBody = new(0, 0, 32, 22);
+
+    private static readonly string[] CivilianSuits =
+    {
+        "blue_jumpsuit.rsi", "brown_utility.rsi", "khaki_workwear.rsi", "grey_jumpsuit.rsi", "green_utility.rsi",
+        "blue_workwear.rsi", "lightbrown_jumpsuit.rsi", "doctor.rsi", "emt.rsi",
+    };
+
+    private static readonly string[] MaleHair = { "crewcut", "business", "bedhead", "buzzcut", "afro" };
+    private static readonly string[] FemaleHair = { "ponytail", "bob", "bun", "longstraightponytail" };
+
+    private static readonly Color[] FanSkins =
+    {
+        Color.FromHex("#FFE1CC"), Color.FromHex("#EDC2A0"), Color.FromHex("#C08A62"), Color.FromHex("#8A5634"),
+    };
+
+    private static readonly Color[] HairColours =
+    {
+        Color.FromHex("#2A1A10"), Color.FromHex("#5A3A20"), Color.FromHex("#C89A50"), Color.FromHex("#1A1A1A"), Color.FromHex("#8A3A1A"),
+    };
+
+    private static readonly Color EyeColour = Color.FromHex("#2B1A10");
+
+    /// <summary>The coloured jumpsuit's tint per kit colour, from the ClothingUniformJumpsuitColor prototypes.</summary>
+    private static readonly Dictionary<string, Color> SuitTints = new()
+    {
+        ["Red"] = Color.FromHex("#eb0c07"), ["Blue"] = Color.FromHex("#52aecc"), ["Green"] = Color.FromHex("#9ed63a"),
+        ["Yellow"] = Color.FromHex("#ffe14d"), ["Orange"] = Color.FromHex("#ff8c19"), ["Purple"] = Color.FromHex("#9f70cc"),
+        ["White"] = Color.White, ["Brown"] = Color.FromHex("#a17229"),
+    };
+
+    /// <summary>One dressed fan: sex, skin, hairstyle and colour, and what they wear (-1 home colours, -2 away, else a civilian suit).</summary>
+    private readonly record struct FanLook(bool Female, int Skin, int Hair, int HairColour, int Outfit);
 
     private static readonly Color[] Skins =
     {
@@ -586,6 +639,16 @@ public sealed class CMUBaseballArena : CMUSportsArena
     private readonly List<Half> _halves = new();
     private int[] _plateOf = Array.Empty<int>();
     private readonly bool[] _hurtFans = new bool[Seats.Length];
+    private readonly FanLook[] _looks = new FanLook[Looks];
+    private readonly Dictionary<(string Rsi, string State, RsiDirection Facing), Texture> _fanFrames = new();
+    private readonly int[] _seatLooks = new int[Seats.Length];
+    private Color _homeSuit = Color.White;
+    private Color _awaySuit = Color.White;
+
+    /// <summary>The stands drawn once: the crowd sitting, then four moments of it on its feet.</summary>
+    private readonly IRenderTexture?[] _stands = new IRenderTexture?[5];
+    private bool _standsStale = true;
+    private float _standsScale;
     private readonly Color[] _shirts = new Color[10];
     private readonly int[,] _line = new int[2, CMUSports.Innings];
     private readonly bool[,] _played = new bool[2, CMUSports.Innings];
@@ -715,6 +778,22 @@ public sealed class CMUBaseballArena : CMUSportsArena
         for (var runs = 1; runs < _runsScore.Length; runs++)
             _runsScore[runs] = Loc.GetString("cmu-game-baseball-runs", ("runs", runs));
 
+        // the crowd's faces and clothes are the match's own, the same for everyone watching it
+        _homeSuit = SuitTints[CMUSports.Colours[CMUSports.Colour(match.Sport, 0, match.Entrants[0])]];
+        _awaySuit = SuitTints[CMUSports.Colours[CMUSports.Colour(match.Sport, 1, match.Entrants[1])]];
+        for (var look = 0; look < Looks; look++)
+        {
+            var h = Hash(match.Id * 131 + look * 7 + 1);
+            var female = h % 100 < 45;
+            var kind = (h >> 16) % 10;
+            _looks[look] = new FanLook(female, (h >> 7) % FanSkins.Length, (h >> 9) % (female ? FemaleHair.Length : MaleHair.Length),
+                (h >> 13) % HairColours.Length, kind < 4 ? -1 : kind < 6 ? -2 : (h >> 20) % CivilianSuits.Length);
+        }
+
+        for (var seat = 0; seat < Seats.Length; seat++)
+            _seatLooks[seat] = Hash(match.Id * 7919 + seat) % Looks;
+
+        _standsStale = true;
         Array.Clear(_hurtFans);
         _excite = 0;
         _cheerUntil = 0;
@@ -2502,12 +2581,17 @@ public sealed class CMUBaseballArena : CMUSportsArena
 
     protected override void DrawField(DrawingHandleScreen handle)
     {
-        // the stands, rows of seats stepping up
-        Rect(handle, 0, Bar, ArenaWidth, ArenaHeight - Bar, Color.FromHex("#262A31"));
-        for (var y = Bar + 6f; y < ArenaHeight; y += 7)
-            Rect(handle, 0, y, ArenaWidth, 1, Color.FromHex("#30353D"));
-
-        DrawCrowd(handle);
+        // the stands, drawn once with the crowd in them: sitting, or on its feet when the place goes wild
+        var stand = _excite > 0.35f ? _stands[1 + (int) (_clock * 7) % 4] : _stands[0];
+        if (stand != null)
+        {
+            handle.DrawTextureRect(stand.Texture, Box(0, 0, ArenaWidth, ArenaHeight));
+            DrawHurtFans(handle);
+        }
+        else
+        {
+            Rect(handle, 0, Bar, ArenaWidth, ArenaHeight - Bar, Color.FromHex("#262A31"));
+        }
 
         Shape(handle, Surface, Grass);
         foreach (var stripe in Stripes)
@@ -2586,27 +2670,177 @@ public sealed class CMUBaseballArena : CMUSportsArena
         handle.DrawPrimitives(DrawPrimitiveTopology.TriangleFan, _buffer.AsSpan(0, 4), colour);
     }
 
-    private void DrawCrowd(DrawingHandleScreen handle)
+    protected override void Draw(IRenderHandle render)
     {
-        var up = _excite > 0.55f ? 1.5f : 0;
+        if (Match != null && (_standsStale || _standsScale != UIScale))
+            RenderStands(render);
+
+        base.Draw(render);
+    }
+
+    protected override void ExitedTree()
+    {
+        base.ExitedTree();
+        for (var i = 0; i < _stands.Length; i++)
+        {
+            _stands[i]?.Dispose();
+            _stands[i] = null;
+        }
+
+        _standsStale = true;
+    }
+
+    /// <summary>Draws the stands and every fan in them into the five stand layers, once per match and UI scale.</summary>
+    private void RenderStands(IRenderHandle render)
+    {
+        var scale = UIScale;
+        var size = new Vector2i((int) MathF.Ceiling(ArenaWidth * scale), (int) MathF.Ceiling(ArenaHeight * scale));
+        var clyde = IoCManager.Resolve<IClyde>();
+        var handle = render.DrawingHandleScreen;
+        var saved = handle.GetTransform();
+        for (var i = 0; i < _stands.Length; i++)
+        {
+            if (_stands[i] == null || _stands[i]!.Size != size)
+            {
+                _stands[i]?.Dispose();
+                _stands[i] = clyde.CreateRenderTarget(size, new RenderTargetFormatParameters(RenderTargetColorFormat.Rgba8Srgb),
+                    new TextureSampleParameters { Filter = false }, "cmu-baseball-stands");
+            }
+
+            var frame = i;
+            handle.RenderInRenderTarget(_stands[i]!, () =>
+            {
+                // the target has its own space: no control offset, and no clipping to where the arena sits on screen
+                handle.SetTransform(Matrix3x2.Identity);
+                render.SetScissor(null);
+                DrawStands(handle, scale, frame);
+            }, Color.FromHex("#262A31"));
+        }
+
+        handle.SetTransform(saved);
+        _standsScale = scale;
+        _standsStale = false;
+    }
+
+    /// <summary>The seat rows and the crowd, sitting (frame 0) or standing and bouncing at one of four moments.</summary>
+    private void DrawStands(DrawingHandleScreen handle, float scale, int frame)
+    {
+        var rows = Color.FromHex("#30353D");
+        for (var y = Bar + 6f; y < ArenaHeight; y += 7)
+            handle.DrawRect(new UIBox2(0, y * scale, ArenaWidth * scale, (y + 1) * scale), rows);
+
+        var excite = frame == 0 ? 0 : 1;
+        var phase = (frame - 1) * MathF.PI / 2;
         for (var i = 0; i < Seats.Length; i++)
         {
             var seat = Seats[i];
-            var bob = _excite * 2.4f * MathF.Max(0, MathF.Sin(seat.Phase + _clock * 11));
-            var at = seat.At - new Vector2(0, bob + up);
+            var bob = excite * 2.4f * MathF.Max(0, MathF.Sin(seat.Phase + phase)) + (excite > 0 ? 1.5f : 0);
+            var at = seat.At - new Vector2(0, bob);
             var size = seat.Size;
-            Rect(handle, at.X - size * 0.75f, at.Y, size * 1.5f, size * 1.2f, _shirts[seat.Shirt]);
-            if (_hurtFans[i])
+            var skin = Skins[seat.Skin];
+            if (seat.At.Y >= SpriteRows)
             {
-                // knocked flat in his seat
-                Rect(handle, at.X - size, at.Y + size * 0.2f, size * 1.1f, size * 0.8f, Skins[seat.Skin]);
+                var look = _looks[_seatLooks[i]];
+                skin = FanSkins[look.Skin];
+                DrawFan(handle, look, at, size, scale, 0, FanFacing(seat));
+            }
+            else
+            {
+                handle.DrawRect(Scaled(at.X - size * 0.75f, at.Y, size * 1.5f, size * 1.2f, scale), _shirts[seat.Shirt]);
+                handle.DrawRect(Scaled(at.X - size * 0.5f, at.Y - size, size, size, scale), skin);
+            }
+
+            // arms up when the place goes wild
+            if (excite > 0 && seat.Shirt % 3 == 0)
+                handle.DrawRect(Scaled(at.X + size * 0.6f, at.Y - size * 2, 1, size * 1.6f, scale), skin);
+        }
+    }
+
+    private static UIBox2 Scaled(float x, float y, float width, float height, float scale)
+    {
+        return new UIBox2(x * scale, y * scale, (x + width) * scale, (y + height) * scale);
+    }
+
+    /// <summary>
+    /// A fan's head and shoulders from the game's sprites, layered like a person: body, eyes, clothes, hands, hair.
+    /// The head sits on <paramref name="at"/> as the plain fans' do. Turned by <paramref name="rotation"/> radians.
+    /// </summary>
+    private void DrawFan(DrawingHandleScreen handle, FanLook look, Vector2 at, float size, float scale, float rotation, RsiDirection facing)
+    {
+        // the sprite's head spans rows 3 to 11, centred on column 16
+        var k = size * 0.14f;
+        var origin = new Vector2(at.X, at.Y - size) * scale;
+        var box = new UIBox2(-16 * k * scale, -3 * k * scale, 16 * k * scale, 19 * k * scale);
+        var saved = handle.GetTransform();
+        handle.SetTransform(Matrix3x2.CreateRotation(rotation) * Matrix3x2.CreateTranslation(origin) * saved);
+        var skin = FanSkins[look.Skin];
+        FanLayer(handle, PartsRsi, look.Female ? "torso_f" : "torso_m", facing, box, skin);
+        FanLayer(handle, PartsRsi, look.Female ? "head_f" : "head_m", facing, box, skin);
+        FanLayer(handle, EyesRsi, "eyes", facing, box, EyeColour);
+        FanLayer(handle, PartsRsi, "r_arm", facing, box, skin);
+        FanLayer(handle, PartsRsi, "l_arm", facing, box, skin);
+        if (look.Outfit < 0)
+        {
+            FanLayer(handle, SuitRsi, "equipped-INNERCLOTHING", facing, box, look.Outfit == -1 ? _homeSuit : _awaySuit);
+            FanLayer(handle, SuitRsi, "trinkets-equipped-INNERCLOTHING", facing, box, Color.White);
+        }
+        else
+        {
+            FanLayer(handle, Civilians + CivilianSuits[look.Outfit], "equipped-INNERCLOTHING", facing, box, Color.White);
+        }
+
+        FanLayer(handle, PartsRsi, "l_hand", facing, box, skin);
+        FanLayer(handle, PartsRsi, "r_hand", facing, box, skin);
+        FanLayer(handle, HairRsi, look.Female ? FemaleHair[look.Hair] : MaleHair[look.Hair], facing, box, HairColours[look.HairColour]);
+        handle.SetTransform(saved);
+    }
+
+    private void FanLayer(DrawingHandleScreen handle, string rsi, string state, RsiDirection facing, UIBox2 box, Color tint)
+    {
+        handle.DrawTextureRectRegion(FanFrame(rsi, state, facing), box, UpperBody, tint);
+    }
+
+    /// <summary>A sprite state's first frame facing a direction, cached: the fans turn to the field in profile.</summary>
+    private Texture FanFrame(string rsi, string state, RsiDirection facing)
+    {
+        if (_fanFrames.TryGetValue((rsi, state, facing), out var texture))
+            return texture;
+
+        var art = Entities.System<SpriteSystem>().RsiStateLike(new SpriteSpecifier.Rsi(new ResPath(rsi), state));
+        texture = art.GetFrame(art.RsiDirections == RsiDirectionType.Dir1 ? RsiDirection.South : facing, 0);
+        _fanFrames[(rsi, state, facing)] = texture;
+        return texture;
+    }
+
+    /// <summary>Fans in the stands left of home look right to the field, fans on the right look left.</summary>
+    private static RsiDirection FanFacing(Seat seat)
+    {
+        return seat.At.X < HomeX ? RsiDirection.East : RsiDirection.West;
+    }
+
+    /// <summary>Fans a foul ball knocked flat, over the drawn stands: their seat cleared, slumped over sideways.</summary>
+    private void DrawHurtFans(DrawingHandleScreen handle)
+    {
+        for (var i = 0; i < Seats.Length; i++)
+        {
+            if (!_hurtFans[i])
+                continue;
+
+            var seat = Seats[i];
+            var size = seat.Size;
+            Rect(handle, seat.At.X - size * 1.1f, seat.At.Y - size * 2.4f, size * 2.2f, size * 2.4f, Color.FromHex("#262A31"));
+            if (seat.At.Y >= SpriteRows)
+            {
+                var shake = Box(0, 0, 0, 0).TopLeft;
+                var saved = handle.GetTransform();
+                handle.SetTransform(Matrix3x2.CreateTranslation(shake) * saved);
+                DrawFan(handle, _looks[_seatLooks[i]], seat.At + new Vector2(-size * 0.6f, size * 0.9f), size, UIScale, -1.3f, FanFacing(seat));
+                handle.SetTransform(saved);
                 continue;
             }
 
-            Rect(handle, at.X - size * 0.5f, at.Y - size, size, size, Skins[seat.Skin]);
-            // arms up when the place goes wild
-            if (_excite > 0.5f && seat.Shirt % 3 == 0)
-                Rect(handle, at.X + size * 0.5f, at.Y - size * 2, 1, size * 1.6f, Skins[seat.Skin]);
+            Rect(handle, seat.At.X - size * 0.75f, seat.At.Y, size * 1.5f, size * 1.2f, _shirts[seat.Shirt]);
+            Rect(handle, seat.At.X - size, seat.At.Y + size * 0.2f, size * 1.1f, size * 0.8f, Skins[seat.Skin]);
         }
     }
 
