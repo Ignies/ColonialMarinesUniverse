@@ -22,8 +22,6 @@ public sealed partial class CMUPersonalComputerBui : BoundUserInterface, ICMUNet
     private CMUPersonalComputerWindow? _window;
     private CMUComputerOsPrototype? _os;
     private int _inboxSeen = -1;
-    private int _boots;
-    private EntityUid? _running;
 
     public event Action<CMUNetBoardStateMessage>? StateReceived;
     public event Action<CMUDeepPageMessage>? PageReceived;
@@ -56,27 +54,12 @@ public sealed partial class CMUPersonalComputerBui : BoundUserInterface, ICMUNet
         _window = this.CreateWindow<CMUPersonalComputerWindow>();
         _window.OnKeyTyped += () => Play(_os.KeySound, -8f, _random.NextFloat(0.9f, 1.1f));
         _window.OnClicked += () => Play(_os.ClickSound, -6f, 1f);
-        _window.OnBooting += () =>
-        {
-            StopRunning();
-            Play(_os.BootSound, -4f, 1f);
-            if (EntMan.HasComponent<CMUDeepWebAccessComponent>(Owner))
-                Play(_os.GlitchSound, -6f, 1f);
-
-            // The running hum takes over where the boot sound settles, for as long as the machine stays on.
-            var boot = ++_boots;
-            Robust.Shared.Timing.Timer.Spawn(TimeSpan.FromSeconds(_os.BootSoundLength), () =>
-            {
-                if (boot == _boots && _window != null && On)
-                    _running = Play(_os.RunningSound, -10f, 1f, true);
-            });
-        };
-        _window.OnShutDown += () =>
-        {
-            _boots++;
-            StopRunning();
-            Play(_os.ShutdownSound, -4f, 1f);
-        };
+        var sounds = EntMan.System<CMUComputerSoundSystem>();
+        var os = _os;
+        sounds.Watch(Owner);
+        _window.OnBooting += () => sounds.Boot(Owner, os, EntMan.HasComponent<CMUDeepWebAccessComponent>(Owner));
+        _window.OnResumed += () => sounds.Running(Owner, os);
+        _window.OnShutDown += () => sounds.ShutDown(Owner, os);
         _window.Boot(_os, net.GetNetworks((Owner, computer)), net.GetHomePage(computer), computer.Documents,
             EntMan.GetComponent<MetaDataComponent>(Owner).EntityName, this, computer.Colony, computer.ColonyName,
             EntMan.HasComponent<CMUDeepWebAccessComponent>(Owner) && _cfg.GetCVar(CMUPersonalComputerCVars.DeepWeb) ? this : null,
@@ -169,6 +152,19 @@ public sealed partial class CMUPersonalComputerBui : BoundUserInterface, ICMUNet
     public void PressPower()
     {
         SendMessage(new CMUComputerPowerButtonMessage());
+    }
+
+    public TimeSpan SinceSwitchedOn => Computer is { } computer
+        ? IoCManager.Resolve<Robust.Shared.Timing.IGameTiming>().CurTime - computer.PoweredAt
+        : TimeSpan.Zero;
+
+    private static readonly List<CMUComputerScreenWindow> NothingOnScreen = new();
+
+    public IReadOnlyList<CMUComputerScreenWindow> Screen => Computer?.Screen ?? NothingOnScreen;
+
+    public void SaveScreen(List<CMUComputerScreenWindow> screen)
+    {
+        SendMessage(new CMUComputerScreenMessage(screen));
     }
 
     private static readonly List<string> NoConsoleApps = new();
@@ -372,27 +368,20 @@ public sealed partial class CMUPersonalComputerBui : BoundUserInterface, ICMUNet
         Play(_os?.ErrorSound, -6f, 1f);
     }
 
-    private EntityUid? Play(SoundSpecifier? sound, float volume, float pitch, bool loop = false)
+    private void Play(SoundSpecifier? sound, float volume, float pitch)
     {
         if (sound == null)
-            return null;
+            return;
 
-        return EntMan.System<AudioSystem>().PlayGlobal(sound, Filter.Local(), false,
-            AudioParams.Default.WithVolume(volume).WithPitchScale(pitch).WithLoop(loop))?.Entity;
+        EntMan.System<AudioSystem>().PlayGlobal(sound, Filter.Local(), false,
+            AudioParams.Default.WithVolume(volume).WithPitchScale(pitch));
     }
 
-    private void StopRunning()
-    {
-        if (_running is { } running)
-            EntMan.System<AudioSystem>().Stop(running);
-
-        _running = null;
-    }
-
+    // Walking away or closing the window leaves the machine running: it just goes quiet for this player.
     protected override void Dispose(bool disposing)
     {
         base.Dispose(disposing);
-        _boots++;
-        StopRunning();
+        if (_os != null && EntMan.EntitySysManager.TryGetEntitySystem(out CMUComputerSoundSystem? sounds))
+            sounds.Leave(Owner);
     }
 }

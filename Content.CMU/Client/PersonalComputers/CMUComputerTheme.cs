@@ -22,6 +22,17 @@ public sealed class CMUComputerTheme
     public readonly Font Bold;
     public readonly Font Small;
 
+    /// <summary>The desktop layout, from the OS.</summary>
+    public readonly CMUComputerShell Shell;
+
+    /// <summary>The shell's own lettering: menus, headers and window titles.</summary>
+    public readonly Font ShellFont;
+
+    public readonly Font ShellSmall;
+
+    /// <summary>A colour between the phosphor and white, for what the shell lifts out: headers and highlights.</summary>
+    public readonly Color Bright;
+
     /// <summary>The OS name as shown: the product name, or the colony's network name for OSes named after it.</summary>
     public string DisplayName;
 
@@ -42,6 +53,31 @@ public sealed class CMUComputerTheme
         Font = GetFont(CMUNetFont.Mono, 12);
         Bold = GetFont(CMUNetFont.Mono, 12, true);
         Small = GetFont(CMUNetFont.Mono, 10);
+        Shell = os.Shell;
+        Bright = Color.InterpolateBetween(Phosphor, Color.White, 0.55f);
+        (ShellFont, ShellSmall) = Shell switch
+        {
+            // Sevastolink's chunky, teletype lettering: a bitmap face, which keeps to its measured width.
+            CMUComputerShell.Seegson => (GetFont(CMUNetFont.Pixel, 12, true), GetFont(CMUNetFont.Pixel, 11)),
+            // The Company's clean corporate face.
+            CMUComputerShell.Weyland => (GetFont(CMUNetFont.Display, 12, true), GetFont(CMUNetFont.Display, 10)),
+            _ => (Bold, Small),
+        };
+    }
+
+    /// <summary>The OS's first logo image, for the shell's header; null when it has none.</summary>
+    public Texture? Logo
+    {
+        get
+        {
+            foreach (var logo in Os.Logos)
+            {
+                if (logo != CMUComputerOsPrototype.NameLogo && TryGetTexture(new ResPath(logo), out var texture))
+                    return texture;
+            }
+
+            return null;
+        }
     }
 
     /// <summary>The look a page gets when neither the site nor the page sets one.</summary>

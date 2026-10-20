@@ -80,6 +80,7 @@ public sealed partial class CMUComputerSessionSystem : EntitySystem
             subs.Event<CMUComputerPowerButtonMessage>(OnPowerButton);
             subs.Event<CMUComputerCardSlotMessage>(OnCardSlot);
             subs.Event<CMUComputerOpenConsoleMessage>(OnOpenConsole);
+            subs.Event<CMUComputerScreenMessage>(OnScreen);
         });
         Subs.BuiEvents<CMUPersonalComputerComponent>(CMUComputerToolUiKey.Key, subs =>
         {
@@ -158,6 +159,8 @@ public sealed partial class CMUComputerSessionSystem : EntitySystem
             return;
 
         ent.Comp.On = true;
+        ent.Comp.PoweredAt = _timing.CurTime;
+        ent.Comp.Screen.Clear();
         Dirty(ent);
         if (GetCard(ent) is { } card)
             LogIn(ent, card, args.Actor);
@@ -169,6 +172,7 @@ public sealed partial class CMUComputerSessionSystem : EntitySystem
             return;
 
         ent.Comp.On = false;
+        ent.Comp.Screen.Clear();
         EndSession(ent);
         CloseConsoleApps(ent);
         Dirty(ent);
@@ -343,6 +347,47 @@ public sealed partial class CMUComputerSessionSystem : EntitySystem
             EndSession(ent);
     }
 
+    /// <summary>Keeps what the running session has open, for whoever looks at the terminal next.</summary>
+    private void OnScreen(Entity<CMUPersonalComputerComponent> ent, ref CMUComputerScreenMessage args)
+    {
+        if (!ent.Comp.On
+            || _cfg.GetCVar(CMUPersonalComputerCVars.Login) && ent.Comp.RequireLogin && ent.Comp.SessionUser == null)
+            return;
+
+        var screen = new List<CMUComputerScreenWindow>();
+        foreach (var window in args.Windows)
+        {
+            if (screen.Count >= CMUComputerScreenLimits.Windows)
+                break;
+
+            if (string.IsNullOrEmpty(window.App)
+                || window.App.Length > CMUComputerScreenLimits.AppLength
+                || window.Address is { Length: > CMUComputerScreenLimits.AddressLength })
+                continue;
+
+            screen.Add(new CMUComputerScreenWindow
+            {
+                App = window.App,
+                Address = window.Address,
+                Position = Clamp(window.Position),
+                Size = Clamp(window.Size),
+                Minimized = window.Minimized,
+            });
+        }
+
+        ent.Comp.Screen = screen;
+        Dirty(ent);
+    }
+
+    private static System.Numerics.Vector2 Clamp(System.Numerics.Vector2 value)
+    {
+        if (!float.IsFinite(value.X) || !float.IsFinite(value.Y))
+            return System.Numerics.Vector2.Zero;
+
+        return System.Numerics.Vector2.Clamp(value, System.Numerics.Vector2.Zero,
+            new System.Numerics.Vector2(CMUComputerScreenLimits.Extent));
+    }
+
     private void EndSession(Entity<CMUPersonalComputerComponent> ent)
     {
         CloseConsoleApps(ent);
@@ -350,6 +395,7 @@ public sealed partial class CMUComputerSessionSystem : EntitySystem
             return;
 
         AddLog(ent, Loc.GetString("cmu-pc-log-logout", ("name", name)));
+        ent.Comp.Screen.Clear();
         ent.Comp.SessionUser = null;
         ent.Comp.SessionJob = null;
         ent.Comp.SessionAccount = 0;

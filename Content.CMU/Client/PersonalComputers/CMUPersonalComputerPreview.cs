@@ -86,7 +86,13 @@ public sealed class CMUPersonalComputerPreview
             ("seegson-system", 2.5f, () => _window?.Desktop?.Open(CMUComputerApp.System)),
             ("weyland-splash", 1.6f, () => Boot("CMUOsWeyland")),
             ("weyland-boot-log", 3.6f, () => { }),
-            ("weyland-browser", 2.5f, () => _window?.Desktop?.Open(CMUComputerApp.Browser)),
+            ("weyland-desktop", 2.5f, () => { }),
+            ("weyland-directory", 2f, () => _window?.Desktop?.ToggleStartMenu()),
+            ("weyland-browser", 2.5f, () =>
+            {
+                _window?.Desktop?.ToggleStartMenu();
+                _window?.Desktop?.Open(CMUComputerApp.Browser);
+            }),
             ("weyland-memo", 3f, () => _window?.Desktop?.Browser?.Navigate("intranet.wy/memo")),
             ("cmb-splash", 6f, () => Boot("CMUOsCMB")),
             ("cmb-desktop", 3f, () => { }),
@@ -214,6 +220,14 @@ public sealed class CMUPersonalComputerPreview
         }
 
         public void PopupShown()
+        {
+        }
+
+        public TimeSpan SinceSwitchedOn => TimeSpan.Zero;
+
+        public IReadOnlyList<CMUComputerScreenWindow> Screen { get; } = new List<CMUComputerScreenWindow>();
+
+        public void SaveScreen(List<CMUComputerScreenWindow> screen)
         {
         }
 

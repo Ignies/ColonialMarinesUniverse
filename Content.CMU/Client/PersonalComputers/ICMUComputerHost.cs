@@ -40,6 +40,15 @@ public interface ICMUComputerHost
 
     void PressPower();
 
+    /// <summary>How long ago the machine was switched on; zero when it just was.</summary>
+    TimeSpan SinceSwitchedOn { get; }
+
+    /// <summary>The programs left open on the terminal's screen this session.</summary>
+    IReadOnlyList<CMUComputerScreenWindow> Screen { get; }
+
+    /// <summary>Tells the terminal what is on screen now.</summary>
+    void SaveScreen(List<CMUComputerScreenWindow> screen);
+
     /// <summary>An ad's pop up jumped onto a page.</summary>
     void PopupShown();
 

@@ -1,3 +1,4 @@
+using System.Numerics;
 using Robust.Shared.GameStates;
 using Robust.Shared.Prototypes;
 using Robust.Shared.Serialization;
@@ -62,6 +63,20 @@ public sealed partial class CMUPersonalComputerComponent : Component
     /// <summary>Switched on with the power button. Losing power switches it off.</summary>
     [DataField, AutoNetworkedField]
     public bool On;
+
+    /// <summary>
+    /// When the machine was last switched on. Someone who walks up after it booted finds it running, with no
+    /// boot to sit through.
+    /// </summary>
+    [DataField, AutoNetworkedField]
+    public TimeSpan PoweredAt;
+
+    /// <summary>
+    /// The programs left open on screen, so whoever looks at the terminal next, the same player or another, finds
+    /// it as it was left. Cleared when the session ends or the machine goes off.
+    /// </summary>
+    [DataField, AutoNetworkedField]
+    public List<CMUComputerScreenWindow> Screen = new();
 
     /// <summary>The card in the reader, as a prototype for the panel to draw; null when the reader is empty.</summary>
     [DataField, AutoNetworkedField]
@@ -137,6 +152,45 @@ public sealed partial class CMUNetShortcut
 
     [DataField]
     public string Title = string.Empty;
+}
+
+/// <summary>A program window left open on a terminal's screen.</summary>
+[DataDefinition, Serializable, NetSerializable]
+public sealed partial class CMUComputerScreenWindow
+{
+    /// <summary>The program, by name, e.g. Browser.</summary>
+    [DataField(required: true)]
+    public string App = string.Empty;
+
+    /// <summary>The page on screen, for the browsers.</summary>
+    [DataField]
+    public string? Address;
+
+    [DataField]
+    public Vector2 Position;
+
+    [DataField]
+    public Vector2 Size;
+
+    [DataField]
+    public bool Minimized;
+}
+
+/// <summary>What the terminal's screen shows now, sent when it changes.</summary>
+[Serializable, NetSerializable]
+public sealed class CMUComputerScreenMessage(List<CMUComputerScreenWindow> windows) : BoundUserInterfaceMessage
+{
+    public readonly List<CMUComputerScreenWindow> Windows = windows;
+}
+
+public static class CMUComputerScreenLimits
+{
+    public const int Windows = 8;
+    public const int AppLength = 24;
+    public const int AddressLength = 256;
+
+    /// <summary>Bigger than any screen; positions and sizes are clamped to it.</summary>
+    public const float Extent = 4096;
 }
 
 /// <summary>Saves the page on screen to the desktop.</summary>

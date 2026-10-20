@@ -31,6 +31,19 @@ cmu-os-weyland-boot-4 = ENCRYPTION KEYS LOADED ........ OK
 cmu-os-weyland-boot-5 = CORPORATE INTRANET HANDSHAKE ........ ACCEPTED
 cmu-os-weyland-boot-6 = ALL ACTIVITY ON THIS TERMINAL IS MONITORED.
 
+## Desktop shells
+
+cmu-os-shell-terminal = TERMINAL #{ $id }
+cmu-os-shell-user = USER: { $name }
+cmu-os-seegson-menu = Main menu
+cmu-os-seegson-active = ACTIVE:
+cmu-os-seegson-maker = SEEGSON
+cmu-os-weyland-company = WEYLAND-YUTANI CORPORATION
+cmu-os-weyland-slogan = BUILDING BETTER WORLDS
+cmu-os-weyland-station = WORKSTATION { $id }
+cmu-os-weyland-directory = DIRECTORY
+cmu-os-weyland-inquiry = INTERFACE { $id } READY FOR INQUIRY
+
 ## Browser
 
 cmu-pc-browser-home = HOME

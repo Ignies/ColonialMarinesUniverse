@@ -35,6 +35,9 @@ public sealed partial class CMUPersonalComputerWindow : DefaultWindow
     private Control? _trackedParent;
     private CMUComputerPanel? _panel;
     private bool? _shownOn;
+
+    /// <summary>Whether the window has not shown the machine on yet since it opened.</summary>
+    private bool _firstShow = true;
     private bool _jacked;
     private CMUComputerOsPrototype? _os;
     private readonly PanelContainer _screen;
@@ -61,6 +64,15 @@ public sealed partial class CMUPersonalComputerWindow : DefaultWindow
 
     /// <summary>The machine was switched off, or lost power, while the window was open.</summary>
     public event Action? OnShutDown;
+
+    /// <summary>The window opened on a machine someone switched on earlier: it is already running.</summary>
+    public event Action? OnResumed;
+
+    /// <summary>
+    /// A machine switched on this recently is booting for whoever pressed the button, so the window plays the
+    /// boot; switched on longer ago, the window opens on the running machine.
+    /// </summary>
+    private static readonly TimeSpan JustSwitchedOn = TimeSpan.FromSeconds(2);
 
     public CMUPersonalComputerWindow()
     {
@@ -224,6 +236,7 @@ public sealed partial class CMUPersonalComputerWindow : DefaultWindow
         _machine.Build(built, _panel);
 
         _shownOn = null;
+        _firstShow = true;
         UpdatePower();
     }
 
@@ -253,8 +266,27 @@ public sealed partial class CMUPersonalComputerWindow : DefaultWindow
         }
 
         _screen.PanelOverride = new StyleBoxFlat { BackgroundColor = _os.Background };
-        _panel?.Pulse(4f);
-        OnBooting?.Invoke();
+        var since = _host?.SinceSwitchedOn ?? TimeSpan.Zero;
+        if (_firstShow && since >= JustSwitchedOn)
+        {
+            _firstShow = false;
+            OnResumed?.Invoke();
+            // Booted while nobody was looking: straight to whatever is on screen, the same as for whoever left it.
+            if (since >= TimeSpan.FromSeconds(_os.BootSoundLength))
+            {
+                _crt.ArtifactAmount = _jacked ? 0.2f : 0f;
+                _crt.ArtifactPeriod = 9f;
+                _booted = true;
+                UpdateSession();
+                return;
+            }
+        }
+        else
+        {
+            _firstShow = false;
+            _panel?.Pulse(4f);
+            OnBooting?.Invoke();
+        }
 
         // A jacked terminal never boots clean: the tube tears and smears all the way to the desktop.
         _crt.ArtifactAmount = _jacked ? 0.9f : 0f;
@@ -308,7 +340,12 @@ public sealed partial class CMUPersonalComputerWindow : DefaultWindow
         }
 
         if (_desktop == null || _desktopUsed)
+        {
             _desktop = _newDesktop!();
+            // Whatever this session left open, for whoever looks at the terminal now.
+            if (_host != null)
+                _desktop.RestoreScreen(_host.Screen);
+        }
 
         _desktopUsed = true;
         _layer.AddChild(_desktop);

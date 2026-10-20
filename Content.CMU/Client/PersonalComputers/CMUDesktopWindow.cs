@@ -1,4 +1,5 @@
 using System.Numerics;
+using Content.Shared.CMU14.PersonalComputers;
 using Robust.Client.Graphics;
 using Robust.Client.UserInterface;
 using Robust.Client.UserInterface.Controls;
@@ -8,7 +9,9 @@ namespace Content.Client.CMU14.PersonalComputers;
 
 /// <summary>
 /// A program window on the computer desktop: drag it by the title bar, resize it from the corner,
-/// double click the title to maximize. Must be a child of a <see cref="LayoutContainer"/>.
+/// double click the title to maximize. Must be a child of a <see cref="LayoutContainer"/>. Framed by the OS's
+/// shell: a filled title bar; Sevastolink's thick box with an inverted capitals title; or the Company's thin double
+/// rule with its title in amber over a dark bar.
 /// </summary>
 public sealed class CMUDesktopWindow : PanelContainer
 {
@@ -39,11 +42,29 @@ public sealed class CMUDesktopWindow : PanelContainer
         App = app;
         Content = content;
         MouseFilter = MouseFilterMode.Stop;
-        PanelOverride = theme.Box(theme.Background, theme.Accent, 2);
+        var shell = theme.Shell;
+        PanelOverride = shell switch
+        {
+            CMUComputerShell.Seegson => theme.Box(theme.Background, theme.Phosphor, 3),
+            // Room inside the outer hairline for the inner one.
+            CMUComputerShell.Weyland => new StyleBoxFlat
+            {
+                BackgroundColor = theme.Background,
+                BorderColor = theme.Accent,
+                BorderThickness = new Thickness(1),
+                ContentMarginLeftOverride = 4,
+                ContentMarginTopOverride = 4,
+                ContentMarginRightOverride = 4,
+                ContentMarginBottomOverride = 4,
+            },
+            _ => theme.Box(theme.Background, theme.Accent, 2),
+        };
 
-        _title = theme.Label(title, theme.Bold, theme.Background);
+        var titleColour = shell == CMUComputerShell.Weyland ? theme.Accent : theme.Background;
+        _title = theme.Label(Letter(title), shell == CMUComputerShell.Classic ? theme.Bold : theme.ShellFont, titleColour);
         _title.HorizontalExpand = true;
         _title.ClipText = true;
+        _title.VerticalAlignment = VAlignment.Center;
 
         var minimize = TitleButton("_", Loc.GetString("cmu-pc-window-minimize"));
         minimize.OnPressed += _ => OnMinimize?.Invoke(this);
@@ -52,7 +73,17 @@ public sealed class CMUDesktopWindow : PanelContainer
 
         _titleBar = new PanelContainer
         {
-            PanelOverride = theme.Box(theme.Accent),
+            PanelOverride = shell switch
+            {
+                CMUComputerShell.Seegson => theme.Box(theme.Phosphor),
+                CMUComputerShell.Weyland => new StyleBoxFlat
+                {
+                    BackgroundColor = Color.InterpolateBetween(theme.Background, theme.Accent, 0.1f),
+                    BorderColor = theme.Accent.WithAlpha(0.6f),
+                    BorderThickness = new Thickness(0, 0, 0, 1),
+                },
+                _ => theme.Box(theme.Accent),
+            },
             MouseFilter = MouseFilterMode.Stop,
             Children =
             {
@@ -88,7 +119,25 @@ public sealed class CMUDesktopWindow : PanelContainer
     public string Title
     {
         get => _title.Text ?? string.Empty;
-        set => _title.Text = value;
+        set => _title.Text = Letter(value);
+    }
+
+    /// <summary>Titles in capitals outside the classic shell, the way both companies' terminals letter them.</summary>
+    private string Letter(string title)
+    {
+        return _theme.Shell == CMUComputerShell.Classic ? title : title.ToUpperInvariant();
+    }
+
+    /// <summary>The Company's second, inner hairline round the window.</summary>
+    protected override void Draw(DrawingHandleScreen handle)
+    {
+        base.Draw(handle);
+        if (_theme.Shell != CMUComputerShell.Weyland)
+            return;
+
+        var inset = 2.5f * UIScale;
+        var box = new UIBox2(inset, inset, PixelWidth - inset, PixelHeight - inset);
+        handle.DrawRect(box, _theme.Accent.WithAlpha(0.35f), false);
     }
 
     private static Control TitleIcon(CMUComputerTheme theme, CMUComputerApp app)
@@ -105,10 +154,17 @@ public sealed class CMUDesktopWindow : PanelContainer
 
     private Button TitleButton(string text, string tooltip)
     {
-        var button = new Button { Text = text, ToolTip = tooltip, MinWidth = 20 };
-        button.Label.FontOverride = _theme.Bold;
-        button.Label.FontColorOverride = _theme.Accent;
-        button.StyleBoxOverride = _theme.ButtonBox(_theme.Background);
+        var shell = _theme.Shell;
+        var button = new Button { Text = shell == CMUComputerShell.Seegson ? $"[{text}]" : text, ToolTip = tooltip, MinWidth = 20 };
+        button.Label.FontOverride = shell == CMUComputerShell.Classic ? _theme.Bold : _theme.ShellFont;
+        button.Label.FontColorOverride = shell == CMUComputerShell.Seegson ? _theme.Background : _theme.Accent;
+        button.StyleBoxOverride = shell switch
+        {
+            // Sevastolink's controls are part of the inverted title.
+            CMUComputerShell.Seegson => _theme.ButtonBox(_theme.Phosphor),
+            CMUComputerShell.Weyland => _theme.ButtonBox(_theme.Background, _theme.Accent.WithAlpha(0.7f)),
+            _ => _theme.ButtonBox(_theme.Background),
+        };
         button.ModulateSelfOverride = Color.White;
         return button;
     }
