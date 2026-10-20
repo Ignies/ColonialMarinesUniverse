@@ -201,6 +201,8 @@ public sealed partial class CMUComputerDesktop : BoxContainer
             _icons.Add(icon);
             _iconGrid.AddChild(icon);
         }
+
+        AddGameIcons();
     }
 
     private void AddIcon(CMUComputerApp app, string label)
@@ -361,6 +363,7 @@ public sealed partial class CMUComputerDesktop : BoxContainer
         var shown = string.Empty;
         foreach (var shortcut in _shortcuts.Shortcuts)
             shown += $"{shortcut.Address}\t{shortcut.Title}\n";
+        shown += GameIconsKey();
 
         if (shown == _shownShortcuts)
             return;

@@ -16,6 +16,9 @@ public enum CMUComputerApp : byte
 
     /// <summary>One of a colony console's own screens.</summary>
     Console,
+
+    /// <summary>An arcade game downloaded from the ExtraNet, in a window of its own.</summary>
+    Game,
 }
 
 /// <summary>
@@ -41,7 +44,8 @@ public sealed class CMUDesktopIcon : Control
     public event Action<CMUComputerApp>? OnOpen;
     public event Action<CMUDesktopIcon>? OnRemove;
 
-    public CMUDesktopIcon(CMUComputerTheme theme, CMUComputerApp app, string label, string? link = null)
+    /// <param name="art">Drawn instead of the program's icon, such as a downloaded game's sprite.</param>
+    public CMUDesktopIcon(CMUComputerTheme theme, CMUComputerApp app, string label, string? link = null, Texture? art = null)
     {
         _theme = theme;
         App = app;
@@ -51,7 +55,7 @@ public sealed class CMUDesktopIcon : Control
         MouseFilter = MouseFilterMode.Stop;
         ToolTip = link == null ? label : $"{label}\n{link}";
 
-        _texture = theme.AppIcon(app);
+        _texture = art ?? theme.AppIcon(app);
     }
 
     protected override void KeyBindDown(GUIBoundKeyEventArgs args)

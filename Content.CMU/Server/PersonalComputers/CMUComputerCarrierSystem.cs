@@ -41,6 +41,7 @@ public sealed class CMUComputerCarrierSystem : EntitySystem
             or CMUNetSetWallpaperMessage
             or CMUNetSaveShortcutMessage
             or CMUNetRemoveShortcutMessage
+            or CMUGameDeleteMessage
             or CMUComputerLogoutMessage
             or CMUComputerOpenConsoleMessage;
     }

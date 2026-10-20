@@ -52,6 +52,10 @@ public sealed partial class CMUPersonalComputerComponent : Component
     [DataField, AutoNetworkedField]
     public List<CMUNetShortcut> Shortcuts = new();
 
+    /// <summary>Arcade games downloaded to the desktop, each opening in a window of its own. Lasts the round.</summary>
+    [DataField, AutoNetworkedField]
+    public List<CMUArcadeGame> Downloads = new();
+
     /// <summary>The reader on the front panel. A card stays in it for the whole session.</summary>
     public const string CardSlotId = "cmu_pc_card";
 

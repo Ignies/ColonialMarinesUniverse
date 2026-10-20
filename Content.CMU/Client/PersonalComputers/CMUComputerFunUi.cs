@@ -132,18 +132,25 @@ public sealed class CMUArcadeCabinet : BoxContainer
         Orientation = LayoutOrientation.Vertical;
         SeparationOverride = 6;
         Margin = new Thickness(0, 4);
-        Screen = game switch
-        {
-            CMUArcadeGame.HuggerRun => new CMUHuggerRun(timing),
-            _ => new CMUTrackerReflex(timing),
-        };
+        Screen = NewScreen(game, timing);
         Screen.OnGameOver += score => _host?.SubmitScore(_game, score);
 
         AddChild(new Label { Text = Loc.GetString($"cmu-arcade-{game}"), StyleClasses = { "LabelHeading" } });
         AddChild(new Label { Text = Screen.Help });
         AddChild(Screen);
+        AddChild(new CMUGameDownloadButton(game));
         AddChild(new Label { Text = Loc.GetString("cmu-arcade-scores"), StyleClasses = { "LabelKeyText" } });
         AddChild(_scores);
+    }
+
+    /// <summary>A new screen of the game, for a cabinet or a downloaded copy on the desktop.</summary>
+    public static CMUArcadeScreen NewScreen(CMUArcadeGame game, IGameTiming timing)
+    {
+        return game switch
+        {
+            CMUArcadeGame.HuggerRun => new CMUHuggerRun(timing),
+            _ => new CMUTrackerReflex(timing),
+        };
     }
 
     protected override void EnteredTree()
@@ -228,6 +235,14 @@ public abstract class CMUArcadeScreen : Control
 
     /// <summary>How to play, shown above the screen.</summary>
     public abstract string Help { get; }
+
+    /// <summary>
+    /// How many times bigger than the page the screen draws, for a downloaded game filling its own window. The games
+    /// draw in screen units times <see cref="UIScale"/>, so everything on the screen scales with it.
+    /// </summary>
+    public float Zoom { get; set; } = 1;
+
+    public override float UIScale => base.UIScale * Zoom;
 
     public virtual void Start()
     {

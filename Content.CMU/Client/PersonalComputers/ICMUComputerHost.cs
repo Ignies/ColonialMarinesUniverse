@@ -105,4 +105,15 @@ public interface ICMUComputerHost
     void RequestBets();
 
     void PlaceBet(int match, int entrant, int amount);
+
+    /// <summary>Arcade games downloaded to this desktop. Hosts with no desktop to keep them on have none.</summary>
+    IReadOnlyList<CMUArcadeGame> Downloads => Array.Empty<CMUArcadeGame>();
+
+    void DownloadGame(CMUArcadeGame game)
+    {
+    }
+
+    void DeleteGame(CMUArcadeGame game)
+    {
+    }
 }

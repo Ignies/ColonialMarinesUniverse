@@ -46,7 +46,7 @@ public static class CMUArcadeLimits
     public const int Board = 10;
 
     /// <summary>Scores above this are not believed. Keeps the board sane, not honest.</summary>
-    public const int MaxScore = 9999;
+    public const int MaxScore = 99999;
 }
 
 /// <summary>A match on the sportsbook. Seed and winner stay hidden until kickoff, when bets close.</summary>
