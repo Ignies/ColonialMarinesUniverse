@@ -33,6 +33,9 @@ public sealed class CMUComputerTheme
     /// <summary>A colour between the phosphor and white, for what the shell lifts out: headers and highlights.</summary>
     public readonly Color Bright;
 
+    /// <summary>How the newer shells lay out the desktop; null for the classic, Seegson and Weyland desktops.</summary>
+    public readonly CMUComputerShellStyle? Style;
+
     /// <summary>The OS name as shown: the product name, or the colony's network name for OSes named after it.</summary>
     public string DisplayName;
 
@@ -61,8 +64,16 @@ public sealed class CMUComputerTheme
             CMUComputerShell.Seegson => (GetFont(CMUNetFont.Pixel, 12, true), GetFont(CMUNetFont.Pixel, 11)),
             // The Company's clean corporate face.
             CMUComputerShell.Weyland => (GetFont(CMUNetFont.Display, 12, true), GetFont(CMUNetFont.Display, 10)),
+            // Military readouts in a stencil-plain mono.
+            CMUComputerShell.Tactical => (GetFont(CMUNetFont.Mono, 11, true), GetFont(CMUNetFont.Mono, 10)),
+            // Official, formal lettering.
+            CMUComputerShell.Ministry => (GetFont(CMUNetFont.Display, 12, true), GetFont(CMUNetFont.Display, 10)),
+            // Clean product lettering.
+            CMUComputerShell.Clinical => (GetFont(CMUNetFont.Sans, 11, true), GetFont(CMUNetFont.Sans, 10)),
+            CMUComputerShell.Police => (GetFont(CMUNetFont.Display, 11, true), GetFont(CMUNetFont.Display, 10)),
             _ => (Bold, Small),
         };
+        Style = CMUComputerShellStyle.Create(this);
     }
 
     /// <summary>The OS's first logo image, for the shell's header; null when it has none.</summary>

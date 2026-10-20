@@ -103,7 +103,7 @@ public sealed partial class CMUComputerDesktop : BoxContainer
         };
 
         // Programs then saved links: on the desktop in columns, or down the shell's own menu or dock.
-        _iconGrid = theme.Shell switch
+        _iconGrid = theme.Style?.NewIconBox() ?? theme.Shell switch
         {
             CMUComputerShell.Seegson => new BoxContainer { Orientation = LayoutOrientation.Vertical, SeparationOverride = 1 },
             CMUComputerShell.Weyland => new BoxContainer { Orientation = LayoutOrientation.Vertical, SeparationOverride = 4 },
@@ -136,6 +136,23 @@ public sealed partial class CMUComputerDesktop : BoxContainer
             Margin = new Thickness(6, 0),
         };
         _clock = theme.Label(string.Empty, theme.ShellFont);
+
+        if (theme.Style is { } style)
+        {
+            style.Build(this, new CMUShellParts
+            {
+                Theme = theme,
+                Area = _area,
+                Icons = _iconGrid,
+                Tasks = _tasks,
+                Clock = _clock,
+                SessionButtons = SessionButtons,
+                ToggleStartMenu = ToggleStartMenu,
+                Clicked = () => OnClicked?.Invoke(),
+                Host = _shortcuts,
+            });
+            return;
+        }
 
         switch (theme.Shell)
         {
@@ -537,7 +554,8 @@ public sealed partial class CMUComputerDesktop : BoxContainer
     private PanelContainer BuildStartMenu()
     {
         var list = new BoxContainer { Orientation = LayoutOrientation.Vertical, Margin = new Thickness(4), SeparationOverride = 2 };
-        var heading = _theme.Shell == CMUComputerShell.Weyland ? Loc.GetString("cmu-os-weyland-directory") : _theme.DisplayName;
+        var heading = _theme.Style?.StartMenuHeading
+                      ?? (_theme.Shell == CMUComputerShell.Weyland ? Loc.GetString("cmu-os-weyland-directory") : _theme.DisplayName);
         list.AddChild(_theme.Label(heading, _theme.ShellFont, _theme.Accent));
         list.AddChild(new CMUTerminalRule { Color = _theme.Accent, Margin = new Thickness(0, 2, 0, 4) });
 
@@ -582,6 +600,7 @@ public sealed partial class CMUComputerDesktop : BoxContainer
         base.FrameUpdate(args);
         RefreshShortcuts(args.DeltaSeconds);
         SaveScreen(args.DeltaSeconds);
+        _theme.Style?.FrameUpdate(args.DeltaSeconds);
         if (_inquiry != null)
         {
             _blink += args.DeltaSeconds;
@@ -654,6 +673,12 @@ public sealed partial class CMUComputerDesktop : BoxContainer
 
     protected override void Draw(DrawingHandleScreen handle)
     {
+        if (_theme.Style is { } style)
+        {
+            style.DrawBackground(handle, this, _foundWallpaper ?? _wallpaper);
+            return;
+        }
+
         handle.DrawRect(PixelSizeBox, _theme.Background);
         if ((_foundWallpaper ?? _wallpaper) is { } wallpaper)
         {
@@ -708,8 +733,8 @@ public sealed partial class CMUComputerDesktop : BoxContainer
 
     public void ToggleStartMenu()
     {
-        // Sevastolink's menu is always on screen.
-        if (_theme.Shell == CMUComputerShell.Seegson)
+        // Sevastolink's menu is always on screen, as are the menus of shells without a start menu.
+        if (_theme.Shell == CMUComputerShell.Seegson || _theme.Style is { HasStartMenu: false })
             return;
 
         _startMenu.Visible = !_startMenu.Visible;
@@ -786,7 +811,7 @@ public sealed partial class CMUComputerDesktop : BoxContainer
         window.OnMinimize += Minimize;
         window.OnFocus += Focus;
 
-        var offset = (_theme.Shell == CMUComputerShell.Classic ? 110 : 14) + _windows.Count * 26;
+        var offset = (_theme.Style?.WindowOffset ?? (_theme.Shell == CMUComputerShell.Classic ? 110 : 14)) + _windows.Count * 26;
         _area.AddChild(window);
         LayoutContainer.SetPosition(window, new Vector2(offset, 14 + _windows.Count * 22));
         window.SetSize = Vector2.Min(size, Vector2.Max(_area.Size - new Vector2(offset + 6, 40), new Vector2(260, 160)));

@@ -73,6 +73,26 @@ public sealed partial class CMUComputerOsPrototype : IPrototype
     [DataField]
     public CMUComputerShell Shell = CMUComputerShell.Classic;
 
+    /// <summary>The shell header's main line, e.g. the force or agency's full name. Unset, the OS name.</summary>
+    [DataField]
+    public LocId? ShellTitle;
+
+    /// <summary>The line under it: a motto, a department, a product line.</summary>
+    [DataField]
+    public LocId? ShellSubtitle;
+
+    /// <summary>The shell's status line, given the terminal number as <c>id</c>.</summary>
+    [DataField]
+    public LocId? ShellStatus;
+
+    /// <summary>Notices the police shell's ticker runs through, or a state shell's banner cycles.</summary>
+    [DataField]
+    public List<LocId> ShellTicker = new();
+
+    /// <summary>The mark either side of window titles in the state shell, e.g. a star.</summary>
+    [DataField]
+    public string ShellMark = "*";
+
     /// <summary>Taskbar, window frames and selection highlight. Defaults to the phosphor colour.</summary>
     [DataField]
     public Color? Accent;
@@ -155,6 +175,30 @@ public enum CMUComputerShell : byte
     /// tiles down a dock, thin double ruled windows and an inquiry line along the bottom.
     /// </summary>
     Weyland,
+
+    /// <summary>
+    /// A military tactical terminal: the crest and force across the top, programs on function keys under it, a
+    /// status column down the right, bracketed windows, and a command prompt along the bottom.
+    /// </summary>
+    Tactical,
+
+    /// <summary>
+    /// A state ministry terminal: a banner with the crest and motto, the directorates as large tabs under it, double
+    /// framed windows with marked, centred titles, and a directive line along the bottom.
+    /// </summary>
+    Ministry,
+
+    /// <summary>
+    /// A clean corporate lab interface: a slim top bar, a floating dock of round program buttons at the bottom,
+    /// flat windows with a soft shadow and round controls.
+    /// </summary>
+    Clinical,
+
+    /// <summary>
+    /// A police case management system: the badge and agency across the top, case file navigation down the left,
+    /// striped windows, and a ticker of notices along the bottom.
+    /// </summary>
+    Police,
 }
 
 /// <summary>
@@ -180,4 +224,28 @@ public enum CMUComputerCasing : byte
 
     /// <summary>Neroid Sector Policing Authority black with red trim.</summary>
     Nspa,
+
+    /// <summary>UPP olive drab with red trim.</summary>
+    Upp,
+
+    /// <summary>USCM navy gunmetal with stencilled markings.</summary>
+    Uscm,
+
+    /// <summary>Three World Empire deep red with gold trim.</summary>
+    Twe,
+
+    /// <summary>IASF aerospace grey with roundel stripes.</summary>
+    Iasf,
+
+    /// <summary>Hyperdyne Systems clinical white with soft blue.</summary>
+    Hyperdyne,
+
+    /// <summary>Prodigy glossy black with a single accent.</summary>
+    Prodigy,
+
+    /// <summary>Kelland Mining scuffed steel with hazard stripes.</summary>
+    Kelland,
+
+    /// <summary>LaSalle Bionational corporate teal.</summary>
+    Lasalle,
 }

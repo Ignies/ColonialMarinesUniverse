@@ -43,7 +43,8 @@ public sealed class CMUDesktopWindow : PanelContainer
         Content = content;
         MouseFilter = MouseFilterMode.Stop;
         var shell = theme.Shell;
-        PanelOverride = shell switch
+        var style = theme.Style;
+        PanelOverride = style?.WindowFrame() ?? shell switch
         {
             CMUComputerShell.Seegson => theme.Box(theme.Background, theme.Phosphor, 3),
             // Room inside the outer hairline for the inner one.
@@ -60,8 +61,9 @@ public sealed class CMUDesktopWindow : PanelContainer
             _ => theme.Box(theme.Background, theme.Accent, 2),
         };
 
-        var titleColour = shell == CMUComputerShell.Weyland ? theme.Accent : theme.Background;
-        _title = theme.Label(Letter(title), shell == CMUComputerShell.Classic ? theme.Bold : theme.ShellFont, titleColour);
+        var titleColour = style?.TitleColour ?? (shell == CMUComputerShell.Weyland ? theme.Accent : theme.Background);
+        var titleFont = style?.TitleFont ?? (shell == CMUComputerShell.Classic ? theme.Bold : theme.ShellFont);
+        _title = theme.Label(Letter(title), titleFont, titleColour);
         _title.HorizontalExpand = true;
         _title.ClipText = true;
         _title.VerticalAlignment = VAlignment.Center;
@@ -73,7 +75,7 @@ public sealed class CMUDesktopWindow : PanelContainer
 
         _titleBar = new PanelContainer
         {
-            PanelOverride = shell switch
+            PanelOverride = style?.TitleBar() ?? shell switch
             {
                 CMUComputerShell.Seegson => theme.Box(theme.Phosphor),
                 CMUComputerShell.Weyland => new StyleBoxFlat
@@ -132,6 +134,7 @@ public sealed class CMUDesktopWindow : PanelContainer
     protected override void Draw(DrawingHandleScreen handle)
     {
         base.Draw(handle);
+        _theme.Style?.DrawWindow(handle, this);
         if (_theme.Shell != CMUComputerShell.Weyland)
             return;
 
@@ -155,6 +158,16 @@ public sealed class CMUDesktopWindow : PanelContainer
     private Button TitleButton(string text, string tooltip)
     {
         var shell = _theme.Shell;
+        if (_theme.Style is { } style)
+        {
+            var styled = new Button { Text = style.TitleButtonText(text), ToolTip = tooltip, MinWidth = 20 };
+            styled.Label.FontOverride = style.TitleFont;
+            styled.Label.FontColorOverride = style.TitleButtonColour;
+            styled.StyleBoxOverride = style.TitleButtonBox();
+            styled.ModulateSelfOverride = Color.White;
+            return styled;
+        }
+
         var button = new Button { Text = shell == CMUComputerShell.Seegson ? $"[{text}]" : text, ToolTip = tooltip, MinWidth = 20 };
         button.Label.FontOverride = shell == CMUComputerShell.Classic ? _theme.Bold : _theme.ShellFont;
         button.Label.FontColorOverride = shell == CMUComputerShell.Seegson ? _theme.Background : _theme.Accent;

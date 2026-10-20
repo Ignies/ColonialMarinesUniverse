@@ -54,13 +54,13 @@ public sealed class CMUDesktopIcon : Control
         _theme = theme;
         App = app;
         Link = link;
-        _label = theme.Shell switch
+        _label = theme.Style != null ? Shorten(theme.Style.Letter(label), theme.Style.LabelLength) : theme.Shell switch
         {
             CMUComputerShell.Seegson => Shorten(label.ToUpperInvariant(), 13),
             CMUComputerShell.Weyland => Shorten(label.ToUpperInvariant(), 11),
             _ => Shorten(label, 13),
         };
-        MinSize = theme.Shell switch
+        MinSize = theme.Style?.IconSize ?? theme.Shell switch
         {
             CMUComputerShell.Seegson => new Vector2(150, 18),
             CMUComputerShell.Weyland => new Vector2(80, 66),
@@ -89,7 +89,7 @@ public sealed class CMUDesktopIcon : Control
 
         args.Handle();
         // A terminal menu: one press picks the entry.
-        if (_theme.Shell == CMUComputerShell.Seegson)
+        if (_theme.Shell == CMUComputerShell.Seegson || _theme.Style is { OpensOnSingleClick: true })
         {
             OnSelect?.Invoke(this);
             OnOpen?.Invoke(App);
@@ -108,8 +108,20 @@ public sealed class CMUDesktopIcon : Control
         OnSelect?.Invoke(this);
     }
 
+    /// <summary>Under the mouse.</summary>
+    public bool Hovered => _hovered;
+
+    /// <summary>The name as shown: lettered and cut by the shell.</summary>
+    public string Label => _label;
+
+    /// <summary>The program's picture, or null to draw its glyph.</summary>
+    public Texture? Texture => _texture;
+
     protected override void Draw(DrawingHandleScreen handle)
     {
+        if (_theme.Style?.DrawIcon(handle, this) == true)
+            return;
+
         switch (_theme.Shell)
         {
             case CMUComputerShell.Seegson:
@@ -226,7 +238,8 @@ public sealed class CMUDesktopIcon : Control
         return label.Length <= max ? label : label[..(max - 1)] + "~";
     }
 
-    private void DrawGlyph(DrawingHandleScreen handle, UIBox2 box, float scale)
+    /// <summary>A phosphor drawing of the program, for an OS without its own icon.</summary>
+    public void DrawGlyph(DrawingHandleScreen handle, UIBox2 box, float scale)
     {
         var c = _theme.Phosphor;
         var fill = _theme.Phosphor.WithAlpha(0.18f);

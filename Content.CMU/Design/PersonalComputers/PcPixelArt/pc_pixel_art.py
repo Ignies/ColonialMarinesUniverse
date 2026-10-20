@@ -72,8 +72,11 @@ text_width = atm.text_width
 # The colony's own Seegson machines, the Company's, and one for each of the colony's law enforcers: the Colonial
 # Marshal Bureau, the colony's security force, the Colonial Wilderness Preservation Service rangers and the Neroid
 # Sector Policing Authority. Each faction's colours are its uniform's (see the job prototypes in
-# Content.CMU/Resources/Prototypes/CMU14/Roles/Colony/LawEnforcement/).
-CASINGS = ("seegson", "weyland", "cmb", "security", "rangers", "nspa")
+# Content.CMU/Resources/Prototypes/CMU14/Roles/Colony/LawEnforcement/). Then the powers and companies with operating
+# systems of their own: the Union of Progressive Peoples, the Colonial Marines, the Three World Empire and its space
+# force the IASF, Hyperdyne Systems, Prodigy, Kelland Mining and LaSalle Bionational.
+CASINGS = ("seegson", "weyland", "cmb", "security", "rangers", "nspa",
+           "upp", "uscm", "twe", "iasf", "hyperdyne", "prodigy", "kelland", "lasalle")
 
 # ── Geometry, in art pixels. Mirrored by CMUComputerMachine and CMUComputerPanel. ──────────────────────────────────
 TILE = 32
@@ -152,6 +155,30 @@ RAMPS = {
     # NSPA: the black of the constable's peaked cap and vest, neutral where the Company's gunmetal is blue.
     "nspa": ((0, "#040404"), (30, "#0c0c0d"), (60, "#171718"), (95, "#232325"), (120, "#2d2d30"),
              (150, "#3e3e42"), (180, "#58585e"), (215, "#8d8d94"), (255, "#d0d0d5")),
+    # UPP: state olive drab, the lights going to a dusty khaki.
+    "upp": ((0, "#060704"), (30, "#13160a"), (60, "#222713"), (95, "#343b1d"), (120, "#414a25"),
+            (150, "#535d31"), (180, "#6c7642"), (215, "#9ba071"), (255, "#d6d6b2")),
+    # Colonial Marines: gunmetal with a navy cast, lighter than the Company's and greyer than the Bureau's.
+    "uscm": ((0, "#040609"), (30, "#0e141b"), (60, "#1b232d"), (95, "#2b3541"), (120, "#36424f"),
+             (150, "#475463"), (180, "#5f6d7c"), (215, "#929eab"), (255, "#d0d8e0")),
+    # Three World Empire: a deep oxblood lacquer.
+    "twe": ((0, "#070203"), (30, "#170508"), (60, "#2b0a10"), (95, "#441219"), (120, "#55181f"),
+            (150, "#6c2229"), (180, "#8a383e"), (215, "#b87479"), (255, "#ecd0d0")),
+    # IASF: aerospace grey, a shade bluer and darker than colony security's.
+    "iasf": ((0, "#08090b"), (30, "#171a1e"), (60, "#2c3137"), (95, "#4a5058"), (120, "#5c636c"),
+             (150, "#737a83"), (180, "#8e959e"), (215, "#b6bcc3"), (255, "#e6eaee")),
+    # Hyperdyne: clinical white, the darks a cool grey.
+    "hyperdyne": ((0, "#0c0f12"), (30, "#262b31"), (60, "#525a62"), (95, "#949ca4"), (120, "#b4bbc2"),
+                  (150, "#cdd3d8"), (180, "#dfe4e8"), (215, "#eef1f4"), (255, "#fcfdfe")),
+    # Prodigy: gloss black, its lights running right up to white where the shine catches.
+    "prodigy": ((0, "#020203"), (30, "#060608"), (60, "#0c0c10"), (95, "#15151a"), (120, "#1c1c22"),
+                (150, "#2a2a32"), (180, "#474752"), (215, "#a2a2ae"), (255, "#f8f8fc")),
+    # Kelland: scuffed mining steel, a little warm.
+    "kelland": ((0, "#070707"), (30, "#171716"), (60, "#2c2b29"), (95, "#474542"), (120, "#585551"),
+                (150, "#6f6b65"), (180, "#8c877f"), (215, "#b4aea3"), (255, "#e2ddd2")),
+    # LaSalle: corporate teal.
+    "lasalle": ((0, "#020706"), (30, "#071714"), (60, "#0e2a25"), (95, "#174039"), (120, "#1d4f46"),
+                (150, "#29665b"), (180, "#3f8476"), (215, "#7fb8aa"), (255, "#d0ece4")),
 }
 # The ring round the glass: the moulding's lit and shaded lip.
 RIM = {
@@ -161,6 +188,14 @@ RIM = {
     "security": ("#4a82d8", "#1d3766"),
     "rangers": ("#cdb877", "#5e5132"),
     "nspa": ("#d23a44", "#5c1218"),
+    "upp": ("#d8342c", "#5a0e0a"),
+    "uscm": ("#aab6c2", "#323e4a"),
+    "twe": ("#e6b84a", "#6a4a10"),
+    "iasf": ("#dfe4ea", "#3c4450"),
+    "hyperdyne": ("#9cc8ec", "#4a7aa4"),
+    "prodigy": ("#f2f2f6", "#4a4a54"),
+    "kelland": ("#f4c21a", "#6e5206"),
+    "lasalle": ("#7fe0c4", "#1e5a4c"),
 }
 # A stripe along the front panel's lit top edge, in the casing's trim. None: the bare casing.
 STRIPE = {
@@ -171,6 +206,18 @@ STRIPE = {
     "security": ("#2c5fb8", "#2c5fb8", "#eef1f4", "#eef1f4"),
     "rangers": ("#cdb877",),
     "nspa": ("#c8303a",),
+    "upp": ("#c8282a",),
+    # Stencilled white bars, as on a dropship's hull.
+    "uscm": ("#dfe4e8", "#dfe4e8", "#dfe4e8", "#36424f", "#36424f"),
+    "twe": ("#e6b84a",),
+    # The roundel's colours.
+    "iasf": ("#2a4c96", "#2a4c96", "#eef1f4", "#eef1f4", "#c8202a", "#c8202a"),
+    "hyperdyne": ("#7fb6e6",),
+    # The one accent.
+    "prodigy": ("#38d0ff",),
+    # Hazard stripes.
+    "kelland": ("#f4c21a", "#f4c21a", "#f4c21a", "#141414", "#141414", "#141414"),
+    "lasalle": ("#5fd8b4",),
 }
 
 
@@ -341,7 +388,7 @@ def draw_plate(casing):
     The badge on the top band, nine pixels tall: a recessed label strip like the ATM's INSERT ID TAG for Seegson, a
     black plate with the gold mark for Weyland-Yutani, a raised silver plate with gold stars for the Marshals, a white
     plate with the police checker for colony security, a green one between two pines for the rangers, and the
-    constable's black with red chevrons for the NSPA.
+    constable's black with red chevrons for the NSPA. The operating systems' own machines are in faction_plate.
     """
     L = Canvas("plate")
     h = 9
@@ -403,7 +450,7 @@ def draw_plate(casing):
         L.glyphs(F3, 5 + PINE_W + 4, 3, text, "#0c140b")
         L.glyphs(F3, 5 + PINE_W + 4, 2, text, "#dccb93")
         pins = "#8a7c52"
-    else:
+    elif casing == "nspa":
         # The constable's cap: black, with the cap badge's red under white lettering.
         text = "NSPA"
         w = text_width(F3, text, gap=2) + 2 * (5 + 4) + 12
@@ -418,11 +465,118 @@ def draw_plate(casing):
         L.glyphs(F3, 6 + 5 + 4, 3, text, "#5c1218", gap=2)
         L.glyphs(F3, 6 + 5 + 4, 2, text, "#f2f2f4", gap=2)
         pins = "#8d8d94"
+    else:
+        w, pins = faction_plate(L, casing, h)
     L.set(2, 2, pins)
     L.set(2, h - 3, pins)
     L.set(w - 3, 2, pins)
     L.set(w - 3, h - 3, pins)
     return L, w, h
+
+
+# Small marks for the faction plates, five pixels across, by colour letter.
+CROWN_MARK = ("a.a.a", "aaaaa", "abcba", "aaaaa")
+ROUNDEL_MARK = (".aaa.", "abbba", "abcba", "abbba", ".aaa.")
+HELIX_MARK = ("a...b", ".a.b.", "..c..", ".b.a.", "b...a")
+
+
+def mark(L, x0, y0, rows, colours):
+    for y, row in enumerate(rows):
+        for x, ch in enumerate(row):
+            if ch != ".":
+                L.set(x0 + x, y0 + y, colours[ch])
+
+
+def faction_plate(L, casing, h):
+    """
+    The plates of the operating systems' own machines: the UPP's red with gold stars, the marines' gunmetal with
+    white lettering, the Empire's navy and gold with a crown at each end, the IASF's grey with its roundels,
+    Hyperdyne's white, Prodigy's gloss black with its one accent on the O, Kelland's hazard yellow and LaSalle's
+    teal with a helix at each end. Returns the plate's width and the colour of its pins.
+    """
+    if casing == "upp":
+        text, gap = "UPP", 2
+        w = text_width(F3, text, gap=gap) + 2 * (5 + 4) + 12
+        L.rect(0, 0, w - 1, h - 1, "#a01c16")
+        bevel(L, 0, 0, w - 1, h - 1, "#d8463a", "#4a0806")
+        for x0 in (6, w - 11):
+            L.glyphs(F3X, x0, 2, "*", "#f2c450")
+        L.glyphs(F3, 15, 3, text, "#4a0806", gap=gap)
+        L.glyphs(F3, 15, 2, text, "#f2c450", gap=gap)
+        return w, "#e8a040"
+    if casing == "uscm":
+        text, gap = "USCM", 2
+        w = text_width(F3, text, gap=gap) + 2 * (5 + 4) + 12
+        L.rect(0, 0, w - 1, h - 1, "#26303b")
+        bevel(L, 0, 0, w - 1, h - 1, "#5a6878", "#0a1016")
+        for x0 in (6, w - 11):
+            L.glyphs(F3X, x0, 2, "*", "#dfe4e8")
+        L.glyphs(F3, 15, 3, text, "#0a1016", gap=gap)
+        L.glyphs(F3, 15, 2, text, "#e8ecef", gap=gap)
+        return w, "#8a96a4"
+    if casing == "twe":
+        text = "THREE WORLD EMPIRE"
+        w = text_width(F3, text) + 2 * (5 + 4) + 12
+        L.rect(0, 0, w - 1, h - 1, "#14204a")
+        bevel(L, 0, 0, w - 1, h - 1, "#f0c860", "#6a4a10")
+        for x0 in (6, w - 11):
+            mark(L, x0, 2, CROWN_MARK, {"a": "#e6b84a", "b": "#d8263a", "c": "#fff0a8"})
+        L.glyphs(F3, 15, 3, text, "#060c20")
+        L.glyphs(F3, 15, 2, text, "#e6b84a")
+        return w, "#e6b84a"
+    if casing == "iasf":
+        text, gap = "IASF", 2
+        w = text_width(F3, text, gap=gap) + 2 * (5 + 4) + 12
+        L.rect(0, 0, w - 1, h - 1, "#b6bcc3")
+        gradient(L, 1, 1, w - 2, h - 2, ("#cdd2d8", "#b6bcc3", "#9ea5ad"))
+        bevel(L, 0, 0, w - 1, h - 1, "#eef1f4", "#5c636c")
+        for x0 in (6, w - 11):
+            mark(L, x0, 2, ROUNDEL_MARK, {"a": "#24468e", "b": "#f2f4f6", "c": "#d0202c"})
+        L.glyphs(F3, 15, 2, text, "#14244a", gap=gap)
+        L.glyphs(F3, 15, 3, text, "#e6eaee", gap=gap)
+        L.glyphs(F3, 15, 2, text, "#14244a", gap=gap)
+        return w, "#5c636c"
+    if casing == "hyperdyne":
+        text = "HYPERDYNE SYSTEMS"
+        w = text_width(F3, text) + 16
+        L.rect(0, 0, w - 1, h - 1, "#eef2f5")
+        gradient(L, 1, 1, w - 2, h - 2, ("#fafcfd", "#eef2f5", "#dde3e8"))
+        bevel(L, 0, 0, w - 1, h - 1, "#ffffff", "#8a98a6")
+        L.glyphs(F3, 8, 2, text, "#3f78b0")
+        return w, "#9cc8ec"
+    if casing == "prodigy":
+        text, gap = "PRODIGY", 2
+        w = text_width(F3, text, gap=gap) + 16
+        L.rect(0, 0, w - 1, h - 1, "#0a0a0d")
+        bevel(L, 0, 0, w - 1, h - 1, "#5a5a66", "#000000")
+        L.rect(1, 1, w - 2, 1, "#2a2a32")
+        x = 8
+        for ch in text:
+            L.glyphs(F3, x, 2, ch, "#38d0ff" if ch == "O" else "#f4f4f8")
+            x += len(F3[ch][0]) + gap
+        return w, "#4a4a54"
+    if casing == "kelland":
+        text = "KELLAND MINING"
+        stripes = 8
+        w = text_width(F3, text) + 2 * (stripes + 4) + 10
+        L.rect(0, 0, w - 1, h - 1, "#f4c21a")
+        bevel(L, 0, 0, w - 1, h - 1, "#fff09a", "#6e5206")
+        for x0 in (4, w - 4 - stripes):
+            for y in range(2, h - 2):
+                for x in range(x0, x0 + stripes):
+                    L.set(x, y, "#141414" if (x + y) // 2 % 2 else "#f4c21a")
+        L.glyphs(F3, 4 + stripes + 4, 2, text, "#141414")
+        return w, "#6e5206"
+    # LaSalle
+    text = "LASALLE BIONATIONAL"
+    w = text_width(F3, text) + 2 * (5 + 4) + 12
+    L.rect(0, 0, w - 1, h - 1, "#155a4c")
+    bevel(L, 0, 0, w - 1, h - 1, "#3fae94", "#06241e")
+    for x0 in (6, w - 11):
+        mark(L, x0, 2, HELIX_MARK, {"a": "#7ff0d0", "b": "#2f9a80", "c": "#d4fff2"})
+    L.glyphs(F3, 15, 3, text, "#06241e")
+    L.glyphs(F3, 15, 2, text, "#c8fff0")
+    return w, "#3fae94"
 
 
 # ── Fascia ────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -705,7 +859,10 @@ def bezel(casing, art, glass, w, h, on):
     if on:
         screen = Image.new("RGBA", (sx1 - sx0, sy1 - sy0), (10, 14, 18, 255))
         # A stand-in desktop: a taskbar and a window, in the OS's phosphor.
-        phos = {"weyland": (255, 181, 71), "cmb": (143, 196, 255)}.get(casing, (63, 224, 90))
+        phos = {"weyland": (255, 181, 71), "cmb": (143, 196, 255), "upp": (232, 70, 58), "uscm": (156, 191, 110),
+                "twe": (226, 179, 60), "iasf": (196, 204, 214), "hyperdyne": (168, 212, 244),
+                "prodigy": (238, 240, 244), "kelland": (244, 194, 26), "lasalle": (79, 216, 176)}.get(
+            casing, (63, 224, 90))
         for y in range(0, screen.height, 3):
             for x in range(screen.width):
                 screen.putpixel((x, y), (6, 9, 12, 255))
