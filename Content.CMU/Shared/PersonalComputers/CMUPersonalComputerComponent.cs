@@ -71,6 +71,13 @@ public sealed partial class CMUPersonalComputerComponent : Component
     [DataField, AutoNetworkedField]
     public bool Carrier = true;
 
+    /// <summary>
+    /// Tuned off the colony network with an access tuner: it reaches no colony network, only its own files and the
+    /// deep web if hacked, and nothing it does is reported live. Mappers can leave a terminal dark.
+    /// </summary>
+    [DataField, AutoNetworkedField]
+    public bool Dark;
+
     /// <summary>This round's terminal number, e.g. 23 for Terminal #23. Given out by the server at map init.</summary>
     [DataField, AutoNetworkedField]
     public int TerminalId;

@@ -1,3 +1,4 @@
+using System.Linq;
 using Content.IntegrationTests.Fixtures;
 using Content.Server.CMU14.PersonalComputers;
 using Content.Shared.CMU14.PersonalComputers;
@@ -41,14 +42,15 @@ public sealed class CMUNetBoardTest : GameTest
                 SEntMan.EventBus.RaiseLocalEvent(computer, (object) message);
             }
 
+            var before = boards.GetPosts(Herald).Count;
             Raise(visitor, new CMUNetBoardPostMessage(Herald, "Fake story", "A visitor may not publish."));
-            Assert.That(boards.GetPosts(Herald), Is.Empty, "A visitor published on the Herald.");
+            Assert.That(boards.GetPosts(Herald), Has.Count.EqualTo(before), "A visitor published on the Herald.");
 
             var longTitle = new string('x', CMUNetBoardLimits.TitleLength + 40);
             Raise(journalist, new CMUNetBoardPostMessage(Herald, longTitle, "Atmosphere processor fixed."));
-            Assert.That(boards.GetPosts(Herald), Has.Count.EqualTo(1), "The journalist could not publish.");
+            Assert.That(boards.GetPosts(Herald), Has.Count.EqualTo(before + 1), "The journalist could not publish.");
 
-            var post = boards.GetPosts(Herald)[0];
+            var post = boards.GetPosts(Herald).First(p => p.Body == "Atmosphere processor fixed.");
             Assert.Multiple(() =>
             {
                 Assert.That(post.Title, Has.Length.EqualTo(CMUNetBoardLimits.TitleLength));

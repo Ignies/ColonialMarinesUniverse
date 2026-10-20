@@ -46,7 +46,7 @@ public sealed class CMUComputerLogin : BoxContainer
     }
 }
 
-/// <summary>The multitool's radial menu on a computer: read the logs, or hack the terminal.</summary>
+/// <summary>The multitool's radial menu on a computer: read the logs, hack the terminal, or retune its network.</summary>
 public sealed class CMUComputerToolBui : BoundUserInterface
 {
     private SimpleRadialMenu? _menu;
@@ -68,6 +68,14 @@ public sealed class CMUComputerToolBui : BoundUserInterface
         if (cfg.GetCVar(CMUPersonalComputerCVars.DeepWeb)
             && EntMan.HasComponent<Shared.CMU14.PersonalComputers.DeepWeb.CMUDeepWebHackableComponent>(Owner))
             options.Add(Option(CMUComputerToolAction.Hack, "cmu-pc-tool-hack", new SpriteSpecifier.Texture(new ResPath("/Textures/Interface/VerbIcons/zap.svg.192dpi.png"))));
+
+        if (cfg.GetCVar(CMUPersonalComputerCVars.Retune)
+            && EntMan.HasComponent<Shared.CMU14.PersonalComputers.DeepWeb.CMUDeepWebHackableComponent>(Owner)
+            && EntMan.TryGetComponent(Owner, out CMUPersonalComputerComponent? computer))
+        {
+            var label = computer.Dark ? "cmu-pc-tool-retune-colony" : "cmu-pc-tool-retune-dark";
+            options.Add(Option(CMUComputerToolAction.Retune, label, new SpriteSpecifier.Texture(new ResPath("/Textures/Interface/VerbIcons/signal.svg.192dpi.png"))));
+        }
 
         _menu.SetButtons(options);
         _menu.OpenOverMouseScreenPosition();

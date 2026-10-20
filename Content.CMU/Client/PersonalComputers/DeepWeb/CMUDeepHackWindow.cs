@@ -13,8 +13,8 @@ namespace Content.Client.CMU14.PersonalComputers.DeepWeb;
 
 /// <summary>
 /// The access tuner: an oscilloscope where three dials bring the tuner's wave onto the terminal's carrier, then
-/// a circuit board whose tiles turn to carry it to the core. A trace bar runs across the top the whole time.
-/// Every action goes to the server, which answers with the next state.
+/// a circuit board whose tiles turn to carry it to the core. A retune is only the dials. A trace bar runs across
+/// the top the whole time. Every action goes to the server, which answers with the next state.
 /// </summary>
 public sealed partial class CMUDeepHackWindow : DefaultWindow
 {
@@ -71,6 +71,8 @@ public sealed partial class CMUDeepHackWindow : DefaultWindow
 
     public void UpdateState(CMUDeepHackState state)
     {
+        _header.Text = Loc.GetString(!state.Retune ? "cmu-deep-hack-header"
+            : state.ToDark ? "cmu-pc-retune-header-dark" : "cmu-pc-retune-header-colony");
         _trace.Set(state.TraceStarted, state.TraceEnds, state.LockedUntil, _font);
 
         _log.RemoveAllChildren();

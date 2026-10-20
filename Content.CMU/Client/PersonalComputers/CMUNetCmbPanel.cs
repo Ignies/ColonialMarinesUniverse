@@ -109,7 +109,7 @@ public sealed partial class CMUNetCmbPanel : BoxContainer, IDocumentTag
         }
     }
 
-    private static string Clock(TimeSpan time)
+    internal static string Clock(TimeSpan time)
     {
         var shift = TimeSpan.FromHours(6) + time;
         return $"{shift.Hours:00}:{shift.Minutes:00}";
@@ -207,7 +207,7 @@ public sealed partial class CMUNetCmbPanel : BoxContainer, IDocumentTag
     }
 
     /// <summary>Player written text is shown as typed, never parsed as markup.</summary>
-    private static RichTextLabel Plain(string text)
+    internal static RichTextLabel Plain(string text)
     {
         var label = new RichTextLabel { HorizontalExpand = true };
         label.SetMessage(FormattedMessage.FromUnformatted(text));

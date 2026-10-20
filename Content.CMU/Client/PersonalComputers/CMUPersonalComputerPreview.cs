@@ -95,6 +95,22 @@ public sealed class CMUPersonalComputerPreview
             ("law-security", 11f, () => Boot("CMUOsSeegson", casing: CMUComputerCasing.Security)),
             ("law-rangers", 11f, () => Boot("CMUOsSeegson", casing: CMUComputerCasing.Rangers)),
             ("law-nspa", 11f, () => Boot("CMUOsSeegson", casing: CMUComputerCasing.Nspa)),
+            // Colony security's desk on its own network, then a terminal tuned dark.
+            ("security-desk", 11f, () => Boot("CMUOsSeegson", casing: CMUComputerCasing.Security, network: "CMUNetSecurity")),
+            ("security-browser", 2.5f, () => _window?.Desktop?.Open(CMUComputerApp.Browser)),
+            ("security-log", 3f, () => _window?.Desktop?.Browser?.Navigate("security.seegson.net")),
+            ("security-map", 3f, () => _window?.Desktop?.Browser?.Navigate("security.seegson.net/map")),
+            ("dark-boot", 4.5f, () =>
+            {
+                _deep.Dark = true;
+                Boot("CMUOsSeegson");
+            }),
+            ("dark-browser", 3f, () => _window?.Desktop?.Open(CMUComputerApp.Browser)),
+            ("dark-system", 2.5f, () =>
+            {
+                _window?.Desktop?.Open(CMUComputerApp.System);
+                _deep.Dark = false;
+            }),
             ("deep-boot", 4.5f, () => Boot("CMUOsSeegson", true)),
             ("deep-desktop", 2.5f, () => { }),
             ("deep-home", 3f, () => _window?.Desktop?.Open(CMUComputerApp.Deeps)),
@@ -123,13 +139,16 @@ public sealed class CMUPersonalComputerPreview
         _osWindow.Title = $"{_title} [pc-preview {_step} {name}]";
     }
 
-    private void Boot(string osId, bool jacked = false, CMUComputerCasing? casing = null)
+    private void Boot(string osId, bool jacked = false, CMUComputerCasing? casing = null, string? network = null)
     {
         _window?.Close();
         var os = _prototype.Index<CMUComputerOsPrototype>(osId);
-        var networks = new HashSet<ProtoId<CMUNetworkPrototype>>(os.Networks);
+        var networks = _deep.Dark ? new HashSet<ProtoId<CMUNetworkPrototype>>() : new HashSet<ProtoId<CMUNetworkPrototype>>(os.Networks);
         if (jacked)
             networks.Add("CMUNetDeep");
+
+        if (network != null)
+            networks.Add(network);
 
         _window = new CMUPersonalComputerWindow();
         _window.OpenCenteredAt(new System.Numerics.Vector2(0.32f, 0.1f));
@@ -180,6 +199,8 @@ public sealed class CMUPersonalComputerPreview
         public TimeSpan TraceEnds => TimeSpan.Zero;
 
         public bool Carrier => true;
+
+        public bool Dark { get; set; }
 
         public string? Platoon => null;
 
@@ -284,6 +305,24 @@ public sealed class CMUPersonalComputerPreview
 
         public void Logout()
         {
+        }
+
+        public event Action<CMUSecurityStateMessage>? SecurityReceived;
+
+        /// <summary>A shift's worth of unauthorized use; the preview has no grid, so the map says so.</summary>
+        public void RequestSecurity(CMUSecurityPanel panel)
+        {
+            var minute = TimeSpan.FromMinutes(1);
+            var entries = new List<CMUSecurityEntry>
+            {
+                new(minute * 48, 31, CMUSecurityEvent.WentDark, "Cargo Bay", "Ann Kowalski"),
+                new(minute * 41, 31, CMUSecurityEvent.HackStarted, "Cargo Bay"),
+                new(minute * 33, 12, CMUSecurityEvent.DeepLookup, "Bar", "Simon Hartley", "eb1a-a02d-ans9.deep"),
+                new(minute * 20, 7, CMUSecurityEvent.LoginRefused, "Colony Administration", "Simon Hartley"),
+                new(minute * 9, 7, CMUSecurityEvent.LogWiped, "Colony Administration"),
+            };
+            SecurityReceived?.Invoke(new CMUSecurityStateMessage(panel, panel == CMUSecurityPanel.Log ? entries : new List<CMUSecurityEntry>(),
+                new List<CMUSecurityTerminal>(), null));
         }
 
         public void RequestCmb(CMUCmbPanel panel)

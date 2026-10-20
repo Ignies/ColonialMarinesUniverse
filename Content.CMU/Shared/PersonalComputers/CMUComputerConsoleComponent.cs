@@ -62,4 +62,11 @@ public sealed partial class CMUComputerBridgePrototype : IPrototype
     /// <summary>The OS for consoles inheriting from a prototype; the first match up the parent chain wins.</summary>
     [DataField]
     public Dictionary<EntProtoId, ProtoId<CMUComputerOsPrototype>> Os = new();
+
+    /// <summary>
+    /// Networks added to the OS ones for consoles inheriting from a prototype, e.g. colony security's network on its
+    /// own consoles. Every match up the parent chain adds its networks.
+    /// </summary>
+    [DataField]
+    public Dictionary<EntProtoId, List<ProtoId<CMUNetworkPrototype>>> Networks = new();
 }

@@ -22,8 +22,9 @@ namespace Content.Server.CMU14.PersonalComputers.DeepWeb;
 /// <summary>
 /// Hacking computers into the deep web with an access tuner. First lock the tuner onto the terminal's carrier
 /// wave with three dials, then turn the circuit board's tiles until the carrier reaches the core, all before the
-/// security trace finds you; a wrong lock speeds the trace up. Also handles deep scans, camera taps and hijacks
-/// on hacked computers.
+/// security trace finds you; a wrong lock speeds the trace up. A retune is the same tuner with only the lock:
+/// matching the carrier moves the terminal off the colony network or back onto it. Also handles deep scans, camera
+/// taps and hijacks on hacked computers.
 /// </summary>
 public sealed partial class CMUDeepWebSystem : EntitySystem
 {
@@ -38,6 +39,8 @@ public sealed partial class CMUDeepWebSystem : EntitySystem
     [Dependency] private CMUDeepMazeSystem _maze = default!;
     [Dependency] private CMUDeepAliasSystem _aliases = default!;
     [Dependency] private CMUNetBoardSystem _boards = default!;
+    [Dependency] private CMUComputerRetuneSystem _retune = default!;
+    [Dependency] private CMUSecurityNetSystem _security = default!;
     [Dependency] private InsurgencyFactionApplySystem _factions = default!;
     [Dependency] private IGameTiming _timing = default!;
     [Dependency] private IPrototypeManager _prototype = default!;
@@ -74,6 +77,40 @@ public sealed partial class CMUDeepWebSystem : EntitySystem
             return false;
         }
 
+        if (!CanTune(ent, user))
+            return false;
+
+        // Security sees the maintenance port open, unless the terminal is already dark.
+        if (ent.Comp.Board is not { Retune: false } board || board.User != user)
+        {
+            ent.Comp.Board = NewBoard(ent.Comp, user);
+            _security.Report(ent.Owner, CMUSecurityEvent.HackStarted);
+        }
+
+        Open(ent, user);
+        return true;
+    }
+
+    /// <summary>
+    /// Opens the access tuner to retune a terminal: lock onto its carrier before the trace, and it goes dark, or
+    /// back onto the colony network if it was dark. Needs the same engineering as a hack.
+    /// </summary>
+    public bool TryStartRetune(Entity<CMUDeepWebHackableComponent> ent, EntityUid user)
+    {
+        if (!_cfg.GetCVar(CMUPersonalComputerCVars.Retune)
+            || !TryComp(ent, out CMUPersonalComputerComponent? computer)
+            || !CanTune(ent, user))
+            return false;
+
+        if (ent.Comp.Board is not { Retune: true } board || board.User != user)
+            ent.Comp.Board = NewRetuneBoard(ent.Comp, user, !computer.Dark);
+
+        Open(ent, user);
+        return true;
+    }
+
+    private bool CanTune(Entity<CMUDeepWebHackableComponent> ent, EntityUid user)
+    {
         if (!_skills.HasSkill(user, EngineerSkill, ent.Comp.SkillLevel))
         {
             _popup.PopupEntity(Loc.GetString("cmu-deep-hack-no-skill"), ent, user, PopupType.SmallCaution);
@@ -87,12 +124,47 @@ public sealed partial class CMUDeepWebSystem : EntitySystem
             return false;
         }
 
-        if (ent.Comp.Board == null || ent.Comp.Board.User != user)
-            ent.Comp.Board = NewBoard(ent.Comp, user);
+        return true;
+    }
 
+    private void Open(Entity<CMUDeepWebHackableComponent> ent, EntityUid user)
+    {
         _ui.OpenUi(ent.Owner, CMUDeepHackUiKey.Key, user);
         SendState(ent);
-        return true;
+    }
+
+    /// <summary>A retune: only the carrier lock, with the same skill steps for static and time as a hack.</summary>
+    public CMUDeepHackBoard NewRetuneBoard(CMUDeepWebHackableComponent hackable, EntityUid user, bool toDark)
+    {
+        var skill = _skills.GetSkill(user, EngineerSkill);
+        var (noise, trace) = skill switch
+        {
+            >= 4 => (0.15f, 1.3),
+            3 => (0.35f, 1.1),
+            _ => (0.55f, 1.0),
+        };
+
+        var board = new CMUDeepHackBoard
+        {
+            User = user,
+            Retune = true,
+            ToDark = toDark,
+            Stage = CMUDeepHackStage.Tune,
+            Frequency = _random.Next(1, CMUDeepHackPuzzle.MaxFrequency + 1),
+            Amplitude = _random.Next(1, CMUDeepHackPuzzle.MaxAmplitude + 1),
+            Phase = _random.Next(CMUDeepHackPuzzle.PhaseSteps),
+            Noise = noise,
+            Width = 0,
+            Height = 0,
+            SourceRow = 0,
+            CoreRow = 0,
+            Cells = new List<CMUDeepHackCell>(),
+            Solution = new List<byte>(),
+            TraceStarted = _timing.CurTime,
+            TraceEnds = _timing.CurTime + hackable.RetuneTrace * trace,
+        };
+        board.Log.Add(Loc.GetString(toDark ? "cmu-pc-retune-log-dark" : "cmu-pc-retune-log-colony"));
+        return board;
     }
 
     /// <summary>
@@ -150,7 +222,16 @@ public sealed partial class CMUDeepWebSystem : EntitySystem
         if (ent.Comp.Board is not { Stage: CMUDeepHackStage.Tune } board || board.User != args.Actor)
             return;
 
-        if (args.Frequency == board.Frequency && args.Amplitude == board.Amplitude && args.Phase == board.Phase)
+        var matched = args.Frequency == board.Frequency && args.Amplitude == board.Amplitude && args.Phase == board.Phase;
+        if (matched && board.Retune)
+        {
+            ent.Comp.Board = null;
+            _ui.CloseUi(ent.Owner, CMUDeepHackUiKey.Key, args.Actor);
+            _retune.SetDark(ent.Owner, board.ToDark, args.Actor);
+            return;
+        }
+
+        if (matched)
         {
             board.Stage = CMUDeepHackStage.Route;
             board.Log.Add(Loc.GetString("cmu-deep-hack-log-locked-on"));
@@ -189,12 +270,13 @@ public sealed partial class CMUDeepWebSystem : EntitySystem
 
     private void Fail(Entity<CMUDeepWebHackableComponent> ent, EntityUid user)
     {
+        var board = ent.Comp.Board!;
         ent.Comp.LockedUntil = _timing.CurTime + ent.Comp.Lockout;
-        ent.Comp.Board!.Log.Add(Loc.GetString("cmu-deep-hack-log-traced"));
+        board.Log.Add(Loc.GetString("cmu-deep-hack-log-traced"));
         SendState(ent);
         ent.Comp.Board = null;
         _popup.PopupEntity(Loc.GetString("cmu-deep-hack-traced"), ent, user, PopupType.SmallCaution);
-        _adminLog.Add(LogType.Action, LogImpact.Low, $"{ToPrettyString(user):player} failed to hack {ToPrettyString(ent)} into the deep web");
+        _adminLog.Add(LogType.Action, LogImpact.Low, $"{ToPrettyString(user):player} was traced trying to {(board.Retune ? "retune" : "hack")} {ToPrettyString(ent)}");
     }
 
     private void Solve(Entity<CMUDeepWebHackableComponent> ent, EntityUid user)
@@ -225,7 +307,9 @@ public sealed partial class CMUDeepWebSystem : EntitySystem
             board.TraceStarted,
             board.TraceEnds,
             ent.Comp.LockedUntil,
-            new List<string>(board.Log)));
+            new List<string>(board.Log),
+            board.Retune,
+            board.ToDark));
     }
 
     private void OnScan(Entity<CMUDeepWebAccessComponent> ent, ref CMUDeepScanMessage args)

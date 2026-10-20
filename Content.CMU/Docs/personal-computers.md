@@ -159,9 +159,47 @@ it stands in for one of the site's pages. `ComputersFollowGovforPlatoon` covers 
 
 ### Networks
 
-`CMUNetPublic`, `CMUNetSeegson`, `CMUNetWeylandYutani`, `CMUNetUSCM`, `CMUNetCMB` (the Marshals) and `CMUNetDeep` (hacked terminals) (`cmuNetwork` prototypes).
+`CMUNetPublic`, `CMUNetSeegson`, `CMUNetWeylandYutani`, `CMUNetUSCM`, `CMUNetCMB` (the Marshals), `CMUNetSecurity`
+(colony security) and `CMUNetDeep` (hacked terminals) (`cmuNetwork` prototypes).
 A site lists the networks it is on. A computer lists the networks it can reach. A corporate terminal reaches Public and
-Weyland-Yutani. A colony desktop reaches only Public.
+Weyland-Yutani. A colony desktop reaches only Public. A dark terminal (see below) reaches none of them, only the deep
+web if it is hacked.
+
+### Retuning terminals and the colony security network
+
+A multitool on a terminal opens a radial menu: **View logs**, **Hack terminal** and **Retune network**. Retuning
+uses the access tuner's first stage only: match the three dials to the terminal's carrier and lock before the trace
+runs out. It needs the same engineering skill as the hack (`CMUDeepWebHackable.skillLevel`), shares its lockout,
+and its trace is `retuneTrace` (40 s) scaled by skill like the hack's. Only terminals that can be hacked can be
+retuned; bridged consoles cannot.
+
+A terminal is either on the colony network (its own or its OS's networks) or **dark**. The tuner cannot put a terminal
+on the corporate or bureau networks: those run on their own keyed lines, so the only choices are on and off the
+colony carrier. A dark terminal (`CMUPersonalComputer.dark`, which mappers can also set):
+
+- reaches no colony network: colony sites show an OFFLINE page, mail and the colony boards stop answering;
+- keeps its files, notes, wallpaper, saved links and its own log, which still records every page it opens;
+- keeps the deep web if it is hacked (scans, ad pages, the market, hacker tools, deep boards);
+- reports nothing live: no Marshal lookup alerts, nothing on the security log, nothing for the packet sniffer,
+  and it cannot be traced (a trace running when it goes dark comes back lost);
+- reboots onto the new carrier, closing its screen on anyone using it; its network light goes out (it shows on examine).
+
+Going dark is the last thing it reports: security's log gets *Terminal #N went dark at <area>*, and its map keeps
+the terminal at that spot, blinking red, even if it is carried off. Someone has to go and look, and an engineer
+with a multitool can read what it did in its own log. Retuning it back puts it on the network and the map again.
+
+The colony security site, `security.seegson.net` (`CMUNetSecurity`), is on the colony security desk
+(`CMUPersonalDesktopSecurity`, which opens on it), on bridged colony security consoles (the `networks:` block in
+`bridge.yml`: the security department console and the colony security camera monitors) and on the Marshals' OS. It
+has two live panels (`CMUSecurityNetSystem`):
+
+- **Unauthorized use**: cards refused at a reader, terminals going dark and coming back, maintenance ports opened
+  for a hack, logs wiped or edited, and deep lookups from unhacked terminals (which the Marshals also get). Each line
+  has the shift time, terminal number, area and, where known, the name on the card: the refused card, or the card
+  in the reader at the time.
+- **Terminal map**: every terminal on the grid, coloured by status: on, logged in, switched off, no power, hacked
+  (when security saw the hack start, so a terminal hacked while dark never shows it) and OFFLINE at its last known
+  position. Dark and hacked terminals are listed under the map to be checked on foot.
 
 Pages ship in the client's resources, so this is in-universe flavour, not a secret. Content that
 must stay hidden from players (passwords for an objective, for example) has to come from the
@@ -227,6 +265,7 @@ The guidebook basics work (`#` headings, lists, `[bold]`, `[italic]`, `[color=#h
 | `<CMUNetArcade Game="HuggerRun"/>`, `<CMUNetSportsbook/>`, `<CMUNetSpaceGpt/>` | The arcade, the zero-g ball sportsbook, SpaceGPT. |
 | `<CMUNetMarket/>` | The deep contraband market. |
 | `<CMUNetCmbPanel Kind="Alerts"/>` | A Marshals' panel: `Alerts`, `Map`, `Faxes` or `Records`. |
+| `<CMUNetSecurityPanel Kind="Log"/>` | A colony security panel: `Log` (unauthorized use) or `Map` (terminal map). |
 
 ### Boards
 
@@ -266,7 +305,7 @@ deeps.exi's scan.
 ### Testing
 
 - `CMUExtraNetTest` validates every site; the other `CMU14.PersonalComputers` tests cover boards, the deep
-  web, sessions, bounties and the rest.
+  web, sessions, bounties and the rest. `CMUComputerRetuneTest` covers dark terminals and the security log and map.
 - `--cvar cmu.panel_preview=pc` on the client walks the desktop through every OS and site without a round.
 - `Content.CMU/Design/PersonalComputers/Test/server.toml` starts Stable Garrison with no lobby, spawns players
   as the journalist next to a colony desktop, a W-Y desktop and a Marshals' console, with an access tuner,
@@ -285,6 +324,7 @@ Every feature is a server CVar, so admins can switch any of them off mid round, 
 | `cmu.pc.deep_web`, `cmu.pc.leaks`, `cmu.pc.hijack`, `cmu.pc.camera_tap` | Hacking and the deep web, leaks, Herald hijack, camera taps |
 | `cmu.pc.bounties`, `cmu.pc.wire`, `cmu.pc.lore_events`, `cmu.pc.company_spin` | Bounty money, the Herald wire, forums reacting to the round, Company spin |
 | `cmu.pc.trace`, `cmu.pc.log_tamper`, `cmu.pc.cmb` | Marshal traces, wiping and forging logs, the CMB network |
+| `cmu.pc.retune`, `cmu.pc.security_net` | Retuning terminals dark (off: dark terminals are back on the network), the colony security network |
 | `cmu.pc.mail`, `cmu.pc.notes`, `cmu.pc.wallpapers` | Mail, notes, wallpapers |
 | `cmu.pc.arcade`, `cmu.pc.betting`, `cmu.pc.spacegpt` | Arcade, sportsbook, SpaceGPT |
 | `cmu.pc.market`, `cmu.pc.hacker_tools` | Deep market, packet sniffer and camera loop |

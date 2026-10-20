@@ -28,8 +28,8 @@ public sealed class CMUComputerBridgeServerSystem : EntitySystem
     [Dependency] private SharedContainerSystem _container = default!;
     [Dependency] private UserInterfaceSystem _ui = default!;
 
-    /// <summary>Per prototype: whether it is bridged, and the OS it gets.</summary>
-    private readonly Dictionary<string, (bool Bridged, ProtoId<CMUComputerOsPrototype>? Os)> _byPrototype = new();
+    /// <summary>Per prototype: whether it is bridged, the OS it gets and the networks it gets on top.</summary>
+    private readonly Dictionary<string, Classification> _byPrototype = new();
     private readonly List<(EntityUid Uid, bool Bridge)> _changes = new();
     private TimeSpan _next;
 
@@ -87,7 +87,7 @@ public sealed class CMUComputerBridgeServerSystem : EntitySystem
         return Classify(proto).Bridged;
     }
 
-    private (bool Bridged, ProtoId<CMUComputerOsPrototype>? Os) Classify(EntityPrototype proto)
+    private Classification Classify(EntityPrototype proto)
     {
         if (_byPrototype.TryGetValue(proto.ID, out var known))
             return known;
@@ -95,6 +95,7 @@ public sealed class CMUComputerBridgeServerSystem : EntitySystem
         var rules = _prototypes.Index(Rules);
         var included = false;
         ProtoId<CMUComputerOsPrototype>? os = null;
+        var networks = new HashSet<ProtoId<CMUNetworkPrototype>>();
         foreach (var ancestor in Ancestry(proto))
         {
             if (rules.Exclude.Contains(ancestor))
@@ -109,9 +110,12 @@ public sealed class CMUComputerBridgeServerSystem : EntitySystem
 
             if (os == null && rules.Os.TryGetValue(ancestor, out var match))
                 os = match;
+
+            if (rules.Networks.TryGetValue(ancestor, out var extra))
+                networks.UnionWith(extra);
         }
 
-        return _byPrototype[proto.ID] = (included, os);
+        return _byPrototype[proto.ID] = new Classification(included, os, networks);
     }
 
     /// <summary>The prototype and all its parents, abstract ones included, nearest first.</summary>
@@ -127,7 +131,8 @@ public sealed class CMUComputerBridgeServerSystem : EntitySystem
             return;
 
         var key = activatable.Key;
-        var os = Classify(MetaData(uid).EntityPrototype!).Os;
+        var rules = Classify(MetaData(uid).EntityPrototype!);
+        var os = rules.Os;
 
         _ui.SetUi(uid, CMUPersonalComputerUiKey.Key, new InterfaceData("CMUPersonalComputerBui"));
         _ui.SetUi(uid, CMUComputerToolUiKey.Key, new InterfaceData("CMUComputerToolBui"));
@@ -136,6 +141,13 @@ public sealed class CMUComputerBridgeServerSystem : EntitySystem
         var computer = EnsureComp<CMUPersonalComputerComponent>(uid);
         if (os is { } chosen)
             computer.Os = chosen;
+
+        // Extra networks go on top of the OS ones, as the computer's own list.
+        if (rules.Networks.Count > 0 && _prototypes.TryIndex(computer.Os, out var osProto))
+        {
+            computer.Networks = new HashSet<ProtoId<CMUNetworkPrototype>>(osProto.Networks);
+            computer.Networks.UnionWith(rules.Networks);
+        }
 
         _computers.Setup((uid, computer));
 
@@ -159,4 +171,9 @@ public sealed class CMUComputerBridgeServerSystem : EntitySystem
         RemComp<CMUPersonalComputerComponent>(uid);
         RemComp<CMUComputerConsoleComponent>(uid);
     }
+
+    private readonly record struct Classification(
+        bool Bridged,
+        ProtoId<CMUComputerOsPrototype>? Os,
+        HashSet<ProtoId<CMUNetworkPrototype>> Networks);
 }

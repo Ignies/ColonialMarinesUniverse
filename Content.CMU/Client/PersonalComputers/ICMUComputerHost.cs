@@ -5,7 +5,7 @@ namespace Content.Client.CMU14.PersonalComputers;
 
 /// <summary>
 /// What the desktop and browser need from the computer they run on: the session, saved links, page visit
-/// reports and the Marshals' panels. The BUI implements it; previews fake it.
+/// reports, and the Marshals' and colony security's panels. The BUI implements it; previews fake it.
 /// </summary>
 public interface ICMUComputerHost
 {
@@ -29,6 +29,9 @@ public interface ICMUComputerHost
     /// <summary>Whether the terminal reaches the network: a colony sensor tower is up.</summary>
     bool Carrier { get; }
 
+    /// <summary>Tuned off the colony network with an access tuner: no colony sites, nothing reported.</summary>
+    bool Dark { get; }
+
     /// <summary>Switched on with the front panel's power button.</summary>
     bool On { get; }
 
@@ -49,6 +52,8 @@ public interface ICMUComputerHost
     IReadOnlyList<CMUNetShortcut> Shortcuts { get; }
 
     event Action<CMUCmbStateMessage>? CmbReceived;
+
+    event Action<CMUSecurityStateMessage>? SecurityReceived;
 
     event Action<CMUMailStateMessage>? MailReceived;
 
@@ -75,6 +80,8 @@ public interface ICMUComputerHost
     void RequestCmb(CMUCmbPanel panel);
 
     void Trace(NetEntity terminal);
+
+    void RequestSecurity(CMUSecurityPanel panel);
 
     void RequestMail();
 

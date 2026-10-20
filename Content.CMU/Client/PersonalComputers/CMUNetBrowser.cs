@@ -328,6 +328,11 @@ public sealed partial class CMUNetBrowser : BoxContainer, ILinkClickHandler
 
                 SetStatus(siteTitle, "cmu-pc-browser-status-done");
                 break;
+            // A dark terminal is not refused: nothing on the colony network hears it at all.
+            case CMUNetResolveResult.AccessDenied when _shortcuts?.Dark == true:
+                ShowSystemPage("cmu-pc-browser-dark-title", "cmu-pc-browser-dark-body", page.Address);
+                SetStatus(siteTitle, "cmu-pc-browser-status-error");
+                break;
             case CMUNetResolveResult.AccessDenied:
                 ShowSystemPage("cmu-pc-browser-denied-title", "cmu-pc-browser-denied-body", page.Address);
                 SetStatus(siteTitle, "cmu-pc-browser-status-denied");

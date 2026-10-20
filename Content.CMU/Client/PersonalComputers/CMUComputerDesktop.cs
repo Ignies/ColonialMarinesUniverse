@@ -619,6 +619,9 @@ public sealed partial class CMUComputerDesktop : BoxContainer
 
         names.Sort(string.CompareOrdinal);
         box.AddChild(_theme.Label(Loc.GetString("cmu-pc-system-networks")));
+        if (_shortcuts?.Dark == true)
+            box.AddChild(_theme.Label(Loc.GetString("cmu-pc-system-dark"), _theme.Font, _theme.Accent));
+
         foreach (var name in names)
             box.AddChild(_theme.Label($"  {name}", _theme.Font, _theme.Dim));
 

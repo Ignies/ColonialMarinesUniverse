@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using Robust.Shared.Configuration;
 using Robust.Shared.ContentPack;
 using Robust.Shared.Prototypes;
 using Robust.Shared.Utility;
@@ -27,6 +28,7 @@ public readonly record struct CMUNetPage(
 /// </summary>
 public sealed partial class CMUExtraNetSystem : EntitySystem
 {
+    [Dependency] private IConfigurationManager _cfg = default!;
     [Dependency] private IPrototypeManager _prototype = default!;
     [Dependency] private IResourceManager _resources = default!;
 
@@ -116,19 +118,31 @@ public sealed partial class CMUExtraNetSystem : EntitySystem
 
     public IEnumerable<CMUNetSitePrototype> Sites => _sites.Values;
 
-    /// <summary>The networks a computer reaches: its own or its OS's, plus the deep web once hacked.</summary>
+    /// <summary>
+    /// The networks a computer reaches: its own or its OS's, plus the deep web once hacked. A dark terminal reaches
+    /// none of its own, only the deep web if it is hacked.
+    /// </summary>
     public HashSet<ProtoId<CMUNetworkPrototype>> GetNetworks(Entity<CMUPersonalComputerComponent> computer)
     {
         var networks = new HashSet<ProtoId<CMUNetworkPrototype>>();
-        if (computer.Comp.Networks != null)
-            networks.UnionWith(computer.Comp.Networks);
-        else if (_prototype.TryIndex(computer.Comp.Os, out var os))
-            networks.UnionWith(os.Networks);
+        if (!IsDark(computer.Comp))
+        {
+            if (computer.Comp.Networks != null)
+                networks.UnionWith(computer.Comp.Networks);
+            else if (_prototype.TryIndex(computer.Comp.Os, out var os))
+                networks.UnionWith(os.Networks);
+        }
 
         if (TryComp(computer, out DeepWeb.CMUDeepWebAccessComponent? deep))
             networks.Add(deep.Network);
 
         return networks;
+    }
+
+    /// <summary>Whether a terminal is tuned off the colony network; nothing is dark with retuning switched off.</summary>
+    public bool IsDark(CMUPersonalComputerComponent computer)
+    {
+        return computer.Dark && _cfg.GetCVar(CMUPersonalComputerCVars.Retune);
     }
 
     public string GetHomePage(CMUPersonalComputerComponent computer)

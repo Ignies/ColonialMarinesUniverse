@@ -43,6 +43,9 @@ public enum CMUComputerToolAction : byte
 {
     Logs,
     Hack,
+
+    /// <summary>Tunes the terminal off the colony network, or back onto it.</summary>
+    Retune,
 }
 
 [Serializable, NetSerializable]

@@ -1,6 +1,5 @@
 using Content.Server.Administration.Logs;
 using Content.Server.CMU14.PersonalComputers.DeepWeb;
-using Content.Shared._RMC14.Areas;
 using Content.Shared._RMC14.Marines.Skills;
 using Content.Shared._RMC14.Power;
 using Content.Shared._RMC14.Tools;
@@ -30,8 +29,10 @@ namespace Content.Server.CMU14.PersonalComputers;
 /// <summary>
 /// Sessions on personal computers. Every terminal gets a number for the round and a front panel: a power button
 /// and an ID card reader. A card left in the reader keeps its holder logged in; taking it out logs them out. The
-/// terminal keeps a log of logins and pages visited that engineers read with a multitool. A multitool opens a radial menu: read the logs, or hack the terminal.
-/// Every lookup of a live deep web address from a terminal that is not hacked is reported to the Marshals.
+/// terminal keeps a log of logins and pages visited that engineers read with a multitool. A multitool opens a radial menu: read the logs, hack the terminal,
+/// or retune it off the colony network. Every lookup of a live deep web address from a terminal that is not hacked
+/// is reported to the Marshals and colony security; refused cards and log tampering go to security. A dark terminal
+/// keeps its own log but reports nothing.
 /// </summary>
 public sealed partial class CMUComputerSessionSystem : EntitySystem
 {
@@ -44,11 +45,12 @@ public sealed partial class CMUComputerSessionSystem : EntitySystem
     [Dependency] private IAdminLogManager _adminLog = default!;
     [Dependency] private IConfigurationManager _cfg = default!;
     [Dependency] private IGameTiming _timing = default!;
-    [Dependency] private AreaSystem _areas = default!;
     [Dependency] private CMUCmbSystem _cmb = default!;
     [Dependency] private CMUComputerPowerSystem _computerPower = default!;
     [Dependency] private CMUDeepAliasSystem _aliases = default!;
     [Dependency] private CMUDeepWebSystem _deep = default!;
+    [Dependency] private CMUExtraNetSystem _net = default!;
+    [Dependency] private CMUSecurityNetSystem _security = default!;
     [Dependency] private AccessReaderSystem _accessReader = default!;
     [Dependency] private SharedAudioSystem _audio = default!;
     [Dependency] private SharedContainerSystem _container = default!;
@@ -118,6 +120,10 @@ public sealed partial class CMUComputerSessionSystem : EntitySystem
         args.PushMarkup(Loc.GetString("cmu-pc-examine-terminal", ("id", ent.Comp.TerminalId)));
         if (ent.Comp.CardPrototype != null)
             args.PushMarkup(Loc.GetString("cmu-pc-examine-card"));
+
+        // What security walks over to check: a dark terminal shows it on its front.
+        if (_net.IsDark(ent.Comp))
+            args.PushMarkup(Loc.GetString("cmu-pc-examine-offline"));
 
         if (!ent.Comp.On)
             args.PushMarkup(Loc.GetString("cmu-pc-examine-dark"));
@@ -307,7 +313,9 @@ public sealed partial class CMUComputerSessionSystem : EntitySystem
         if (_accessReader.GetMainAccessReader(ent, out var reader)
             && !_accessReader.AreAccessTagsAllowed(_accessReader.FindAccessTags(cardUid), reader.Value.Comp))
         {
-            AddLog(ent, Loc.GetString("cmu-pc-log-denied", ("name", card.Comp.FullName ?? Name(card))));
+            var refused = card.Comp.FullName ?? Name(card);
+            AddLog(ent, Loc.GetString("cmu-pc-log-denied", ("name", refused)));
+            _security.Report(ent.Owner, CMUSecurityEvent.LoginRefused, refused);
             _popup.PopupEntity(Loc.GetString("cmu-pc-access-denied"), ent, user, PopupType.SmallCaution);
             EjectCard(ent, cardUid, user);
             return;
@@ -373,12 +381,14 @@ public sealed partial class CMUComputerSessionSystem : EntitySystem
 
         AddLog(ent, Loc.GetString(args.Found ? "cmu-pc-log-visit" : "cmu-pc-log-visit-failed", ("address", address)));
 
+        // A dark terminal's pages stay in its own log; nothing goes out live.
         var host = CMUExtraNetSystem.Split(address).Host;
-        if (HasComp<CMUDeepWebAccessComponent>(ent) || !_aliases.TryGetSite(host, out _))
+        if (HasComp<CMUDeepWebAccessComponent>(ent) || _net.IsDark(ent.Comp) || !_aliases.TryGetSite(host, out _))
             return;
 
-        var location = _areas.TryGetArea(ent.Owner, out _, out var area) ? area.Name : Name(ent);
+        var location = _security.Location(ent);
         _cmb.Alert(ent, address, location);
+        _security.Report(ent.Owner, CMUSecurityEvent.DeepLookup, detail: address);
         _adminLog.Add(LogType.Action, LogImpact.Low,
             $"{ToPrettyString(args.Actor):player} looked up deep address {address} from unhacked terminal #{ent.Comp.TerminalId}");
     }
@@ -402,6 +412,7 @@ public sealed partial class CMUComputerSessionSystem : EntitySystem
 
         ent.Comp.Log.Clear();
         AddLog(ent, Loc.GetString("cmu-pc-log-cleared"));
+        _security.Report(ent.Owner, CMUSecurityEvent.LogWiped);
         _adminLog.Add(LogType.Action, LogImpact.Low, $"{ToPrettyString(args.Actor):player} wiped the log of terminal #{ent.Comp.TerminalId}");
         SendLog(ent, args.Actor);
     }
@@ -416,6 +427,7 @@ public sealed partial class CMUComputerSessionSystem : EntitySystem
             text = text[..CMUComputerLimits.ForgedLength];
 
         AddLog(ent, text);
+        _security.Report(ent.Owner, CMUSecurityEvent.LogForged);
         _adminLog.Add(LogType.Action, LogImpact.Low, $"{ToPrettyString(args.Actor):player} forged a log line on terminal #{ent.Comp.TerminalId}: {text}");
         SendLog(ent, args.Actor);
     }
@@ -440,11 +452,15 @@ public sealed partial class CMUComputerSessionSystem : EntitySystem
                 _ui.OpenUi(ent.Owner, CMUComputerLogUiKey.Key, user);
                 SendLog(ent, user);
                 break;
-            case CMUComputerToolAction.Hack when !IsPowered(ent):
+            case CMUComputerToolAction.Hack or CMUComputerToolAction.Retune when !IsPowered(ent):
                 _popup.PopupEntity(Loc.GetString("cmu-pc-no-power"), ent, user, PopupType.SmallCaution);
                 break;
             case CMUComputerToolAction.Hack:
                 if (TryComp(ent, out CMUDeepWebHackableComponent? hackable) && _deep.TryStartHack((ent.Owner, hackable), user))
+                    AddLog(ent, Loc.GetString("cmu-pc-log-tamper"));
+                break;
+            case CMUComputerToolAction.Retune:
+                if (TryComp(ent, out CMUDeepWebHackableComponent? tunable) && _deep.TryStartRetune((ent.Owner, tunable), user))
                     AddLog(ent, Loc.GetString("cmu-pc-log-tamper"));
                 break;
         }

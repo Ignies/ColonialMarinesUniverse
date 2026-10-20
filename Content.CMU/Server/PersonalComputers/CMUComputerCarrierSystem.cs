@@ -1,5 +1,6 @@
 using Content.Shared._RMC14.Sensor;
 using Content.Shared.CMU14.PersonalComputers;
+using Content.Shared.CMU14.PersonalComputers.DeepWeb;
 using Content.Shared.CMU14.ZLevels.Core.Components;
 using Robust.Shared.Configuration;
 using Robust.Shared.Timing;
@@ -10,7 +11,9 @@ namespace Content.Server.CMU14.PersonalComputers;
 /// Gates what a terminal answers. Switched off, only its front panel. Switched on, the colony network rides on the
 /// sensor tower: while every tower on the terminal's colony, counting all its z levels, is down, the terminal has no
 /// carrier. It keeps its own files, notes and wallpaper, but anything that goes over the network is dropped. A
-/// colony without any tower keeps its network.
+/// colony without any tower keeps its network. A dark terminal has a carrier but no colony network: it keeps its
+/// files and its own log of pages, boards answer only on the networks it still reaches, and a hacked one keeps the
+/// deep web.
 /// </summary>
 public sealed class CMUComputerCarrierSystem : EntitySystem
 {
@@ -18,6 +21,7 @@ public sealed class CMUComputerCarrierSystem : EntitySystem
 
     [Dependency] private IConfigurationManager _cfg = default!;
     [Dependency] private IGameTiming _timing = default!;
+    [Dependency] private CMUExtraNetSystem _net = default!;
 
     private readonly Dictionary<EntityUid, bool> _towers = new();
     private readonly HashSet<EntityUid> _maps = new();
@@ -41,6 +45,34 @@ public sealed class CMUComputerCarrierSystem : EntitySystem
             or CMUComputerOpenConsoleMessage;
     }
 
+    /// <summary>
+    /// What still goes out from a dark terminal: page visits, which only land in its own log; board traffic, which
+    /// the boards check against the networks it reaches; and the deep web, once it is hacked.
+    /// </summary>
+    private bool ReachesWhileDark(EntityUid computer, BoundUserInterfaceMessage message)
+    {
+        if (message is CMUNetVisitMessage
+            or CMUNetBoardRequestMessage
+            or CMUNetBoardPostMessage
+            or CMUNetBoardCommentMessage
+            or CMUNetBoardDeleteMessage
+            or CMUNetBoardRestoreMessage
+            or CMUNetBoardPayoutMessage
+            or CMUNetBoardWithdrawMessage)
+            return true;
+
+        return HasComp<CMUDeepWebAccessComponent>(computer)
+            && message is CMUDeepScanMessage
+                or CMUDeepPageRequestMessage
+                or CMUDeepCameraMessage
+                or CMUDeepHijackMessage
+                or CMUDeepSniffMessage
+                or CMUDeepLoopMessage
+                or CMUMarketRequestMessage
+                or CMUMarketListMessage
+                or CMUMarketBuyMessage;
+    }
+
     /// <summary>The front panel works whatever state the machine is in.</summary>
     private static bool IsPanel(BoundUserInterfaceMessage message)
     {
@@ -56,7 +88,8 @@ public sealed class CMUComputerCarrierSystem : EntitySystem
             || args.Message is OpenBoundInterfaceMessage or CloseBoundInterfaceMessage)
             return;
 
-        if (!ent.Comp.On || !ent.Comp.Carrier && !IsLocal(args.Message))
+        if (!ent.Comp.On
+            || !IsLocal(args.Message) && (!ent.Comp.Carrier || _net.IsDark(ent.Comp) && !ReachesWhileDark(ent, args.Message)))
             args.Cancel();
     }
 

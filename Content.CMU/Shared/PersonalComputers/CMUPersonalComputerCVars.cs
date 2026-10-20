@@ -118,4 +118,15 @@ public sealed class CMUPersonalComputerCVars
     /// <summary>The Marshals' bureau network: lookup alerts, terminal map, fax copies and records.</summary>
     public static readonly CVarDef<bool> Cmb =
         CVarDef.Create("cmu.pc.cmb", true, CVar.SERVER | CVar.REPLICATED);
+
+    /// <summary>
+    /// Retuning a terminal with an access tuner, between the colony network and dark. Off: the option is gone and
+    /// terminals already dark are back on the colony network.
+    /// </summary>
+    public static readonly CVarDef<bool> Retune =
+        CVarDef.Create("cmu.pc.retune", true, CVar.SERVER | CVar.REPLICATED);
+
+    /// <summary>The colony security network: the terminal map and the unauthorized use log.</summary>
+    public static readonly CVarDef<bool> SecurityNet =
+        CVarDef.Create("cmu.pc.security_net", true, CVar.SERVER | CVar.REPLICATED);
 }

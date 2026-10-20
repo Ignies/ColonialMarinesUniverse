@@ -36,6 +36,7 @@ public sealed partial class CMUDeepEconomySystem : EntitySystem
     [Dependency] private IRobustRandom _random = default!;
     [Dependency] private CameraNetworkSystem _cameraNetworks = default!;
     [Dependency] private ColonyBankSystem _bank = default!;
+    [Dependency] private CMUExtraNetSystem _net = default!;
     [Dependency] private CMUMailSystem _mail = default!;
     [Dependency] private SurveillanceCameraSystem _cameras = default!;
     [Dependency] private UserInterfaceSystem _ui = default!;
@@ -180,7 +181,9 @@ public sealed partial class CMUDeepEconomySystem : EntitySystem
             if (terminal.TerminalId != args.Terminal)
                 continue;
 
-            lines.AddRange(terminal.Log.TakeLast(CMUDeepToolLimits.SniffLines).Select(l => l.Text));
+            // A dark terminal puts nothing on the colony wire.
+            if (!_net.IsDark(terminal))
+                lines.AddRange(terminal.Log.TakeLast(CMUDeepToolLimits.SniffLines).Select(l => l.Text));
             break;
         }
 

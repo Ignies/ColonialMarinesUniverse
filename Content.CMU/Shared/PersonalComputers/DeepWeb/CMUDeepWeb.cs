@@ -63,6 +63,10 @@ public sealed partial class CMUDeepWebHackableComponent : Component
     [DataField]
     public TimeSpan Trace = TimeSpan.FromSeconds(75);
 
+    /// <summary>How long the trace takes on a retune, which is only the carrier lock, before skill.</summary>
+    [DataField]
+    public TimeSpan RetuneTrace = TimeSpan.FromSeconds(40);
+
     /// <summary>Trace time a wrong carrier lock costs.</summary>
     [DataField]
     public TimeSpan MissPenalty = TimeSpan.FromSeconds(8);
@@ -77,10 +81,16 @@ public sealed partial class CMUDeepWebHackableComponent : Component
     public CMUDeepHackBoard? Board;
 }
 
-/// <summary>Server side state of one hack attempt.</summary>
+/// <summary>Server side state of one hack or retune attempt.</summary>
 public sealed class CMUDeepHackBoard
 {
     public required EntityUid User;
+
+    /// <summary>A retune only locks the carrier, then moves the terminal on or off the colony network.</summary>
+    public bool Retune;
+
+    /// <summary>For a retune: whether it takes the terminal dark, or back onto the colony network.</summary>
+    public bool ToDark;
     public CMUDeepHackStage Stage;
     public int Frequency;
     public int Amplitude;
@@ -122,7 +132,9 @@ public sealed class CMUDeepHackState(
     TimeSpan traceStarted,
     TimeSpan traceEnds,
     TimeSpan lockedUntil,
-    List<string> log) : BoundUserInterfaceState
+    List<string> log,
+    bool retune = false,
+    bool toDark = false) : BoundUserInterfaceState
 {
     public readonly CMUDeepHackStage Stage = stage;
     public readonly int Frequency = frequency;
@@ -138,6 +150,8 @@ public sealed class CMUDeepHackState(
     public readonly TimeSpan TraceEnds = traceEnds;
     public readonly TimeSpan LockedUntil = lockedUntil;
     public readonly List<string> Log = log;
+    public readonly bool Retune = retune;
+    public readonly bool ToDark = toDark;
 }
 
 /// <summary>Tries to lock the tuner onto the carrier with these dial settings.</summary>

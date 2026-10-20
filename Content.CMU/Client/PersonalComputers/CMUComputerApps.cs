@@ -74,6 +74,8 @@ public sealed class CMUComputerMailApp : BoxContainer
             _reader.AddChild(theme.Label(Loc.GetString("cmu-mail-login")));
         else if (!host.Carrier)
             _reader.AddChild(theme.Label(Loc.GetString("cmu-mail-no-carrier")));
+        else if (host.Dark)
+            _reader.AddChild(theme.Label(Loc.GetString("cmu-mail-dark")));
     }
 
     private void Click()

@@ -27,6 +27,7 @@ public sealed partial class CMUPersonalComputerBui : BoundUserInterface, ICMUNet
     public event Action<CMUMarketStateMessage>? MarketReceived;
     public event Action<CMUDeepToolResultMessage>? ToolResult;
     public event Action<CMUCmbStateMessage>? CmbReceived;
+    public event Action<CMUSecurityStateMessage>? SecurityReceived;
     public event Action<CMUMailStateMessage>? MailReceived;
     public event Action<CMUSpaceGptAnswerMessage>? SpaceGptAnswered;
     public event Action<CMUArcadeStateMessage>? ArcadeReceived;
@@ -80,6 +81,9 @@ public sealed partial class CMUPersonalComputerBui : BoundUserInterface, ICMUNet
             case CMUCmbStateMessage cmb:
                 CmbReceived?.Invoke(cmb);
                 break;
+            case CMUSecurityStateMessage security:
+                SecurityReceived?.Invoke(security);
+                break;
             case CMUMailStateMessage mail:
                 MailReceived?.Invoke(mail);
                 break;
@@ -125,6 +129,8 @@ public sealed partial class CMUPersonalComputerBui : BoundUserInterface, ICMUNet
     public TimeSpan TraceEnds => Computer?.TraceEnds ?? TimeSpan.Zero;
 
     public bool Carrier => Computer?.Carrier ?? true;
+
+    public bool Dark => Computer is { } computer && EntMan.System<CMUExtraNetSystem>().IsDark(computer);
 
     public string? Platoon => Computer?.Platoon;
 
@@ -230,6 +236,11 @@ public sealed partial class CMUPersonalComputerBui : BoundUserInterface, ICMUNet
     public void RequestCmb(CMUCmbPanel panel)
     {
         SendMessage(new CMUCmbRequestMessage(panel));
+    }
+
+    public void RequestSecurity(CMUSecurityPanel panel)
+    {
+        SendMessage(new CMUSecurityRequestMessage(panel));
     }
 
     public IReadOnlyList<CMUNetShortcut> Shortcuts =>

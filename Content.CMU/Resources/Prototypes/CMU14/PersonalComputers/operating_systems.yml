@@ -72,6 +72,7 @@
   networks:
   - CMUNetPublic
   - CMUNetCMB
+  - CMUNetSecurity
   phosphor: "#8FC4FF"
   background: "#050A14"
   bootLines:

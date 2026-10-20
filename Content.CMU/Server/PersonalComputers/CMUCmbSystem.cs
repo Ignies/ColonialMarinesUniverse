@@ -34,6 +34,7 @@ public sealed partial class CMUCmbSystem : EntitySystem
     [Dependency] private IConfigurationManager _cfg = default!;
     [Dependency] private IGameTiming _timing = default!;
     [Dependency] private CMUExtraNetSystem _net = default!;
+    [Dependency] private CMUSecurityNetSystem _security = default!;
     [Dependency] private CMUUniversalRecordsSystem _universalRecords = default!;
     [Dependency] private NavMapSystem _navMap = default!;
     [Dependency] private StationRecordsSystem _records = default!;
@@ -93,10 +94,12 @@ public sealed partial class CMUCmbSystem : EntitySystem
         StartTrace((target.Value, terminal));
     }
 
+    /// <summary>A trace runs over the colony network, so a dark terminal cannot be traced.</summary>
     public bool StartTrace(Entity<CMUPersonalComputerComponent> terminal)
     {
         var now = _timing.CurTime;
-        if (terminal.Comp.TraceEnds > now
+        if (_net.IsDark(terminal.Comp)
+            || terminal.Comp.TraceEnds > now
             || _traceCooldowns.TryGetValue(terminal, out var ready) && now < ready)
             return false;
 
@@ -105,6 +108,16 @@ public sealed partial class CMUCmbSystem : EntitySystem
         _traceCooldowns[terminal] = terminal.Comp.TraceEnds + CMUComputerLimits.TraceCooldown;
         Dirty(terminal);
         return true;
+    }
+
+    /// <summary>Ends a running trace now; it comes back lost if the terminal has gone dark.</summary>
+    public void CutTrace(Entity<CMUPersonalComputerComponent> terminal)
+    {
+        if (terminal.Comp.TraceEnds == TimeSpan.Zero)
+            return;
+
+        terminal.Comp.TraceEnds = _timing.CurTime;
+        Dirty(terminal);
     }
 
     public override void Update(float frameTime)
@@ -121,9 +134,11 @@ public sealed partial class CMUCmbSystem : EntitySystem
             terminal.TraceStarted = TimeSpan.Zero;
             Dirty(uid, terminal);
 
-            var result = terminal.SessionUser is { } user
-                ? Loc.GetString("cmu-cmb-trace-found", ("name", user))
-                : Loc.GetString("cmu-cmb-trace-lost");
+            var result = _net.IsDark(terminal)
+                ? Loc.GetString("cmu-cmb-trace-dark")
+                : terminal.SessionUser is { } user
+                    ? Loc.GetString("cmu-cmb-trace-found", ("name", user))
+                    : Loc.GetString("cmu-cmb-trace-lost");
             _alerts.Insert(0, new CMUCmbAlert(now, terminal.TerminalId, string.Empty, Name(uid), result));
             if (_alerts.Count > MaxAlerts)
                 _alerts.RemoveAt(_alerts.Count - 1);
@@ -180,13 +195,24 @@ public sealed partial class CMUCmbSystem : EntitySystem
             new CMUCmbStateMessage(args.Panel, alerts, terminals, faxes, records, grid), args.Actor);
     }
 
-    /// <summary>Every terminal on this grid, where it stands on the grid.</summary>
+    /// <summary>Every terminal on this grid, where it stands on the grid; a dark one where it went dark.</summary>
     private IEnumerable<CMUCmbTerminal> Terminals(EntityUid grid)
     {
         var query = EntityQueryEnumerator<CMUPersonalComputerComponent, TransformComponent>();
         while (query.MoveNext(out var uid, out var computer, out var xform))
         {
-            if (xform.GridUid != grid || computer.TerminalId == 0)
+            if (computer.TerminalId == 0)
+                continue;
+
+            if (_net.IsDark(computer) && _security.TryGetLastSeen(uid, out var seenGrid, out var seenAt))
+            {
+                if (seenGrid == grid)
+                    yield return new CMUCmbTerminal(computer.TerminalId, GetNetEntity(uid), seenAt, _alerted.Contains(computer.TerminalId));
+
+                continue;
+            }
+
+            if (xform.GridUid != grid)
                 continue;
 
             var position = _transform.WithEntityId(xform.Coordinates, grid).Position;
