@@ -125,4 +125,21 @@ public interface ICMUComputerHost
     void DeleteGame(CMUArcadeGame game)
     {
     }
+
+    /// <summary>The broadcasting cameras on air, answering <see cref="RequestTapeLive"/>.</summary>
+    event Action<CMUTapeLiveStateMessage>? TapeLiveReceived
+    {
+        add { }
+        remove { }
+    }
+
+    /// <summary>Asks the server which broadcasting cameras are on air. Hosts with no server have none.</summary>
+    void RequestTapeLive()
+    {
+    }
+
+    /// <summary>Opens the TV network's cameras on the terminal, to watch a broadcast.</summary>
+    void WatchTapeLive(NetEntity camera)
+    {
+    }
 }

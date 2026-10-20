@@ -33,6 +33,7 @@ public sealed partial class CMUPersonalComputerBui : BoundUserInterface, ICMUNet
     public event Action<CMUSpaceGptAnswerMessage>? SpaceGptAnswered;
     public event Action<CMUArcadeStateMessage>? ArcadeReceived;
     public event Action<CMUBetStateMessage>? BetsReceived;
+    public event Action<CMUTapeLiveStateMessage>? TapeLiveReceived;
 
     public CMUPersonalComputerBui(EntityUid owner, Enum uiKey) : base(owner, uiKey)
     {
@@ -106,6 +107,9 @@ public sealed partial class CMUPersonalComputerBui : BoundUserInterface, ICMUNet
                 break;
             case CMUBetStateMessage bets:
                 BetsReceived?.Invoke(bets);
+                break;
+            case CMUTapeLiveStateMessage live:
+                TapeLiveReceived?.Invoke(live);
                 break;
         }
     }
@@ -233,6 +237,16 @@ public sealed partial class CMUPersonalComputerBui : BoundUserInterface, ICMUNet
     public void SubmitScore(CMUArcadeGame game, int score)
     {
         SendMessage(new CMUArcadeSubmitMessage(game, score));
+    }
+
+    public void RequestTapeLive()
+    {
+        SendMessage(new CMUTapeLiveRequestMessage());
+    }
+
+    public void WatchTapeLive(NetEntity camera)
+    {
+        SendMessage(new CMUTapeWatchLiveMessage(camera));
     }
 
     public void RequestBets()

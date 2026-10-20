@@ -80,6 +80,33 @@ public sealed class CMUPersonalComputerPreview
             ("seegson-administration-charter", 3f, () => _window?.Desktop?.Browser?.Navigate("admin.colony.gov/charter")),
             ("seegson-govfor-garrison", 3f, () => _window?.Desktop?.Browser?.Navigate("command.govfor.mil/garrison")),
             ("seegson-upp-about", 3f, () => _window?.Desktop?.Browser?.Navigate("embassy.upp/about")),
+            ("seegson-yotta", 3f, () => _window?.Desktop?.Browser?.Navigate("yotta.portal")),
+            ("seegson-yotta-search", 3f, () =>
+            {
+                if (_window?.Desktop?.Browser is not { } browser || Find<CMUNetSearch>(browser) is not { } search)
+                    return;
+
+                MaximizeBrowser();
+                search.Run("radio weather");
+                ScrollTo(search);
+            }),
+            ("seegson-youtape", 4f, () => _window?.Desktop?.Browser?.Navigate("youtape.vhs")),
+            ("seegson-youtape-player", 5f, () =>
+            {
+                if (_window?.Desktop?.Browser is { } browser && Find<CMUNetTape>(browser) is { } tape)
+                    ScrollTo(tape);
+            }),
+            ("seegson-youtape-later", 9f, () => { }),
+            ("seegson-youtape-field", 4f, () => TapePreview("news", "field", 100)),
+            ("seegson-youtape-ad", 4f, () => TapePreview("news", "ad", 200)),
+            ("seegson-youtape-weather", 4f, () => TapePreview("weather", "weather", 300)),
+            ("seegson-youtape-food", 4f, () => TapePreview("food", "food", 400)),
+            ("seegson-youtape-bunk", 4f, () => TapePreview("bunk", "bunk", 500)),
+            ("seegson-youtape-shelf", 4f, () =>
+            {
+                if (_window?.Desktop?.Browser is { } browser && Find<CMUNetTape>(browser) is { } tape)
+                    ScrollTo(tape, 280);
+            }),
             ("seegson-pop-out", 3f, () => _window?.PopOut()),
             ("seegson-pop-in", 2f, () => _window?.ReturnPopOut()),
             ("seegson-files", 2.5f, () => _window?.Desktop?.Open(CMUComputerApp.Files)),
@@ -143,6 +170,49 @@ public sealed class CMUPersonalComputerPreview
         run();
         _log.Info($"step {_step} {name}");
         _osWindow.Title = $"{_title} [pc-preview {_step} {name}]";
+    }
+
+    /// <summary>Scrolls the page so the control is at the top, or this far past its top.</summary>
+    private static void ScrollTo(Robust.Client.UserInterface.Control control, float past = 0)
+    {
+        for (var parent = control.Parent; parent != null; parent = parent.Parent)
+        {
+            if (parent is not Robust.Client.UserInterface.Controls.ScrollContainer scroll)
+                continue;
+
+            var offset = control.GlobalPosition.Y - scroll.GlobalPosition.Y + scroll.GetScrollValue().Y + past;
+            scroll.SetScrollValue(new System.Numerics.Vector2(0, offset));
+            return;
+        }
+    }
+
+    private void TapePreview(string genre, string kind, int seed)
+    {
+        if (_window?.Desktop?.Browser is { } browser && Find<CMUNetTape>(browser) is { } tape)
+        {
+            ScrollTo(tape);
+            tape.Preview(genre, kind, seed);
+        }
+    }
+
+    private void MaximizeBrowser()
+    {
+        if (_window?.Desktop?.Browser is { } browser && browser.Parent?.Parent is CMUDesktopWindow window)
+            window.ToggleMaximized();
+    }
+
+    private static T? Find<T>(Robust.Client.UserInterface.Control control) where T : Robust.Client.UserInterface.Control
+    {
+        if (control is T found)
+            return found;
+
+        foreach (var child in control.Children)
+        {
+            if (Find<T>(child) is { } inner)
+                return inner;
+        }
+
+        return null;
     }
 
     private void Boot(string osId, bool jacked = false, CMUComputerCasing? casing = null, string? network = null)

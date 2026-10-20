@@ -198,6 +198,12 @@ public sealed partial class CMUNetBrowser : BoxContainer, ILinkClickHandler
         Navigate(address, false);
     }
 
+    /// <summary>The round's map name, for page tags that tell stories about the colony.</summary>
+    public string? ColonyName => _colonyName;
+
+    /// <summary>The networks this browser reaches, for page tags that look across the ExtraNet.</summary>
+    public IReadOnlySet<ProtoId<CMUNetworkPrototype>> Networks => _networks;
+
     /// <summary>The page on screen, or null before the first.</summary>
     public string? Address => _historyIndex >= 0 ? _history[_historyIndex] : null;
 
