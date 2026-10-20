@@ -1,5 +1,6 @@
 <Document>
   <CMUNetStyle Background="#0A0C0E" Text="#C3C7C1" Heading="#A9C3D6" Link="#D9B56C" Font="Display"/>
+  <CMUGuideImage Path="/Textures/CMU14/PersonalComputers/Sites/Deep/Makers/banner.png" MaxHeight="150"/>
   <CMUNetSprite Rsi="/Textures/_RMC14/Objects/Medical/black_goo.rsi" State="icon-0" Scale="3"/>
   # II. THE CUP: THE GIFT, AND WHAT IT ASKS
   [color=#55636E]Restricted. For the patient of a full year. If you are newer than that, read it anyway, because you will, and then go back and read the first teaching again.[/color]

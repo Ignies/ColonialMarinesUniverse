@@ -1,5 +1,6 @@
 <Document>
   <CMUNetStyle Background="#0C0A0F" Text="#CBC3CF" Heading="#B98FD9" Link="#86D1A4" Font="Sans"/>
+  <CMUGuideImage Path="/Textures/CMU14/PersonalComputers/Sites/Deep/Children/banner.png" MaxHeight="150"/>
   <CMUNetSprite Rsi="/Textures/_RMC14/Structures/Xenos/hive_structures.rsi" State="core" Scale="2"/>
   # THE PERFECT ORGANISM
   [color=#6E5A7E]Pinned and locked. Written by the Keeper of the Door, for those who are new. Read it slowly. Read it twice.[/color]

@@ -141,7 +141,7 @@ public sealed partial class CMUNetBoardView : BoxContainer
         BuildComposer(state.CanPost);
 
         if (state.Posts.Count == 0)
-            _posts.AddChild(new Label { Text = Loc.GetString(_site.Board!.Empty) });
+            _posts.AddChild(new Label { Text = CMUExtraNetSystem.Text(_site.Board!.Empty) });
 
         foreach (var post in state.Posts)
             _posts.AddChild(BuildPost(post, state));
@@ -192,7 +192,7 @@ public sealed partial class CMUNetBoardView : BoxContainer
         if (!canPost)
             return;
 
-        var label = Loc.GetString(_site.Board!.PostLabel);
+        var label = CMUExtraNetSystem.Text(_site.Board!.PostLabel);
         if (!_composerOpen)
         {
             var open = PageButton($"+ {label}");

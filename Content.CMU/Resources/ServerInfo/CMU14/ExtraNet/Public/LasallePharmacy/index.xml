@@ -1,5 +1,6 @@
 <Document>
   <CMUNetStyle Background="#F6FAFA" Text="#13282E" Heading="#0E7C7B" Link="#1B5FA8" Font="Sans"/>
+  <CMUGuideImage Path="/Textures/CMU14/PersonalComputers/Sites/Public/LasallePharmacy/banner.png" MaxHeight="150"/>
   # LASALLE BIONATIONAL PHARMACY
   [italic]Trusted medicine for the frontier. The standard stock of every Lasalle dispensary, from Gateway to the Outer Veil.[/italic]
 

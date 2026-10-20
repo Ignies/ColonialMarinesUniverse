@@ -4,7 +4,8 @@ Run from anywhere: python Content.CMU/Design/PersonalComputers/SiteArt/Deep/Fiel
 Writes Content.CMU/Resources/Textures/CMU14/PersonalComputers/Sites/Deep/FieldNotes/{banner,emblem}.png.
 
 The banner is a page torn out of a colony biologist's notebook: faint ruled lines and a rust margin
-on near black, a specimen sketch of an egg with its four lipped crown, the title lettered by hand
+on near black, the specimen (the game's own xeno egg sprite, xeno_egg.rsi state egg, pasted at 1x and
+never redrawn) pencilled in with a scale bar, the title lettered by hand
 (5x7 capitals drawn with 2x2 pixel nibs, each letter on a slightly wandering baseline), and acid
 burns eaten through the paper with a drip running off one of them. Everything is drawn at 1x on the
 pixel grid with no antialiasing, then upscaled 2x with nearest neighbour. The small print uses the
@@ -13,8 +14,12 @@ colony ATM generator's 3x5 font, extended with the few characters it lacks.
 import importlib.util
 import math
 import os
+import sys
 
 from PIL import Image
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import rsi_sprites as RS  # noqa: E402
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.abspath(os.path.join(ROOT, "..", "..", "..", "..", ".."))
@@ -45,13 +50,6 @@ ACID_MID = "#7FA21E"
 ACID_DARK = "#3D4F10"
 HOLE = "#040403"
 AMBER = "#E2A443"
-EGG_DARK = "#2E2B1C"
-EGG_MID = "#56503A"
-EGG_LIGHT = "#857B57"
-EGG_HI = "#ADA27A"
-SEAM = "#120F09"
-RESIN = "#1F2318"
-RESIN_HI = "#353C27"
 
 # Small print: the ATM 3x5 font plus the characters it does not carry.
 F3 = dict(ATM.F3)
@@ -168,66 +166,17 @@ def hand(cv, x, y, text, ink, shadow):
     return x
 
 
-# Specimen sketch: the egg
-EGG_W = 25
-EGG_H = 32
+# Specimen: the egg. It exists in the game, so it is the game's own sprite (xeno_egg.rsi, state egg), pasted at 1x
+# with nearest neighbour, never redrawn.
+EGG_RSI = "_RMC14/Structures/Xenos/xeno_egg.rsi"
 
 
-def egg_half(y):
-    """Half width of egg row y: two half ellipses, a short round crown over a long body that
-    narrows towards the foot, which flares a little where it is glued into the resin."""
-    if y < 13:
-        half = 12 * math.sqrt(1 - ((13 - y) / 14) ** 2)
-    else:
-        half = 12 * math.sqrt(max(0.0, 1 - ((y - 13) / 22) ** 2))
-    if y >= EGG_H - 2:
-        half += 1
-    return max(3, round(half))
-
-
-def egg(cv, ox, oy):
-    cx = ox + EGG_W // 2
-    # Resin mound it sits in.
-    for y in range(EGG_H - 4, EGG_H + 3):
-        half = 9 + (y - (EGG_H - 4)) * 2
-        for x in range(cx - half, cx + half + 1):
-            cv.set(x, oy + y, RESIN)
-    for x in range(cx - 13, cx + 14, 4):
-        cv.set(x, oy + EGG_H, RESIN_HI)
-        cv.set(x + 1, oy + EGG_H + 1, RESIN_HI)
-    cv.hline(cx - 18, cx + 18, oy + EGG_H + 2, RESIN_HI)
-    # Body, shaded from the upper left.
-    for y in range(EGG_H):
-        half = egg_half(y)
-        for x in range(cx - half, cx + half + 1):
-            n = (x - cx) / half
-            if abs(n) > 0.86 or y == 0:
-                c = EGG_DARK
-            elif n > 0.45:
-                c = EGG_DARK
-            elif -0.7 < n < -0.25 and y < 24:
-                c = EGG_LIGHT
-            else:
-                c = EGG_MID
-            cv.set(x, oy + y, c)
-    # Leathery highlight on the crown's shoulder.
-    for y, x0, x1 in ((3, -5, -4), (4, -6, -5), (5, -7, -6), (7, -7, -7), (9, -7, -7), (12, -7, -7)):
-        cv.hline(cx + x0, cx + x1, oy + y, EGG_HI)
-    # The four lips of the crown, pressed shut in a cross: one seam down the front and two curling
-    # round the sides, with acid light leaking out where they meet.
-    cv.vline(cx, oy + 1, oy + 9, SEAM)
-    for x, y in ((1, 1), (2, 2), (3, 2), (4, 3), (5, 3), (6, 4), (7, 5), (8, 6), (9, 7), (10, 8)):
-        cv.set(cx + x, oy + y, SEAM)
-        cv.set(cx - x, oy + y, SEAM)
-    cv.set(cx, oy + 1, ACID)
-    cv.set(cx, oy + 2, ACID_MID)
-    cv.set(cx + 1, oy + 2, ACID_DARK)
-    cv.set(cx - 1, oy + 2, ACID_DARK)
-    # Veins under the skin.
-    for x, y in ((5, 12), (6, 13), (6, 14), (7, 15), (6, 16), (6, 17), (7, 18), (7, 19), (6, 21), (6, 22)):
-        cv.set(cx + x, oy + y, SEAM)
-    for x, y in ((-3, 14), (-4, 15), (-4, 16), (-3, 17), (-3, 18), (-4, 19), (-4, 20)):
-        cv.set(cx + x, oy + y, EGG_MID)
+def egg(cv, cx, bottom, k=1):
+    """Pastes the real egg sprite centred on cx with its foot on bottom; returns its box."""
+    img = RS.scaled(RS.trim(RS.frame(EGG_RSI, "egg")), k)
+    x0, y0 = cx - img.width // 2, bottom - img.height
+    RS.paste(cv.img, img, x0, y0)
+    return x0, y0, x0 + img.width, y0 + img.height
 
 
 def callout(cv, x0, y0, x1, y1, c):
@@ -293,10 +242,13 @@ def banner():
     page(cv)
     rng = Rng(1979)
 
-    # Specimen sketch inside the margin.
-    egg(cv, 11, 18)
+    # The specimen inside the margin, with a pencilled scale bar down its left side.
+    x0, y0, x1, y1 = egg(cv, 27, 55)
     cv.text(F3, 9, 4, "NO.1", INK_DIM)
-    callout(cv, 26, 8, 24, 20, INK_FAINT)
+    callout(cv, 26, 8, x0 + 8, y0 + 1, INK_FAINT)
+    cv.vline(10, y0, y1 - 1, INK_FAINT)
+    for y in range(y0, y1, 4):
+        cv.hline(9, 11 if (y - y0) % 8 else 12, y, INK_FAINT)
     cv.text(F3, 9, 59, "WARM", INK_FAINT)
 
     # Title.
@@ -334,7 +286,7 @@ def emblem():
     cv = Canvas(40, 44, BG)
     for y in range(6, cv.h, 7):
         cv.hline(0, cv.w - 1, y, RULE)
-    egg(cv, 7, 6)
+    egg(cv, 20, 39)
     return cv
 
 
@@ -342,6 +294,14 @@ def main():
     os.makedirs(OUT, exist_ok=True)
     banner().save(os.path.join(OUT, "banner.png"))
     emblem().save(os.path.join(OUT, "emblem.png"))
+    m = RS.meta(EGG_RSI)
+    with open(os.path.join(OUT, "attributions.yml"), "w", encoding="utf-8", newline="\n") as f:
+        f.write('- files: ["banner.png", "emblem.png"]\n')
+        f.write(f'  license: "{m["license"]}"\n')
+        f.write('  copyright: "Pixel-art Field Notes banner drawn for CMU, generated by '
+                'Content.CMU/Design/PersonalComputers/SiteArt/Deep/FieldNotes.py. Includes the game sprite '
+                f'xeno_egg.rsi ({m["copyright"]})"\n')
+        f.write('  source: "https://github.com/Ignies/ColonialMarinesUniverse"\n')
     print("wrote", OUT)
 
 

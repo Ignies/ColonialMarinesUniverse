@@ -1,5 +1,6 @@
 <Document>
   <CMUNetStyle Background="#FFF1F6" Text="#1A1A1A" Heading="#D0105A" Link="#1440A0" Font="Sans"/>
+  <CMUGuideImage Path="/Textures/CMU14/PersonalComputers/Sites/Public/ColonyTattler/banner.png" MaxHeight="150"/>
   # STAR SIGHTINGS FROM THE COLONIES
   [italic]You saw them, you sent them in. Readers' sightings of the famous and the nearly famous, as relayed to the Tattler. Every sighting earns a free Tattler pen, shipped eventually.[/italic]
 

@@ -1,5 +1,6 @@
 <Document>
   <CMUNetStyle Background="#090806" Text="#BDB5A6" Heading="#E6DCC2" Link="#C98C52" Font="Mono"/>
+  <CMUGuideImage Path="/Textures/CMU14/PersonalComputers/Sites/Deep/Answer/banner.png" MaxHeight="150"/>
   <CMUNetMarquee Text="say their name  ///  wait  ///  it will answer in their voice  ///  answer back  ///  nobody is ever really gone  ///  it keeps them  ///  it keeps them all" Speed="22" Color="#5E5648"/>
   <CMUNetSprite Rsi="/Textures/CMU14/Mobs/MiscMob/wendigo.rsi" State="wendigo_glowmask" Scale="3"/>
   # THOSE WHO ANSWER

@@ -1,5 +1,6 @@
 <Document>
   <CMUNetStyle Background="#C9B07A" Text="#2A1E14" Heading="#9E1F17" Link="#1E3A78" Font="Mono"/>
+  <CMUGuideImage Path="/Textures/CMU14/PersonalComputers/Sites/Deep/MarshalWatch/banner.png" MaxHeight="150"/>
   <CMUGuideImage Path="/Textures/CMU14/PersonalComputers/Sites/Deep/MarshalWatch/emblem.png" MaxHeight="64"/>
   # EVIDENCE LOCKER
 

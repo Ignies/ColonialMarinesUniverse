@@ -1,5 +1,6 @@
 <Document>
   <CMUNetStyle Background="#0A0C0E" Text="#C3C7C1" Heading="#A9C3D6" Link="#D9B56C" Font="Display"/>
+  <CMUGuideImage Path="/Textures/CMU14/PersonalComputers/Sites/Deep/Makers/banner.png" MaxHeight="150"/>
   <CMUNetSprite Rsi="/Textures/CMU14/Yautja/Structures/ancientsmallstatue.rsi" State="statue_ancient" Scale="3"/>
   # III. THE PARADISE HERESY
   [color=#55636E]Posted against the wishes of the elders. Kept, because a vigil that hides from bad news is not a vigil. Read it last. Read it with someone.[/color]

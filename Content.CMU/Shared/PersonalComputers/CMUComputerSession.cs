@@ -19,9 +19,17 @@ public sealed class CMUNetVisitMessage(string address, bool found) : BoundUserIn
     public readonly bool Found = found;
 }
 
-/// <summary>Ends the session from the start menu.</summary>
+/// <summary>Ends the session from the start menu, which hands the card back.</summary>
 [Serializable, NetSerializable]
 public sealed class CMUComputerLogoutMessage : BoundUserInterfaceMessage;
+
+/// <summary>The power button on the front panel.</summary>
+[Serializable, NetSerializable]
+public sealed class CMUComputerPowerButtonMessage : BoundUserInterfaceMessage;
+
+/// <summary>A click on the card reader: puts in the user's card, or takes the one inside back out.</summary>
+[Serializable, NetSerializable]
+public sealed class CMUComputerCardSlotMessage : BoundUserInterfaceMessage;
 
 /// <summary>The radial menu a multitool opens on a computer.</summary>
 [Serializable, NetSerializable]

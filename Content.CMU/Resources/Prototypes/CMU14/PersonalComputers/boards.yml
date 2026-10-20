@@ -75,6 +75,8 @@
   networks:
   - CMUNetPublic
   root: /ServerInfo/CMU14/ExtraNet/Boards/Govfor/
+  # Each platoon that can hold the colony has its own pages in a folder named after it, e.g. CMBCIU/.
+  platoonPages: true
   style:
     background: "#1B2214"
     text: "#C9D6A3"

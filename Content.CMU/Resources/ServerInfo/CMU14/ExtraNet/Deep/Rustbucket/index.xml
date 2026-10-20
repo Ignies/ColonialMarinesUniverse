@@ -1,5 +1,6 @@
 <Document>
   <CMUNetStyle Background="#140B06" Text="#E0CBB4" Heading="#E07A2E" Link="#E8D45A" Font="Pixel"/>
+  <CMUGuideImage Path="/Textures/CMU14/PersonalComputers/Sites/Deep/Rustbucket/banner.png" MaxHeight="150"/>
   [color=#E07A2E][bold]RUSTBUCKET BBS[/bold][/color]
 
   [color=#E8D45A]est. on a spare cargo terminal, still running on its original battery[/color]

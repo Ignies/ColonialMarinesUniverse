@@ -1,5 +1,6 @@
 <Document>
   <CMUNetStyle Background="#EEF3F8" Text="#10243A" Heading="#0B4F8A" Link="#1C6B3A" Font="Sans"/>
+  <CMUGuideImage Path="/Textures/CMU14/PersonalComputers/Sites/Public/ProsperityToday/banner.png" MaxHeight="150"/>
   <CMUNetMarquee Text="RECORD QUARTER FOR COLONIAL DEVELOPMENT  ///  98.7 PERCENT OF COLONIES ON SCHEDULE  ///  THIRTY NEW RELAY BUOYS APPROVED  ///  COLONIST SATISFACTION AT ALL TIME HIGH  ///  BUILDING BETTER WORLDS" Speed="60" Color="#0B4F8A"/>
   # PROSPERITY TODAY
   [italic]Good news from the colonies, every day. Independent, positive, and proud to be read in every Weyland-Yutani settlement.[/italic]

@@ -2,10 +2,13 @@
   id: CMUOsSeegson
   name: cmu-os-seegson-name
   startLabel: cmu-os-seegson-start
-  # Shown in order. A missing file is skipped, so a PNG (or a .rsi with a "logo" state) can be dropped in later.
+  # Named after the colony's network, like Sevastopol's Sevastolink: Stable Garrison boots GARRISONLINK.
+  namedAfterColony: true
+  # Shown in order. "name" shows the OS name as text. A missing file is skipped, so a PNG (or a .rsi with a
+  # "logo" state) can be dropped in later.
   logos:
   - /Textures/CMU14/PersonalComputers/Logos/seegson.png
-  - /Textures/CMU14/PersonalComputers/Logos/sevastolink.png
+  - name
   documents:
   - name: README.TXT
     path: /ServerInfo/CMU14/ExtraNet/Documents/seegson_readme.xml
@@ -38,6 +41,8 @@
   - name: SECURITY.DOC
     path: /ServerInfo/CMU14/ExtraNet/Documents/weyland_security.xml
   homePage: intranet.wy
+  # Gunmetal with a gold trim, the Company's own terminals.
+  casing: Weyland
   networks:
   - CMUNetPublic
   - CMUNetWeylandYutani
@@ -63,6 +68,7 @@
   name: cmu-os-cmb-name
   startLabel: cmu-os-cmb-start
   homePage: cmb.bureau
+  casing: Cmb
   networks:
   - CMUNetPublic
   - CMUNetCMB

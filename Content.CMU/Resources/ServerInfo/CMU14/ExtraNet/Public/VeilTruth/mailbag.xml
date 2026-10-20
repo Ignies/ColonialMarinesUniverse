@@ -1,5 +1,6 @@
 <Document>
   <CMUNetStyle Background="#0B0B05" Text="#E8E8C8" Heading="#FFE000" Link="#FF5050" Font="Terminal"/>
+  <CMUGuideImage Path="/Textures/CMU14/PersonalComputers/Sites/Public/VeilTruth/banner.png" MaxHeight="150"/>
   # THE MAILBAG
   [italic]You write, we listen. Names withheld, because they are watching. Replies from the editor, who is also the only staff member.[/italic]
 

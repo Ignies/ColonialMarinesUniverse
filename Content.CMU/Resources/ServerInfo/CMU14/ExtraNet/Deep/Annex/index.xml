@@ -1,5 +1,6 @@
 <Document>
   <CMUNetStyle Background="#090E0C" Text="#BCCFC2" Heading="#9BE8B4" Link="#E3D27A" Font="Terminal"/>
+  <CMUGuideImage Path="/Textures/CMU14/PersonalComputers/Sites/Deep/Annex/banner.png" MaxHeight="150"/>
   <CMUNetMarquee Text="STAFF ONLY BEYOND THIS POINT  ///  DO NOT FEED THE SUBJECTS OUTSIDE SCHEDULE  ///  IF THE GLASS IS SCRATCHED, REPORT IT, THEN LEAVE  ///  WE ARE THE ONES WHO MOP THE FLOOR AFTERWARDS" Speed="45" Color="#9BE8B4"/>
   # THE ANNEX
   [italic]A break room for the people who clean, feed, guard and repair the parts of the Company that are not on the tour.[/italic]

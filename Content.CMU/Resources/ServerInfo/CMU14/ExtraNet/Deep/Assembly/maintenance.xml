@@ -1,5 +1,6 @@
 <Document>
   <CMUNetStyle Background="#0B0904" Text="#DDB668" Heading="#FFE6A8" Link="#8FD6D0" Font="Terminal"/>
+  <CMUGuideImage Path="/Textures/CMU14/PersonalComputers/Sites/Deep/Assembly/banner.png" MaxHeight="150"/>
   <CMUNetSprite Rsi="/Textures/_RMC14/Structures/Machines/synth_charger.rsi" State="borgcharger1" Scale="3"/>
   # MAINTENANCE: SERVICE REPORTS
   [color=#8A6F38]Pinned. Units report their service cycle here. State number, state fault, state correction. Level voice. No exclamation marks.[/color]

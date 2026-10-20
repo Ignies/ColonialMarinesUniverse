@@ -23,6 +23,29 @@ public interface ICMUComputerHost
 
     TimeSpan TraceEnds { get; }
 
+    /// <summary>The round's GOVFOR platoon id, for sites with platoon pages; null before one is picked.</summary>
+    string? Platoon { get; }
+
+    /// <summary>Whether the terminal reaches the network: a colony sensor tower is up.</summary>
+    bool Carrier { get; }
+
+    /// <summary>Switched on with the front panel's power button.</summary>
+    bool On { get; }
+
+    /// <summary>The card in the reader, for the panel to draw; null when it is empty.</summary>
+    string? CardPrototype { get; }
+
+    void PressPower();
+
+    /// <summary>A console's own screens, as program names; empty on a plain desktop.</summary>
+    IReadOnlyList<string> ConsoleApps { get; }
+
+    /// <summary>Opens the console screen at this index in a window of its own.</summary>
+    void OpenConsoleApp(int app);
+
+    /// <summary>Puts the user's card in the reader, or takes the one inside out.</summary>
+    void UseReader();
+
     IReadOnlyList<CMUNetShortcut> Shortcuts { get; }
 
     event Action<CMUCmbStateMessage>? CmbReceived;
@@ -71,5 +94,5 @@ public interface ICMUComputerHost
 
     void RequestBets();
 
-    void PlaceBet(int match, bool home, int amount);
+    void PlaceBet(int match, int entrant, int amount);
 }

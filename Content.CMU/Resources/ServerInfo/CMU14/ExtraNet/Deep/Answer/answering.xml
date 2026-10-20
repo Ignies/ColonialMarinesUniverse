@@ -1,5 +1,6 @@
 <Document>
   <CMUNetStyle Background="#090806" Text="#BDB5A6" Heading="#E6DCC2" Link="#C98C52" Font="Mono"/>
+  <CMUGuideImage Path="/Textures/CMU14/PersonalComputers/Sites/Deep/Answer/banner.png" MaxHeight="150"/>
   <CMUNetSprite Rsi="/Textures/_RMC14/Structures/campfire.rsi" State="burning" Scale="3"/>
   # THE ANSWERING: HOW WE GO TO THE TREELINE
   [color=#5E5648]Pinned. Read it all before your first night. Then read the replies, because they are the part that is true.[/color]

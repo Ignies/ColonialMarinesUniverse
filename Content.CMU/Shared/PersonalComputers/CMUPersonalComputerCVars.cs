@@ -13,6 +13,24 @@ public sealed class CMUPersonalComputerCVars
     public static readonly CVarDef<bool> Enabled =
         CVarDef.Create("cmu.pc.enabled", true, CVar.SERVER | CVar.REPLICATED);
 
+    /// <summary>
+    /// Colony consoles run the PC OS, with their own screens as programs on its desktop. Off: every bridged console
+    /// goes straight back to opening its own screen, as before; consoles need no changes either way.
+    /// </summary>
+    public static readonly CVarDef<bool> Bridge =
+        CVarDef.Create("cmu.pc.bridge", true, CVar.SERVER | CVar.REPLICATED);
+
+    /// <summary>Terminals need the area's equipment power to work.</summary>
+    public static readonly CVarDef<bool> NeedsPower =
+        CVarDef.Create("cmu.pc.needs_power", true, CVar.SERVER | CVar.REPLICATED);
+
+    /// <summary>
+    /// The colony network rides on the sensor tower: with every tower on the colony down, terminals only reach their
+    /// own files. A colony without a tower keeps its network.
+    /// </summary>
+    public static readonly CVarDef<bool> NeedsTower =
+        CVarDef.Create("cmu.pc.needs_tower", true, CVar.SERVER | CVar.REPLICATED);
+
     /// <summary>Round postings and comments on board sites.</summary>
     public static readonly CVarDef<bool> Boards =
         CVarDef.Create("cmu.pc.boards", true, CVar.SERVER | CVar.REPLICATED);

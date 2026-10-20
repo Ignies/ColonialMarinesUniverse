@@ -1,5 +1,6 @@
 <Document>
   <CMUNetStyle Background="#FFF1F6" Text="#1A1A1A" Heading="#D0105A" Link="#1440A0" Font="Sans"/>
+  <CMUGuideImage Path="/Textures/CMU14/PersonalComputers/Sites/Public/ColonyTattler/banner.png" MaxHeight="150"/>
   <CMUNetMarquee Text="EXCLUSIVE  ///  VEX AND SPIN: THE NOODLE BAR PHOTOS  ///  ROSIE KETCH BREAKS HER SILENCE ON LUX  ///  REX MADDOX: LOST AGAIN?  ///  YOUR STARS FOR THE WEEK  ///  THE TATTLER: WE SAW IT FIRST" Speed="95" Color="#D0105A"/>
   # THE COLONY TATTLER
   <CMUNetBlink Rate="0.5">

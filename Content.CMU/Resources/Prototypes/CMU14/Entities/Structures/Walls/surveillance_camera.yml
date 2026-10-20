@@ -150,16 +150,19 @@
   - type: CMUPersonalComputer
     os: CMUOsCMB
     openVerb: true
+    # The bureau console is on its own landline, so it works with the sensor tower down.
+    needsTower: false
+  - type: ApcPowerReceiver
+    powerLoad: 50
+    needsPower: true
+  - type: RMCPowerReceiver
+    idleLoad: 50
+    activeLoad: 50
+    channel: Equipment
   - type: UserInterface
     interfaces:
       enum.RMCCameraUiKey.Key:
         type: RMCCameraBui
-      enum.CMUPersonalComputerUiKey.Key:
-        type: CMUPersonalComputerBui
-      enum.CMUComputerToolUiKey.Key:
-        type: CMUComputerToolBui
-      enum.CMUComputerLogUiKey.Key:
-        type: CMUComputerLogBui
   - type: RMCCameraComputer
   - type: CameraNetworkReceiver
     networks: [CMUSurveillanceCameraColonyCMB]

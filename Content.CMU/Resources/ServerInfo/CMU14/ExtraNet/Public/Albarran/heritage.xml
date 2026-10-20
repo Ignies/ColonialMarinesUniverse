@@ -1,5 +1,6 @@
 <Document>
   <CMUNetStyle Background="#2B1A10" Text="#EADBC4" Heading="#D9A441" Link="#E8C77A" Font="Display"/>
+  <CMUGuideImage Path="/Textures/CMU14/PersonalComputers/Sites/Public/Albarran/banner.png" MaxHeight="150"/>
   # HERITAGE: A FAMILY AND A FIELD
   [italic]Four generations, one street in Havana and a field that has never moved.[/italic]
 

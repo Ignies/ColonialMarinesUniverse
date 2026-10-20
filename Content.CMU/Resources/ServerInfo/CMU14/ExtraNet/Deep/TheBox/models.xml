@@ -1,5 +1,6 @@
 <Document>
   <CMUNetStyle Background="#101114" Text="#DCD8C8" Heading="#F0E14A" Link="#86E3C8" Font="Mono"/>
+  <CMUGuideImage Path="/Textures/CMU14/PersonalComputers/Sites/Deep/TheBox/banner.png" MaxHeight="150"/>
   # A SHORT HISTORY OF FAKE PEOPLE
 
   [italic]Know the makers and you know what to look for. Dates from public filings. Everything else from people who were there.[/italic]

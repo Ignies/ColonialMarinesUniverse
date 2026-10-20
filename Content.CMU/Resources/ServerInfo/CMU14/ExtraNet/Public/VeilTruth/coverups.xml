@@ -1,5 +1,6 @@
 <Document>
   <CMUNetStyle Background="#0B0B05" Text="#E8E8C8" Heading="#FFE000" Link="#FF5050" Font="Terminal"/>
+  <CMUGuideImage Path="/Textures/CMU14/PersonalComputers/Sites/Public/VeilTruth/banner.png" MaxHeight="150"/>
   # THE COVER-UPS
   [italic]Every one of these is a fact. Some of them are facts we have not finished proving.[/italic]
 

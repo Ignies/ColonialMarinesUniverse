@@ -2,17 +2,25 @@ using Content.Server.Administration.Logs;
 using Content.Server.CMU14.PersonalComputers.DeepWeb;
 using Content.Shared._RMC14.Areas;
 using Content.Shared._RMC14.Marines.Skills;
+using Content.Shared._RMC14.Power;
 using Content.Shared._RMC14.Tools;
+using Content.Shared.Access.Components;
 using Content.Shared.Access.Systems;
 using Content.Shared.CMU14.PersonalComputers;
 using Content.Shared.CMU14.PersonalComputers.DeepWeb;
 using Content.Shared.Database;
+using Content.Shared.Examine;
 using Content.Shared.GameTicking;
+using Content.Shared.Hands.EntitySystems;
 using Content.Shared.Interaction;
 using Content.Shared.Popups;
+using Content.Shared.Power;
 using Content.Shared.UserInterface;
 using Content.Shared.Verbs;
 using Robust.Server.GameObjects;
+using Robust.Shared.Audio;
+using Robust.Shared.Audio.Systems;
+using Robust.Shared.Containers;
 using Robust.Shared.Configuration;
 using Robust.Shared.Prototypes;
 using Robust.Shared.Timing;
@@ -20,9 +28,9 @@ using Robust.Shared.Timing;
 namespace Content.Server.CMU14.PersonalComputers;
 
 /// <summary>
-/// Sessions on personal computers. Every terminal gets a number for the round; a swipe of an ID card logs its
-/// holder in (and the same card logs them out); the terminal keeps a log of logins and pages visited that
-/// engineers read with a multitool. A multitool opens a radial menu: read the logs, or hack the terminal.
+/// Sessions on personal computers. Every terminal gets a number for the round and a front panel: a power button
+/// and an ID card reader. A card left in the reader keeps its holder logged in; taking it out logs them out. The
+/// terminal keeps a log of logins and pages visited that engineers read with a multitool. A multitool opens a radial menu: read the logs, or hack the terminal.
 /// Every lookup of a live deep web address from a terminal that is not hacked is reported to the Marshals.
 /// </summary>
 public sealed partial class CMUComputerSessionSystem : EntitySystem
@@ -30,14 +38,21 @@ public sealed partial class CMUComputerSessionSystem : EntitySystem
     private static readonly EntProtoId<SkillDefinitionComponent> EngineerSkill = "RMCSkillEngineer";
     private const int LogSkill = 1;
     private const int TamperSkill = 3;
+    private static readonly SoundSpecifier CardInSound = new SoundPathSpecifier("/Audio/CMU14/ColonyEconomy/atm_card_in.wav");
+    private static readonly SoundSpecifier CardOutSound = new SoundPathSpecifier("/Audio/CMU14/ColonyEconomy/atm_card_out.wav");
 
     [Dependency] private IAdminLogManager _adminLog = default!;
     [Dependency] private IConfigurationManager _cfg = default!;
     [Dependency] private IGameTiming _timing = default!;
     [Dependency] private AreaSystem _areas = default!;
     [Dependency] private CMUCmbSystem _cmb = default!;
+    [Dependency] private CMUComputerPowerSystem _computerPower = default!;
     [Dependency] private CMUDeepAliasSystem _aliases = default!;
     [Dependency] private CMUDeepWebSystem _deep = default!;
+    [Dependency] private AccessReaderSystem _accessReader = default!;
+    [Dependency] private SharedAudioSystem _audio = default!;
+    [Dependency] private SharedContainerSystem _container = default!;
+    [Dependency] private SharedHandsSystem _hands = default!;
     [Dependency] private SharedIdCardSystem _idCards = default!;
     [Dependency] private SharedPopupSystem _popup = default!;
     [Dependency] private SkillsSystem _skills = default!;
@@ -51,11 +66,17 @@ public sealed partial class CMUComputerSessionSystem : EntitySystem
         SubscribeLocalEvent<RoundRestartCleanupEvent>(_ => _nextTerminal = 1);
         SubscribeLocalEvent<CMUPersonalComputerComponent, InteractUsingEvent>(OnInteractUsing);
         SubscribeLocalEvent<CMUPersonalComputerComponent, GetVerbsEvent<AlternativeVerb>>(OnGetVerbs);
-        SubscribeLocalEvent<CMUPersonalComputerComponent, ActivatableUIOpenAttemptEvent>(OnOpenAttempt);
+        SubscribeLocalEvent<CMUPersonalComputerComponent, PowerChangedEvent>(OnPowerChanged);
+        SubscribeLocalEvent<CMUPersonalComputerComponent, ExaminedEvent>(OnExamined);
+        SubscribeLocalEvent<CMUPersonalComputerComponent, EntInsertedIntoContainerMessage>(OnCardInserted);
+        SubscribeLocalEvent<CMUPersonalComputerComponent, EntRemovedFromContainerMessage>(OnCardRemoved);
         Subs.BuiEvents<CMUPersonalComputerComponent>(CMUPersonalComputerUiKey.Key, subs =>
         {
             subs.Event<CMUNetVisitMessage>(OnVisit);
             subs.Event<CMUComputerLogoutMessage>(OnLogout);
+            subs.Event<CMUComputerPowerButtonMessage>(OnPowerButton);
+            subs.Event<CMUComputerCardSlotMessage>(OnCardSlot);
+            subs.Event<CMUComputerOpenConsoleMessage>(OnOpenConsole);
         });
         Subs.BuiEvents<CMUPersonalComputerComponent>(CMUComputerToolUiKey.Key, subs =>
         {
@@ -82,14 +103,181 @@ public sealed partial class CMUComputerSessionSystem : EntitySystem
             log.RemoveAt(0);
     }
 
-    /// <summary>With computers switched off, terminals show as offline.</summary>
-    private void OnOpenAttempt(Entity<CMUPersonalComputerComponent> ent, ref ActivatableUIOpenAttemptEvent args)
+    /// <summary>Whether the terminal has power; see <see cref="CMUComputerPowerSystem"/>.</summary>
+    public bool IsPowered(EntityUid computer)
     {
-        if (_cfg.GetCVar(CMUPersonalComputerCVars.Enabled))
+        return _computerPower.IsPowered(computer);
+    }
+
+    /// <summary>A session left open is there for anyone to see: the screen shows who is still logged in.</summary>
+    private void OnExamined(Entity<CMUPersonalComputerComponent> ent, ref ExaminedEvent args)
+    {
+        if (!args.IsInDetailsRange || !_cfg.GetCVar(CMUPersonalComputerCVars.Enabled))
             return;
 
-        args.Cancel();
-        _popup.PopupEntity(Loc.GetString("cmu-pc-offline"), ent, args.User);
+        args.PushMarkup(Loc.GetString("cmu-pc-examine-terminal", ("id", ent.Comp.TerminalId)));
+        if (ent.Comp.CardPrototype != null)
+            args.PushMarkup(Loc.GetString("cmu-pc-examine-card"));
+
+        if (!ent.Comp.On)
+            args.PushMarkup(Loc.GetString("cmu-pc-examine-dark"));
+        else if (ent.Comp.SessionUser is { } user)
+            args.PushMarkup(Loc.GetString("cmu-pc-examine-session", ("name", user)));
+        else
+            args.PushMarkup(Loc.GetString("cmu-pc-examine-login"));
+    }
+
+    /// <summary>Losing power switches the terminal off mid sentence. It stays off until someone presses the button.</summary>
+    private void OnPowerChanged(Entity<CMUPersonalComputerComponent> ent, ref PowerChangedEvent args)
+    {
+        if (args.Powered || IsPowered(ent))
+            return;
+
+        SwitchOff(ent);
+        _ui.CloseUi(ent.Owner, CMUDeepHackUiKey.Key);
+        _ui.CloseUi(ent.Owner, CMUComputerLogUiKey.Key);
+    }
+
+    /// <summary>Does nothing without power. Switching on logs in the holder of the card in the reader.</summary>
+    private void OnPowerButton(Entity<CMUPersonalComputerComponent> ent, ref CMUComputerPowerButtonMessage args)
+    {
+        if (ent.Comp.On)
+        {
+            SwitchOff(ent);
+            return;
+        }
+
+        if (!IsPowered(ent))
+            return;
+
+        ent.Comp.On = true;
+        Dirty(ent);
+        if (GetCard(ent) is { } card)
+            LogIn(ent, card, args.Actor);
+    }
+
+    private void SwitchOff(Entity<CMUPersonalComputerComponent> ent)
+    {
+        if (!ent.Comp.On)
+            return;
+
+        ent.Comp.On = false;
+        EndSession(ent);
+        CloseConsoleApps(ent);
+        Dirty(ent);
+    }
+
+    /// <summary>
+    /// A console program opens the console's own interface in a window of its own, the way using the console did
+    /// before it ran the OS. It needs the machine on and, with logins on, a card in the reader.
+    /// </summary>
+    private void OnOpenConsole(Entity<CMUPersonalComputerComponent> ent, ref CMUComputerOpenConsoleMessage args)
+    {
+        if (!ent.Comp.On
+            || _cfg.GetCVar(CMUPersonalComputerCVars.Login) && ent.Comp.RequireLogin && ent.Comp.SessionUser == null
+            || !TryComp(ent, out CMUComputerConsoleComponent? console)
+            || args.App < 0
+            || args.App >= console.Apps.Count)
+            return;
+
+        var key = console.Apps[args.App].Key;
+        // Consoles fill in their interface's state just before it opens.
+        RaiseLocalEvent(ent, new BeforeActivatableUIOpenEvent(args.Actor));
+        _ui.OpenUi(ent.Owner, key, args.Actor);
+        if (_ui.IsUiOpen(ent.Owner, key, args.Actor))
+            RaiseLocalEvent(ent, new AfterActivatableUIOpenEvent(args.Actor));
+    }
+
+    private void CloseConsoleApps(EntityUid computer)
+    {
+        if (!TryComp(computer, out CMUComputerConsoleComponent? console))
+            return;
+
+        foreach (var app in console.Apps)
+            _ui.CloseUi(computer, app.Key);
+    }
+
+    /// <summary>The ID card sitting in the terminal's reader, if any.</summary>
+    public EntityUid? GetCard(EntityUid computer)
+    {
+        return _container.TryGetContainer(computer, CMUPersonalComputerComponent.CardSlotId, out var slot) && slot is ContainerSlot cardSlot
+            ? cardSlot.ContainedEntity
+            : null;
+    }
+
+    private void OnCardSlot(Entity<CMUPersonalComputerComponent> ent, ref CMUComputerCardSlotMessage args)
+    {
+        if (GetCard(ent) is { } card)
+        {
+            EjectCard(ent, card, args.Actor);
+            return;
+        }
+
+        // The card the user would reach for, as at the ATM: one in hand first, else the one they wear.
+        foreach (var held in _hands.EnumerateHeld(args.Actor))
+        {
+            if (!HasComp<IdCardComponent>(held))
+                continue;
+
+            TryInsertCard(ent, held, args.Actor);
+            return;
+        }
+
+        if (_idCards.TryFindIdCard(args.Actor, out var worn))
+        {
+            TryInsertCard(ent, worn.Owner, args.Actor);
+            return;
+        }
+
+        _popup.PopupEntity(Loc.GetString("cmu-pc-card-none"), ent, args.Actor);
+    }
+
+    public bool TryInsertCard(Entity<CMUPersonalComputerComponent> ent, EntityUid card, EntityUid user)
+    {
+        if (GetCard(ent) != null)
+        {
+            _popup.PopupEntity(Loc.GetString("cmu-pc-card-occupied"), ent, user);
+            return false;
+        }
+
+        var slot = _container.EnsureContainer<ContainerSlot>(ent, CMUPersonalComputerComponent.CardSlotId);
+        if (!_container.Insert(card, slot))
+            return false;
+
+        _audio.PlayPvs(CardInSound, ent);
+        if (ent.Comp.On)
+            LogIn(ent, card, user);
+
+        return true;
+    }
+
+    public void EjectCard(Entity<CMUPersonalComputerComponent> ent, EntityUid card, EntityUid user)
+    {
+        if (!_container.TryGetContainer(ent, CMUPersonalComputerComponent.CardSlotId, out var slot) || !_container.Remove(card, slot))
+            return;
+
+        _hands.PickupOrDrop(user, card);
+        _audio.PlayPvs(CardOutSound, ent);
+    }
+
+    private void OnCardInserted(Entity<CMUPersonalComputerComponent> ent, ref EntInsertedIntoContainerMessage args)
+    {
+        if (args.Container.ID != CMUPersonalComputerComponent.CardSlotId)
+            return;
+
+        ent.Comp.CardPrototype = MetaData(args.Entity).EntityPrototype?.ID;
+        Dirty(ent);
+    }
+
+    // However the card leaves, ejected, pulled out or deleted, the session goes with it.
+    private void OnCardRemoved(Entity<CMUPersonalComputerComponent> ent, ref EntRemovedFromContainerMessage args)
+    {
+        if (args.Container.ID != CMUPersonalComputerComponent.CardSlotId || TerminatingOrDeleted(ent))
+            return;
+
+        ent.Comp.CardPrototype = null;
+        EndSession(ent);
+        Dirty(ent);
     }
 
     private void OnInteractUsing(Entity<CMUPersonalComputerComponent> ent, ref InteractUsingEvent args)
@@ -104,32 +292,50 @@ public sealed partial class CMUComputerSessionSystem : EntitySystem
             return;
         }
 
-        if (!_cfg.GetCVar(CMUPersonalComputerCVars.Login) || !_idCards.TryGetIdCard(args.Used, out var card))
+        if (!HasComp<IdCardComponent>(args.Used))
             return;
 
         args.Handled = true;
-        var name = card.Comp.FullName ?? Name(card);
-        if (ent.Comp.SessionUser == name)
+        TryInsertCard(ent, args.Used, args.User);
+    }
+
+    private void LogIn(Entity<CMUPersonalComputerComponent> ent, EntityUid cardUid, EntityUid user)
+    {
+        if (!_cfg.GetCVar(CMUPersonalComputerCVars.Login) || !_idCards.TryGetIdCard(cardUid, out var card))
+            return;
+
+        if (_accessReader.GetMainAccessReader(ent, out var reader)
+            && !_accessReader.AreAccessTagsAllowed(_accessReader.FindAccessTags(cardUid), reader.Value.Comp))
         {
-            Logout(ent, args.User);
+            AddLog(ent, Loc.GetString("cmu-pc-log-denied", ("name", card.Comp.FullName ?? Name(card))));
+            _popup.PopupEntity(Loc.GetString("cmu-pc-access-denied"), ent, user, PopupType.SmallCaution);
+            EjectCard(ent, cardUid, user);
             return;
         }
 
+        var name = card.Comp.FullName ?? Name(card);
+        var job = card.Comp.LocalizedJobTitle;
+        var account = card.Comp.AccountNumber;
         ent.Comp.SessionUser = name;
-        ent.Comp.SessionJob = card.Comp.LocalizedJobTitle;
-        ent.Comp.SessionAccount = card.Comp.AccountNumber;
+        ent.Comp.SessionJob = job;
+        ent.Comp.SessionAccount = account;
         Dirty(ent);
         AddLog(ent, Loc.GetString("cmu-pc-log-login", ("name", name)));
-        _popup.PopupEntity(Loc.GetString("cmu-pc-login-popup", ("name", name)), ent, args.User);
+        _popup.PopupEntity(Loc.GetString("cmu-pc-login-popup", ("name", name)), ent, user);
     }
 
+    /// <summary>Logging off from the start menu hands the card back.</summary>
     private void OnLogout(Entity<CMUPersonalComputerComponent> ent, ref CMUComputerLogoutMessage args)
     {
-        Logout(ent, args.Actor);
+        if (GetCard(ent) is { } card)
+            EjectCard(ent, card, args.Actor);
+        else
+            EndSession(ent);
     }
 
-    private void Logout(Entity<CMUPersonalComputerComponent> ent, EntityUid user)
+    private void EndSession(Entity<CMUPersonalComputerComponent> ent)
     {
+        CloseConsoleApps(ent);
         if (ent.Comp.SessionUser is not { } name)
             return;
 
@@ -138,7 +344,6 @@ public sealed partial class CMUComputerSessionSystem : EntitySystem
         ent.Comp.SessionJob = null;
         ent.Comp.SessionAccount = 0;
         Dirty(ent);
-        _popup.PopupEntity(Loc.GetString("cmu-pc-logout-popup"), ent, user);
     }
 
     private void OnGetVerbs(Entity<CMUPersonalComputerComponent> ent, ref GetVerbsEvent<AlternativeVerb> args)
@@ -146,11 +351,13 @@ public sealed partial class CMUComputerSessionSystem : EntitySystem
         if (!ent.Comp.OpenVerb || !args.CanAccess || !args.CanInteract || !_cfg.GetCVar(CMUPersonalComputerCVars.Enabled))
             return;
 
+        var uid = ent.Owner;
+
         var user = args.User;
         args.Verbs.Add(new AlternativeVerb
         {
             Text = Loc.GetString("cmu-pc-open-terminal"),
-            Act = () => _ui.OpenUi(ent.Owner, CMUPersonalComputerUiKey.Key, user),
+            Act = () => _ui.OpenUi(uid, CMUPersonalComputerUiKey.Key, user),
         });
     }
 
@@ -232,6 +439,9 @@ public sealed partial class CMUComputerSessionSystem : EntitySystem
                 AddLog(ent, Loc.GetString("cmu-pc-log-read", ("name", Name(user))));
                 _ui.OpenUi(ent.Owner, CMUComputerLogUiKey.Key, user);
                 SendLog(ent, user);
+                break;
+            case CMUComputerToolAction.Hack when !IsPowered(ent):
+                _popup.PopupEntity(Loc.GetString("cmu-pc-no-power"), ent, user, PopupType.SmallCaution);
                 break;
             case CMUComputerToolAction.Hack:
                 if (TryComp(ent, out CMUDeepWebHackableComponent? hackable) && _deep.TryStartHack((ent.Owner, hackable), user))

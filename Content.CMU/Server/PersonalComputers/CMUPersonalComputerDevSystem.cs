@@ -53,7 +53,7 @@ public sealed class CMUPersonalComputerDevCVars
 /// <summary>Puts test players next to working computers. See <see cref="CMUPersonalComputerDevCVars"/>.</summary>
 public sealed partial class CMUPersonalComputerDevSystem : EntitySystem
 {
-    private static readonly string[] Desks = { "RMCPersonalDesktop", "CMUPersonalDesktopWeyland" };
+    private static readonly string[] Desks = { "RMCPersonalDesktop", "CMUPersonalDesktopWeyland", "CMUMonitorCameraColonyCMB" };
     private static readonly EntProtoId AccessTuner = "CMMultitool";
     private static readonly EntProtoId<SkillDefinitionComponent> EngineerSkill = "RMCSkillEngineer";
     private const int HackerSkill = 4;

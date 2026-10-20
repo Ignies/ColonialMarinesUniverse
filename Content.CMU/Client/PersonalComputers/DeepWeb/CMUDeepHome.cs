@@ -254,7 +254,7 @@ public sealed partial class CMUDeepHome : BoxContainer
             foreach (var (siteId, alias) in _host.Aliases)
             {
                 if (alias == address && _prototype.TryIndex(siteId, out var site))
-                    title = Loc.GetString(site.Title);
+                    title = CMUExtraNetSystem.Text(site.Title);
             }
 
             var link = new CMUNetLinkLabel(address, address);

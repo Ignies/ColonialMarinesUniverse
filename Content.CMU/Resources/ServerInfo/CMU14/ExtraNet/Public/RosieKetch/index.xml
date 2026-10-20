@@ -1,5 +1,6 @@
 <Document>
   <CMUNetStyle Background="#2A1A0E" Text="#F2E3C6" Heading="#E8A33C" Link="#9FD0E0" Font="Sans"/>
+  <CMUGuideImage Path="/Textures/CMU14/PersonalComputers/Sites/Public/RosieKetch/banner.png" MaxHeight="150"/>
   <CMUNetMarquee Text="ROSIE KETCH AND THE DUST DEVILS  ///  THE DUST ROAD TOUR  ///  NEW RECORD: PROCESSOR LULLABY  ///  COUNTRY MUSIC FOR PEOPLE WHO BUILD THE AIR THEY BREATHE" Speed="55" Color="#E8A33C"/>
   # ROSIE KETCH
   [italic]The Queen of the Outer Veil. Six records, four guitars, one voice you can hear over an atmosphere processor at full draw.[/italic]

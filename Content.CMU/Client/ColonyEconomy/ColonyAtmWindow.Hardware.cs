@@ -355,9 +355,10 @@ public sealed partial class ColonyAtmWindow
 
     /// <summary>
     ///     Draws one state of an RSI over its rectangle: looping it, or playing it once and handing
-    ///     over to whatever comes next. Frame timings come from the RSI's own delays.
+    ///     over to whatever comes next. Frame timings come from the RSI's own delays. The personal
+    ///     computer's front panel draws its parts with it too.
     /// </summary>
-    private sealed class AtmSprite : Control
+    internal sealed class AtmSprite : Control
     {
         private readonly RSI _rsi;
         private Texture[] _frames = Array.Empty<Texture>();
@@ -534,9 +535,10 @@ public sealed partial class ColonyAtmWindow
     ///     card's own pixels, which vary from badge to landscape tag. The card's shape comes from the
     ///     click map the client keeps of every sprite; reading the texture back instead would pull the
     ///     whole sprite atlas off the GPU. The design script mirrors these keyframes
-    ///     (<c>INSERT_KEYS</c>, <c>EJECT_KEYS</c>) for its review GIF.
+    ///     (<c>INSERT_KEYS</c>, <c>EJECT_KEYS</c>) for its review GIF. The personal computer's reader is
+    ///     the same reader at the same size, so it shows the card with this too.
     /// </remarks>
-    private sealed partial class ReaderCard : Control
+    internal sealed partial class ReaderCard : Control
     {
         // Whether each kind of card is wider than it is tall. Sprites never change shape in a session.
         // concurrent because test clients run on their own threads and share this static

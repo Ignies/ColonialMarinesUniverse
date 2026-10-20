@@ -1,5 +1,6 @@
 <Document>
   <CMUNetStyle Background="#07141B" Text="#C4D6CC" Heading="#7FE3D2" Link="#F2955E" Font="Terminal"/>
+  <CMUGuideImage Path="/Textures/CMU14/PersonalComputers/Sites/Deep/Cartographer/banner.png" MaxHeight="150"/>
   # Sector Rumours
 
   [italic]Each line is marked with its mouths. [color=#F2955E](1)[/color] heard once. [color=#F2955E](3)[/color] heard from three crews who never met.[/italic]

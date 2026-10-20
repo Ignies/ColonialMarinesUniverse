@@ -5,10 +5,13 @@ using Content.Client.Guidebook;
 using Content.Client.Guidebook.Controls;
 using Content.Client.Guidebook.Richtext;
 using Content.IntegrationTests.Fixtures;
+using Content.Server.CMU14.PersonalComputers;
+using Content.Server.CMU14.Round;
 using Content.Shared.Maps;
 using Content.Shared.Camera;
 using Content.Shared.CMU14.PersonalComputers;
 using Content.Shared.CMU14.PersonalComputers.DeepWeb;
+using Content.Shared.CMU14.util;
 using Robust.Client.UserInterface;
 using Robust.Shared.ContentPack;
 using Robust.Shared.Prototypes;
@@ -74,7 +77,7 @@ public sealed class CMUExtraNetTest : GameTest
             Assert.That(resMan.ContentFileExists(site.Root / file), $"Page {path} on {site.Address} points to missing file {file}.");
         }
 
-        // Every document under the root, colony versions included, must parse and link to real pages.
+        // Every document under the root, colony and platoon versions included, must parse and link to real pages.
         foreach (var document in resMan.ContentFindFiles(site.Root))
         {
             if (document.Extension != "xml")
@@ -83,12 +86,23 @@ public sealed class CMUExtraNetTest : GameTest
             var relative = document.RelativeTo(site.Root);
             if (relative.EnumerateSegments().Count() > 1)
             {
-                var colony = relative.EnumerateSegments().First();
-                Assert.That(protoMan.HasIndex<CMUNetColonyPrototype>(colony) || protoMan.HasIndex<GameMapPrototype>(colony),
-                    $"{document} is in folder {colony}, which is neither a cmuNetColony id nor a game map id.");
+                var folder = relative.EnumerateSegments().First();
+                var platoon = site.PlatoonPages && protoMan.HasIndex<PlatoonPrototype>(folder);
+                Assert.That(platoon || protoMan.HasIndex<CMUNetColonyPrototype>(folder) || protoMan.HasIndex<GameMapPrototype>(folder),
+                    site.PlatoonPages
+                        ? $"{document} is in folder {folder}, which is not a platoon, cmuNetColony or game map id."
+                        : $"{document} is in folder {folder}, which is neither a cmuNetColony id nor a game map id.");
+
+                // A platoon's page only shows in place of one of the site's own pages.
+                if (platoon)
+                {
+                    var page = string.Join('/', relative.EnumerateSegments().Skip(1));
+                    Assert.That(site.Pages.Values.Contains(page),
+                        $"{document} stands in for {page}, which is not a page of {site.Address}.");
+                }
             }
 
-            links += ValidateDocument(document, resMan, parser, net);
+            links += ValidateDocument(document, resMan, parser, net, net.IsPackage(site) ? site : null);
         }
 
         return links;
@@ -99,7 +113,8 @@ public sealed class CMUExtraNetTest : GameTest
         ResPath resPath,
         IResourceManager resMan,
         DocumentParsingManager parser,
-        CMUExtraNetSystem net)
+        CMUExtraNetSystem net,
+        CMUNetSitePrototype? package = null)
     {
         if (!resMan.ContentFileExists(resPath))
         {
@@ -109,7 +124,11 @@ public sealed class CMUExtraNetTest : GameTest
 
         using var reader = resMan.ContentFileReadText(resPath);
         var document = new Document();
-        Assert.That(parser.TryAddMarkup(document, reader.ReadToEnd()), $"Document {resPath} failed to parse.");
+        var text = reader.ReadToEnd();
+        if (package != null)
+            text = CMUExtraNetSystem.LocalPaths(text, package);
+
+        Assert.That(parser.TryAddMarkup(document, text), $"Document {resPath} failed to parse.");
 
         var controls = Descendants(document).ToList();
         Assert.That(controls.OfType<GuidebookError>(), Is.Empty, $"Document {resPath} contains invalid markup.");
@@ -127,6 +146,14 @@ public sealed class CMUExtraNetTest : GameTest
                     $"Document {resPath} links to camera network {network}, which does not exist.");
                 continue;
             }
+
+            if (CMUExtraNetSystem.IsBuiltIn(link.Link))
+                continue;
+
+            // A package stands alone: only links within itself must resolve.
+            if (package != null && CMUExtraNetSystem.Split(link.Link).Host != package.Address)
+                continue;
+
             Assert.That(net.Resolve(link.Link, null).Result, Is.EqualTo(CMUNetResolveResult.Found),
                 $"Document {resPath} links to {link.Link}, which is not a page.");
         }
@@ -159,6 +186,9 @@ public sealed class CMUExtraNetTest : GameTest
                     // The logo file may not exist yet, but the path must be one the splash can load once it does.
                     foreach (var logo in os.Logos)
                     {
+                        if (logo == CMUComputerOsPrototype.NameLogo)
+                            continue;
+
                         var path = new ResPath(logo);
                         Assert.That(path.IsRooted, $"{os.ID} logo must be an absolute path.");
                         Assert.That(path.Extension, Is.EqualTo("png").Or.EqualTo("rsi"), $"{os.ID} logo must be a .png or .rsi.");
@@ -168,6 +198,20 @@ public sealed class CMUExtraNetTest : GameTest
                         ValidateDocument(document.Path, resMan, parser, net);
                 }
             });
+        });
+    }
+
+    [Test]
+    [Description("A site package is picked up from its folder alone: plain text title, rooted where its site.yml is.")]
+    public async Task SitePackagesLoadThemselves()
+    {
+        await Server.WaitAssertion(() =>
+        {
+            var net = SEntMan.System<CMUExtraNetSystem>();
+            var page = net.Resolve("lostfound.colony/rules", null);
+            Assert.That(page.Result, Is.EqualTo(CMUNetResolveResult.Found), "The example package did not load.");
+            Assert.That(page.Site!.Root.ToString(), Does.Contain("/Packages/LostAndFound"), "The package was not rooted at its folder.");
+            Assert.That(CMUExtraNetSystem.Text(page.Site.Title), Is.EqualTo("Colony Lost and Found"), "A plain text title was not kept.");
         });
     }
 
@@ -190,6 +234,37 @@ public sealed class CMUExtraNetTest : GameTest
                     }
                 }
             });
+        });
+    }
+
+    [Test]
+    [Description("Computers learn the round's GOVFOR platoon when they spawn, and again when it changes.")]
+    public async Task ComputersFollowGovforPlatoon()
+    {
+        var map = await Pair.CreateTestMap();
+        await Server.WaitAssertion(() =>
+        {
+            var platoons = SEntMan.System<PlatoonSpawnRuleSystem>();
+            var previous = platoons.SelectedGovforPlatoon;
+            try
+            {
+                platoons.SelectedGovforPlatoon = SProtoMan.Index<PlatoonPrototype>("CMBCIU");
+                var computer = SEntMan.SpawnEntity("RMCPersonalDesktop", map.GridCoords);
+                var pc = SEntMan.GetComponent<CMUPersonalComputerComponent>(computer);
+                Assert.That(pc.Platoon, Is.EqualTo("CMBCIU"), "A new computer did not learn the GOVFOR platoon.");
+
+                platoons.SelectedGovforPlatoon = SProtoMan.Index<PlatoonPrototype>("RMC");
+                SEntMan.System<CMUPersonalComputerSystem>().RefreshPlatoon();
+                Assert.That(pc.Platoon, Is.EqualTo("RMC"), "A computer kept the old GOVFOR platoon after it changed.");
+
+                platoons.SelectedGovforPlatoon = null;
+                SEntMan.System<CMUPersonalComputerSystem>().RefreshPlatoon();
+                Assert.That(pc.Platoon, Is.Null, "A computer kept a GOVFOR platoon after it was cleared.");
+            }
+            finally
+            {
+                platoons.SelectedGovforPlatoon = previous;
+            }
         });
     }
 

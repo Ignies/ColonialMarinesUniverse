@@ -1,5 +1,6 @@
 <Document>
   <CMUNetStyle Background="#2B1A10" Text="#EADBC4" Heading="#D9A441" Link="#E8C77A" Font="Display"/>
+  <CMUGuideImage Path="/Textures/CMU14/PersonalComputers/Sites/Public/Albarran/banner.png" MaxHeight="150"/>
   # THE HUMIDOR
   [italic]The Albarran range. Prices in UA dollars, at the Gateway shop. Colony prices include freight, and freight includes patience.[/italic]
 

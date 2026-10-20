@@ -1,5 +1,6 @@
 <Document>
   <CMUNetStyle Background="#0C0A0F" Text="#CBC3CF" Heading="#B98FD9" Link="#86D1A4" Font="Sans"/>
+  <CMUGuideImage Path="/Textures/CMU14/PersonalComputers/Sites/Deep/Children/banner.png" MaxHeight="150"/>
   <CMUNetSprite Rsi="/Textures/_RMC14/Mobs/Xenonids/Parasite/parasite.rsi" State="alive" Scale="3"/>
   # THE EMBRACE: ON THE ONES WHO HOLD US
   [color=#6E5A7E]Pinned. Speak of them with respect, or do not speak of them here.[/color]

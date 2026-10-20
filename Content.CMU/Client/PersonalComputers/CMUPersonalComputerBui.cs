@@ -52,11 +52,12 @@ public sealed partial class CMUPersonalComputerBui : BoundUserInterface, ICMUNet
         _window = this.CreateWindow<CMUPersonalComputerWindow>();
         _window.OnKeyTyped += () => Play(_os.KeySound, -8f, _random.NextFloat(0.9f, 1.1f));
         _window.OnClicked += () => Play(_os.ClickSound, -6f, 1f);
+        _window.OnBooting += () => Play(_os.BootSound, -4f, 1f);
         _window.Boot(_os, net.GetNetworks((Owner, computer)), net.GetHomePage(computer), computer.Documents,
             EntMan.GetComponent<MetaDataComponent>(Owner).EntityName, this, computer.Colony, computer.ColonyName,
             EntMan.HasComponent<CMUDeepWebAccessComponent>(Owner) && _cfg.GetCVar(CMUPersonalComputerCVars.DeepWeb) ? this : null,
-            this);
-        Play(_os.BootSound, -4f, 1f);
+            this,
+            computer.Casing);
     }
 
     protected override void ReceiveMessage(BoundUserInterfaceMessage message)
@@ -123,6 +124,36 @@ public sealed partial class CMUPersonalComputerBui : BoundUserInterface, ICMUNet
 
     public TimeSpan TraceEnds => Computer?.TraceEnds ?? TimeSpan.Zero;
 
+    public bool Carrier => Computer?.Carrier ?? true;
+
+    public string? Platoon => Computer?.Platoon;
+
+    public bool On => Computer?.On ?? false;
+
+    public string? CardPrototype => Computer?.CardPrototype;
+
+    public void PressPower()
+    {
+        SendMessage(new CMUComputerPowerButtonMessage());
+    }
+
+    private static readonly List<string> NoConsoleApps = new();
+
+    public IReadOnlyList<string> ConsoleApps =>
+        EntMan.TryGetComponent(Owner, out CMUComputerConsoleComponent? console)
+            ? console.Apps.ConvertAll(a => a.Name)
+            : NoConsoleApps;
+
+    public void OpenConsoleApp(int app)
+    {
+        SendMessage(new CMUComputerOpenConsoleMessage(app));
+    }
+
+    public void UseReader()
+    {
+        SendMessage(new CMUComputerCardSlotMessage());
+    }
+
     public void Trace(NetEntity terminal)
     {
         SendMessage(new CMUCmbTraceMessage(terminal));
@@ -179,9 +210,9 @@ public sealed partial class CMUPersonalComputerBui : BoundUserInterface, ICMUNet
         SendMessage(new CMUBetRequestMessage());
     }
 
-    public void PlaceBet(int match, bool home, int amount)
+    public void PlaceBet(int match, int entrant, int amount)
     {
-        SendMessage(new CMUBetPlaceMessage(match, home, amount));
+        SendMessage(new CMUBetPlaceMessage(match, entrant, amount));
     }
 
     public bool RequireLogin => (Computer?.RequireLogin ?? false) && _cfg.GetCVar(CMUPersonalComputerCVars.Login);

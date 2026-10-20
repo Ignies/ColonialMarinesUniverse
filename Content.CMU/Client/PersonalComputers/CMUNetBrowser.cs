@@ -1,3 +1,4 @@
+using System.Linq;
 using Content.Client.CMU14.PersonalComputers.DeepWeb;
 using Content.Client.Guidebook.RichText;
 using Content.Shared.CMU14.PersonalComputers;
@@ -7,6 +8,7 @@ using Robust.Client.UserInterface.Controls;
 using Robust.Shared.Configuration;
 using Robust.Shared.ContentPack;
 using Robust.Shared.Prototypes;
+using Robust.Shared.Timing;
 using Robust.Shared.Utility;
 
 namespace Content.Client.CMU14.PersonalComputers;
@@ -32,6 +34,7 @@ public sealed partial class CMUNetBrowser : BoxContainer, ILinkClickHandler
     private readonly string? _colonyName;
     private readonly ICMUDeepHost? _deep;
     private readonly ICMUComputerHost? _shortcuts;
+    private bool _shownCarrier = true;
     private readonly HashSet<ProtoId<CMUNetworkPrototype>> _networks;
     private readonly string _home;
 
@@ -44,6 +47,7 @@ public sealed partial class CMUNetBrowser : BoxContainer, ILinkClickHandler
     private readonly Label _status;
 
     private readonly List<string> _history = new();
+    private readonly Random _random = new();
     private int _historyIndex = -1;
 
     /// <summary>The ad host waiting on the server, if the page on screen is one.</summary>
@@ -185,6 +189,16 @@ public sealed partial class CMUNetBrowser : BoxContainer, ILinkClickHandler
         if (address.Length == 0)
             return;
 
+        // The webring link: somewhere listed and reachable, picked fresh each time.
+        if (address.Equals(CMUExtraNetSystem.RandomAddress, StringComparison.OrdinalIgnoreCase))
+        {
+            var sites = _net.Sites.Where(s => !s.Unlisted && CMUExtraNetSystem.CanReach(s, _networks)).ToList();
+            if (sites.Count == 0)
+                return;
+
+            address = sites[_random.Next(sites.Count)].Address;
+        }
+
         // Camera links open a feed on the computer instead of a page.
         if (address.StartsWith(CMUDeepAddress.CameraScheme, StringComparison.OrdinalIgnoreCase))
         {
@@ -217,6 +231,17 @@ public sealed partial class CMUNetBrowser : BoxContainer, ILinkClickHandler
         _forward.Disabled = _historyIndex >= _history.Count - 1;
         _pendingAd = null;
         SetSaveable(null);
+
+        // No sensor tower, no network: every address is out of reach until it comes back.
+        _shownCarrier = _shortcuts?.Carrier ?? true;
+        if (!_shownCarrier)
+        {
+            _tabs.Visible = false;
+            _address.Text = address;
+            ShowSystemPage("cmu-pc-browser-no-carrier-title", "cmu-pc-browser-no-carrier-body", address);
+            SetStatus(string.Empty, "cmu-pc-browser-status-error");
+            return;
+        }
 
         if (_deep != null && address.Equals(CMUDeepHome.Address, StringComparison.OrdinalIgnoreCase))
         {
@@ -268,12 +293,12 @@ public sealed partial class CMUNetBrowser : BoxContainer, ILinkClickHandler
 
         _address.Text = page.Address;
         ShowTabs(page);
-        var siteTitle = page.Site == null ? string.Empty : Loc.GetString(page.Site.Title);
+        var siteTitle = page.Site == null ? string.Empty : CMUExtraNetSystem.Text(page.Site.Title);
 
         switch (page.Result)
         {
             case CMUNetResolveResult.Found:
-                var file = ColonyFile(page.Site!, page.File!.Value);
+                var file = PageFile(page.Site!, page.File!.Value);
                 if (!_resources.ContentFileExists(file))
                 {
                     ShowSystemPage("cmu-pc-browser-missing-page-title", "cmu-pc-browser-missing-page-body", page.Address);
@@ -283,7 +308,7 @@ public sealed partial class CMUNetBrowser : BoxContainer, ILinkClickHandler
 
                 using (var reader = _resources.ContentFileReadText(file))
                 {
-                    _view.ShowDocument(FillColony(reader.ReadToEnd()), page.Site!.Style);
+                    _view.ShowDocument(CMUExtraNetSystem.LocalPaths(FillColony(reader.ReadToEnd()), page.Site!), page.Site!.Style);
                 }
 
                 SetSaveable(page.Address);
@@ -365,14 +390,27 @@ public sealed partial class CMUNetBrowser : BoxContainer, ILinkClickHandler
         _save.Disabled = address == null;
     }
 
-    /// <summary>This colony's (or map's) own version of a page, <c>&lt;root&gt;/&lt;colony&gt;/&lt;file&gt;</c>, when the site has one.</summary>
-    private ResPath ColonyFile(CMUNetSitePrototype site, ResPath file)
+    /// <summary>
+    /// The version of a page to show: the GOVFOR platoon's own, <c>&lt;root&gt;/&lt;platoon&gt;/&lt;file&gt;</c>, on
+    /// sites with platoon pages; then this colony's (or map's), <c>&lt;root&gt;/&lt;colony&gt;/&lt;file&gt;</c>; then
+    /// the generic page.
+    /// </summary>
+    private ResPath PageFile(CMUNetSitePrototype site, ResPath file)
     {
-        if (_colony == null)
-            return file;
+        if (site.PlatoonPages && Variant(site, _shortcuts?.Platoon, file) is { } platoon)
+            return platoon;
 
-        var variant = site.Root / _colony / file.RelativeTo(site.Root);
-        return _resources.ContentFileExists(variant) ? variant : file;
+        return Variant(site, _colony, file) ?? file;
+    }
+
+    /// <summary><c>&lt;root&gt;/&lt;folder&gt;/&lt;file&gt;</c> when it exists.</summary>
+    private ResPath? Variant(CMUNetSitePrototype site, string? folder, ResPath file)
+    {
+        if (string.IsNullOrEmpty(folder))
+            return null;
+
+        var variant = site.Root / folder / file.RelativeTo(site.Root);
+        return _resources.ContentFileExists(variant) ? variant : null;
     }
 
     private string FillColony(string text)
@@ -380,6 +418,7 @@ public sealed partial class CMUNetBrowser : BoxContainer, ILinkClickHandler
         var name = string.IsNullOrEmpty(_colonyName) ? Loc.GetString("cmu-net-colony-unknown") : _colonyName;
         return text.Replace("{colony}", name, StringComparison.Ordinal);
     }
+
 
     /// <summary>The site's tab strip in its own colours, the open page's tab filled.</summary>
     private void ShowTabs(CMUNetPage page)
@@ -399,7 +438,7 @@ public sealed partial class CMUNetBrowser : BoxContainer, ILinkClickHandler
         {
             var path = tab.Path.Trim('/').ToLowerInvariant();
             var active = path == open;
-            var button = _theme.Button(Loc.GetString(tab.Title));
+            var button = _theme.Button(CMUExtraNetSystem.Text(tab.Title));
             button.StyleBoxOverride = _theme.ButtonBox(active ? link : background, link);
             button.Label.FontColorOverride = active ? background : link;
             button.OnPressed += _ => Click(path.Length == 0 ? site.Address : $"{site.Address}/{path}");
@@ -420,6 +459,16 @@ public sealed partial class CMUNetBrowser : BoxContainer, ILinkClickHandler
 
     /// <summary>The computer this browser runs on, for page tags that talk to the server.</summary>
     public ICMUComputerHost? Host => _shortcuts;
+
+    /// <summary>Reloads the page when the carrier drops or comes back.</summary>
+    protected override void FrameUpdate(FrameEventArgs args)
+    {
+        base.FrameUpdate(args);
+        if (_shortcuts == null || _shortcuts.Carrier == _shownCarrier || _historyIndex < 0)
+            return;
+
+        Show(_history[_historyIndex], false);
+    }
 
     /// <summary>The deep web side of the computer, when this is The deeps.exi.</summary>
     public ICMUDeepHost? Deep => _deep;
@@ -475,7 +524,7 @@ public sealed partial class CMUNetBrowser : BoxContainer, ILinkClickHandler
                             MinWidth = 220,
                             Children = { new CMUNetLinkLabel(site.Address, site.Address) },
                         },
-                        new Label { Text = Loc.GetString(site.Title) },
+                        new Label { Text = CMUExtraNetSystem.Text(site.Title) },
                     },
                 });
             }

@@ -1,5 +1,6 @@
 <Document>
   <CMUNetStyle Background="#0C0A0F" Text="#CBC3CF" Heading="#B98FD9" Link="#86D1A4" Font="Sans"/>
+  <CMUGuideImage Path="/Textures/CMU14/PersonalComputers/Sites/Deep/Children/banner.png" MaxHeight="150"/>
   <CMUNetMarquee Text="she is not cruel  ///  she is complete  ///  leave the door open  ///  keep the eggs warm  ///  no more being alone  ///  no more being afraid  ///  she is not cruel" Speed="35" Color="#6E5A7E"/>
   <CMUNetSprite Rsi="/Textures/_RMC14/Structures/Xenos/xeno_egg.rsi" State="egg" Scale="3"/>
   # THE CHILDREN OF THE HIVE

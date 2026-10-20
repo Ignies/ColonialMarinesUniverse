@@ -1,5 +1,6 @@
 <Document>
   <CMUNetStyle Background="#16120A" Text="#E8DCC0" Heading="#F2C230" Link="#E8A040" Font="Display"/>
+  <CMUGuideImage Path="/Textures/CMU14/PersonalComputers/Sites/Boards/Bounties/banner.png" MaxHeight="150"/>
   <CMUNetBlink Rate="0.8">
     [color=#F2C230][bold]JOBS WITH CASH ON THE TABLE[/bold][/color]
   </CMUNetBlink>

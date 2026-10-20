@@ -1,5 +1,6 @@
 <Document>
   <CMUNetStyle Background="#EEEBE4" Text="#2B2A28" Heading="#3B4F6E" Link="#2C6A8C" Font="Display"/>
+  <CMUGuideImage Path="/Textures/CMU14/PersonalComputers/Sites/Deep/LastSeen/banner.png" MaxHeight="150"/>
   <CMUNetMarquee Text="KEEP A LIGHT ON  ///  SOMEONE IS STILL LOOKING FOR EVERY NAME HERE  ///  IF YOU KNOW SOMETHING, YOU DO NOT HAVE TO SAY WHO YOU ARE  ///  FOUND THREADS STAY UP FOREVER" Speed="35" Color="#3B4F6E"/>
   # LAST SEEN
   [italic]For the families. Names, faces, the last shift. Somebody out there saw them after we did.[/italic]

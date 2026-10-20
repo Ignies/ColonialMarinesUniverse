@@ -1,4 +1,5 @@
 <Document>
+  <CMUGuideImage Path="/Textures/CMU14/PersonalComputers/Sites/Retro/VectorQuest/banner.png" MaxHeight="150"/>
   <CMUNetMarquee Text="VECTORQUEST: GET THERE. EVENTUALLY.  ///  NOW MAPPING 300 COLONIES AND MOST OF THEIR CORRIDORS  ///  PRINT YOUR DIRECTIONS BEFORE YOU LEAVE. THE UPLINK WILL NOT FOLLOW YOU." Speed="60" Color="#9BE15D"/>
   <Box>
     <CMUNetSprite Rsi="/Textures/_RMC14/Structures/hybrisa_computer_props.rsi" State="mapping_comp" Scale="1"/>

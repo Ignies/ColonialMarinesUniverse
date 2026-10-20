@@ -1,4 +1,5 @@
 <Document>
+  <CMUGuideImage Path="/Textures/CMU14/PersonalComputers/Sites/Retro/DropDash/banner.png" MaxHeight="150"/>
   <Box>
     <CMUNetSprite Rsi="/Textures/CMU14/PersonalComputers/Sites/Ads/billboards.rsi" State="dropship_gateway" Scale="2"/>
   </Box>

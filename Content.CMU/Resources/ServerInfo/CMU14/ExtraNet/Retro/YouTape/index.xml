@@ -1,4 +1,5 @@
 <Document>
+  <CMUGuideImage Path="/Textures/CMU14/PersonalComputers/Sites/Retro/YouTape/banner.png" MaxHeight="150"/>
   <CMUNetMarquee Text="BROADCAST YOURSELF  ///  THEN POST IT  ///  THEN WAIT SIX TO NINE WEEKS  ///  BE KIND, REWIND  ///  OVER 4,000 TAPES IN THE LIBRARY AND 11 IN THE PLAYER" Speed="65" Color="#FF2A2A"/>
   <Box>
     <CMUNetSprite Rsi="/Textures/CMU14/PersonalComputers/Sites/Ads/billboards.rsi" State="tv_static" Scale="2"/>

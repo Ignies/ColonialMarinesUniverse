@@ -1,5 +1,6 @@
 <Document>
   <CMUNetStyle Background="#0B0B05" Text="#E8E8C8" Heading="#FFE000" Link="#FF5050" Font="Terminal"/>
+  <CMUGuideImage Path="/Textures/CMU14/PersonalComputers/Sites/Public/VeilTruth/banner.png" MaxHeight="150"/>
   <CMUNetMarquee Text="WAKE UP COLONIST  ///  WHY DID HADLEY'S HOPE STOP ANSWERING  ///  YOUR COFFEE IS NOT JUST COFFEE  ///  GATEWAY STATION: HAS ANYONE ACTUALLY BEEN  ///  THE PROCESSOR KNOWS YOUR NAME  ///  ASK QUESTIONS" Speed="110" Color="#FFE000"/>
   # VEIL TRUTH
   <CMUNetBlink Rate="0.4">

@@ -22,6 +22,9 @@ public sealed class CMUComputerTheme
     public readonly Font Bold;
     public readonly Font Small;
 
+    /// <summary>The OS name as shown: the product name, or the colony's network name for OSes named after it.</summary>
+    public string DisplayName;
+
     private static readonly ResPath IconRoot = new("/Textures/CMU14/PersonalComputers/Icons");
 
     private readonly IResourceCache _cache;
@@ -31,6 +34,7 @@ public sealed class CMUComputerTheme
     {
         Os = os;
         _cache = cache;
+        DisplayName = Loc.GetString(os.Name);
         Phosphor = os.Phosphor;
         Background = os.Background;
         Accent = os.Accent ?? os.Phosphor;

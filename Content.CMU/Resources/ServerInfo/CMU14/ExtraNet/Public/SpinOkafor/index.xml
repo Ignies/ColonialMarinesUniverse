@@ -1,5 +1,6 @@
 <Document>
   <CMUNetStyle Background="#0A1630" Text="#DCE6FF" Heading="#FFB000" Link="#FF7A45" Font="Sans"/>
+  <CMUGuideImage Path="/Textures/CMU14/PersonalComputers/Sites/Public/SpinOkafor/banner.png" MaxHeight="150"/>
   <CMUNetMarquee Text="ORBITAL LEAGUE  ///  GATEWAY COMETS 4  TITAN TRITONS 3  ///  OKAFOR WITH THE WINNER IN THE LAST TEN SECONDS  ///  THREE TIME LEAGUE MVP  ///  NEXT: COMETS AT MARS RED ROVERS" Speed="75" Color="#FFB000"/>
   # SPIN OKAFOR
   [italic]Captain, Gateway Comets. Three time Orbital League Most Valuable Player. The fastest pair of hands in zero gravity.[/italic]

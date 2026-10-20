@@ -21,7 +21,7 @@ public sealed class CMUComputerSessionTest : GameTest
     private static readonly ProtoId<CMUNetSitePrototype> Dump = "CMUNetSiteDeepDump";
 
     [Test]
-    [Description("Terminals are numbered; an ID card logs its holder in and out; the log records it and only engineers can read it.")]
+    [Description("Terminals are numbered; a card in the reader keeps its holder logged in and taking it out logs them out; the log records it and only engineers can read it.")]
     public async Task CardsLogInAndEngineersReadLogs()
     {
         var map = await Pair.CreateTestMap();
@@ -35,13 +35,24 @@ public sealed class CMUComputerSessionTest : GameTest
 
             var user = SEntMan.SpawnEntity("CMMobHuman", map.GridCoords);
             var card = SEntMan.SpawnEntity("CMIDCardGold", map.GridCoords);
-            void Swipe() => SEntMan.EventBus.RaiseLocalEvent(first, new InteractUsingEvent(user, card, first, map.GridCoords));
+            void Reader()
+            {
+                var message = new CMUComputerCardSlotMessage { Actor = user, UiKey = CMUPersonalComputerUiKey.Key };
+                SEntMan.EventBus.RaiseLocalEvent(first, (object) message);
+            }
 
-            Assert.That(pc.SessionUser, Is.Null, "A fresh terminal was already logged in.");
-            Swipe();
-            Assert.That(pc.SessionUser, Is.Not.Null, "Swiping an ID card did not log in.");
-            Swipe();
-            Assert.That(pc.SessionUser, Is.Null, "Swiping the same card again did not log out.");
+            Assert.That(pc.On, Is.False, "A fresh terminal was already on.");
+            SEntMan.EventBus.RaiseLocalEvent(first, new InteractUsingEvent(user, card, first, map.GridCoords));
+            Assert.That(pc.CardPrototype, Is.Not.Null, "The card did not go into the reader.");
+            Assert.That(pc.SessionUser, Is.Null, "A switched off terminal logged someone in.");
+
+            pc.On = true;
+            Reader();
+            Assert.That(pc.CardPrototype, Is.Null, "Clicking the full reader did not hand the card back.");
+            SEntMan.EventBus.RaiseLocalEvent(first, new InteractUsingEvent(user, card, first, map.GridCoords));
+            Assert.That(pc.SessionUser, Is.Not.Null, "A card put into a switched on terminal did not log in.");
+            Reader();
+            Assert.That(pc.SessionUser, Is.Null, "Taking the card out did not log out.");
             Assert.That(pc.Log, Has.Count.EqualTo(2), "The login and logout were not logged.");
 
             var ui = SEntMan.System<Robust.Server.GameObjects.UserInterfaceSystem>();

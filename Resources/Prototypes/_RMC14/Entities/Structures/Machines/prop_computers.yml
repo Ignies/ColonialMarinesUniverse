@@ -82,6 +82,14 @@
       enum.CMUComputerLogUiKey.Key:
         type: CMUComputerLogBui
   - type: CMUDeepWebHackable
+  # Dark when the area's equipment power is off. RMC's power check reads the apc receiver.
+  - type: ApcPowerReceiver
+    powerLoad: 50
+    needsPower: true
+  - type: RMCPowerReceiver
+    idleLoad: 50
+    activeLoad: 50
+    channel: Equipment
   # Camera feeds tapped from the deep web; the network is set when a cam:// link is followed.
   - type: RMCCameraComputer
     title: cmu-deep-eyes-camera-title

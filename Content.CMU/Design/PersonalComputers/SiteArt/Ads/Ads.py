@@ -16,6 +16,11 @@ CMUDeepMazeSystem. Everything is drawn at 1x on the pixel grid with no antialias
 (a bold 9 row display face, a 5x7 face and a 3x5 face), shaded and outlined product sprites, and ordered
 dithering for gradients.
 
+Anything that exists in the game as a sprite (the hypersleep pod, the Working Joe, the MRE, the motion tracker,
+vials, autoinjectors, the pickaxe, hard hat and bomber jacket) is the game's own sprite, loaded from its .rsi
+through SiteArt/rsi_sprites.py and pasted at 1x or 2x with nearest neighbour, never redrawn. The pieces that use
+one credit it in attributions.yml and in the RSI meta.json.
+
     python Ads.py
 """
 
@@ -23,8 +28,12 @@ import json
 import math
 import os
 import random
+import sys
 
 from PIL import Image
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import rsi_sprites as RS  # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(HERE, "..", "..", "..", ".."))
@@ -749,128 +758,53 @@ def seeg_logo(cv, cx, cy, r, ring, field, mark):
     bitmap(cv, int(cx - w / 2), int(cy - len(SEEG_MARK) / 2), SEEG_MARK, {"#": mark})
 
 
+# -- Game sprites ------------------------------------------------------------------------------------------------
+# Every sprite pasted below is recorded here so the attributions can credit it.
+USED = {}
+POD = "_RMC14/Structures/Machines/hypersleep.rsi"
+MRE = "_RMC14/Objects/Consumable/Food/mre.rsi"
+TRACKER = "_RMC14/Objects/Tools/motion_detector.rsi"
+
+
+def game(rsi, state, index=0, direction=0, k=1, trim=True):
+    """One frame of a real game sprite as a PIL image, trimmed to its ink and scaled k times with nearest
+    neighbour."""
+    m = RS.meta(rsi)
+    USED[rsi] = (m.get("license", ""), m.get("copyright", "").strip())
+    img = RS.frame(rsi, state, index, direction)
+    return RS.scaled(RS.trim(img) if trim else img, k)
+
+
+def joe(direction=0, k=1):
+    """The Working Joe as the game draws it (body, jumpsuit and boots), trimmed and scaled k times."""
+    for rsi, _ in RS.WORKING_JOE:
+        m = RS.meta(rsi)
+        USED[rsi] = (m.get("license", ""), m.get("copyright", "").strip())
+    return RS.scaled(RS.trim(RS.working_joe(direction)), k)
+
+
+def put(cv, img, x, y, alpha=1.0, k=1.0):
+    """Alpha blends a sprite image onto the canvas with its top left at x, y. k scales its brightness."""
+    p = img.load()
+    for yy in range(img.height):
+        for xx in range(img.width):
+            r, g, b, a = p[xx, yy]
+            if a:
+                cv.set(x + xx, y + yy, (min(255, int(r * k)), min(255, int(g * k)), min(255, int(b * k)),
+                                        int(a * alpha)))
+
+
+def put_bc(cv, img, cx, bottom, **kw):
+    """Puts a sprite centred on cx with its bottom row on bottom."""
+    put(cv, img, int(cx - img.width // 2), int(bottom - img.height), **kw)
+    return int(cx - img.width // 2), int(bottom - img.height)
+
+
+def sprite_credits():
+    return "; ".join(f"{rsi.split('/')[-1]} ({lic}, {c})".replace('"', "'") for rsi, (lic, c) in sorted(USED.items()))
+
+
 # -- Product sprites ---------------------------------------------------------------------------------
-
-
-def working_joe(cv, ox, oy, eyes=1.0, suit=SUIT, bottom=36):
-    """Seegson Working Joe bust, 30 wide, head top at oy+1."""
-    cx = ox + 15
-    body = m_poly([(ox, oy + bottom), (ox + 1, oy + 27), (ox + 4, oy + 23), (ox + 10, oy + 21), (ox + 20, oy + 21),
-                   (ox + 26, oy + 23), (ox + 29, oy + 27), (ox + 30, oy + bottom)])
-    paint(cv, body, suit, f_cyl(ox, ox + 30, len(suit), 0.3, 0.4), SUIT_OL)
-    vee = m_poly([(cx - 5, oy + 21), (cx, oy + 28), (cx + 5, oy + 21)])
-    cv.fill(vee, "#20242a")
-    for i in range(7):
-        cv.set(cx - 5 + int(i * 5 / 7), oy + 21 + i, suit[4])
-        cv.set(cx + 4 - int(i * 5 / 7), oy + 21 + i, suit[2])
-    cv.vline(cx, oy + 29, oy + bottom, suit[0])
-    # Shoulder seams and the Seegson chest patch.
-    cv.line(ox + 5, oy + 24, ox + 8, oy + bottom, suit[1])
-    cv.line(ox + 25, oy + 24, ox + 22, oy + bottom, suit[1])
-    cv.rect(ox + 18, oy + 29, ox + 23, oy + 33, WHITE)
-    cv.rect(ox + 19, oy + 30, ox + 22, oy + 32, "#2f6db0")
-    cv.set(ox + 20, oy + 30, WHITE)
-    # Neck with its rubber rings.
-    neck = m_rect(cx - 3, oy + 15, cx + 3, oy + 23)
-    paint(cv, neck, SKIN, f_cyl(cx - 3, cx + 3, len(SKIN), 0.3, 0.5), SKIN_OL)
-    for ry in (oy + 18, oy + 20):
-        cv.hline(cx - 2, cx + 1, ry, SKIN[1])
-    # Ears, then the head.
-    for ex in (cx - 7.2, cx + 7.2):
-        paint(cv, m_ellipse(ex, oy + 11, 1.6, 2.6), SKIN, f_sphere(ex - 1, oy + 10, 3, len(SKIN)), SKIN_OL)
-    head = m_ellipse(cx, oy + 9.5, 7, 9)
-    paint(cv, head, SKIN, f_sphere(cx - 1.5, oy + 7.5, 9.5, len(SKIN), 0.12), SKIN_OL, soft=SKIN[1])
-    # Face plate seams.
-    cv.vline(cx - 6, oy + 9, oy + 13, SKIN[2])
-    cv.vline(cx + 5, oy + 9, oy + 13, SKIN[1])
-    # Brow ridge, sockets and the glowing eyes.
-    cv.hline(cx - 5, cx - 2, oy + 8, SKIN[4])
-    cv.hline(cx + 1, cx + 4, oy + 8, SKIN[3])
-    for sx in (cx - 3.5, cx + 3.5):
-        cv.fill(m_ellipse(sx, oy + 10.5, 2.2, 1.4), SKIN[0])
-        ex = int(sx - 1)
-        if eyes > 0.5:
-            cv.set(ex, oy + 10, GLOW[2])
-            cv.set(ex + 1, oy + 10, GLOW[3])
-            cv.set(ex - 1, oy + 10, GLOW[1])
-            cv.set(ex + 2, oy + 10, GLOW[1])
-        elif eyes > 0:
-            cv.hline(ex - 1, ex + 2, oy + 10, GLOW[1])
-        else:
-            cv.hline(ex - 1, ex + 2, oy + 10, SKIN[2])
-    # Nose, mouth and chin.
-    cv.set(cx - 1, oy + 13, SKIN[2])
-    cv.set(cx, oy + 13, SKIN[1])
-    cv.hline(cx - 2, cx + 1, oy + 15, SKIN_OL)
-    cv.hline(cx - 1, cx, oy + 16, SKIN[4])
-
-
-def cryo_pod(cv, ox, oy, lid=0.0, glow=True, sleeper=True, L=46):
-    """W-Y hypersleep chamber in side view, L x 21. lid is the canopy opening angle in degrees."""
-    if glow:
-        for i, c in enumerate(("#0f4a5c", "#0b3442")):
-            cv.fill(m_ellipse(ox + L / 2, oy + 20.5, L / 2 - 1 - i * 4, 1.6 - i * 0.3), c)
-    plinth = m_rect(ox + 4, oy + 16, ox + L - 4, oy + 20)
-    paint(cv, plinth, METAL, f_hcyl(oy + 16, oy + 20, len(METAL), 0.2, 0.5), METAL[0])
-    for x in range(ox + 6, ox + L - 6, 4):
-        cv.set(x, oy + 18, "#3ad0f0")
-    shell = m_rrect(ox + 1, oy + 8, ox + L - 1, oy + 17, 4)
-    paint(cv, shell, SHELL, f_hcyl(oy + 8, oy + 17, len(SHELL), 0.25, 0.6), SHELL_OL)
-    cv.hline(ox + 4, ox + L - 5, oy + 14, SHELL[2])
-    cv.hline(ox + 4, ox + L - 5, oy + 15, SHELL[1])
-    # Foot end control panel and head end vents.
-    cv.rect(ox + L - 8, oy + 11, ox + L - 4, oy + 13, "#1d2229")
-    cv.set(ox + L - 7, oy + 11, "#5aff8a")
-    cv.set(ox + L - 5, oy + 11, "#ffb030")
-    for vx in range(ox + 4, ox + 9, 2):
-        cv.vline(vx, oy + 11, oy + 12, SHELL[2])
-    # Canopy: a flattened dome hinged at the head end.
-    c0, c1, base = ox + 4, ox + L - 6, oy + 10
-    hinge = (c0 + 0.5, base)
-    a = math.radians(lid)
-    pts = []
-    H = 6 + L * 0.08
-    for k in range(29):
-        t = k / 28
-        h = H * math.sin(math.pi * t) ** 0.55
-        pts.append((c0 + (c1 - c0) * t, base - h))
-    rot = []
-    for px, py in pts:
-        dx, dy = px - hinge[0], py - hinge[1]
-        rot.append((hinge[0] + dx * math.cos(a) + dy * math.sin(a), hinge[1] - dx * math.sin(a) + dy * math.cos(a)))
-    canopy = m_poly(rot)
-    head = m_ellipse(ox + L * 0.24, oy + 6.6, 2.4, 2.3)
-    body = m_capsule(ox + L * 0.24 + 3.5, oy + 7.4, ox + L * 0.76, oy + 8, 2.1)
-    cv.fill(m_rect(c0 + 1, oy + 8, c1, oy + 10), "#0a1a22")
-    if sleeper:
-        # The sleeper under a white sheet, head on a pillow at the hinge end.
-        cv.fill(m_rect(int(ox + L * 0.24 - 3), oy + 8, int(ox + L * 0.24 + 2), oy + 10), SHELL[3])
-        paint(cv, head, FLESH, f_sphere(ox + L * 0.24 - 1, oy + 5.8, 3.2, len(FLESH)), FLESH[0])
-        for x, y in head:
-            if y < oy + 6 and x < ox + L * 0.24:
-                cv.set(x, y, "#3a2a1e")
-        paint(cv, body, SHELL, f_hcyl(oy + 6, oy + 11, len(SHELL), 0.3, 1.5), SHELL_OL)
-    if lid > 0:
-        lo = min(y for _, y in canopy)
-        paint(cv, canopy, GLASS, lambda x, y: 4.2 - (y - lo) * 0.4, GLASS[0], soft=GLASS[1])
-    else:
-        # Tinted glass over whatever is inside: blend instead of covering.
-        rim = edge(canopy)
-        for x, y in canopy:
-            v = 4.0 - (y - (base - H)) / H * 3.0
-            under = cv.get(x, y)
-            g = pick(GLASS, v, x, y, 0)
-            inside = sleeper and ((x, y) in head or (x, y) in body or y >= oy + 8)
-            cv.set(x, y, mix(under, g, 0.3) if inside else g)
-        for x, y in rim:
-            cv.set(x, y, GLASS[0])
-        # Glass glints along the top.
-        gx = int(c0 + (c1 - c0) * 0.3)
-        for i in range(5):
-            cv.set(gx + i, int(base - H + 1.5), GLASS[4])
-        cv.set(gx + 8, int(base - H + 1.5), GLASS[4])
-        cv.set(gx + 9, int(base - H + 1.5), GLASS[3])
-    cv.hline(ox + 3, ox + L - 4, oy + 10, SHELL_OL)
 
 
 def beer_can(cv, ox, oy, can=CAN_RED, band=GOLD):
@@ -909,27 +843,6 @@ def beer_can(cv, ox, oy, can=CAN_RED, band=GOLD):
             cv.set(x, y + 1, can[1])
 
 
-def power_cell(cv, ox, oy, band=LIME, mark="#0b0a10"):
-    """Seegson power cell, 10x25."""
-    cv.fill(m_rect(ox + 3, oy, ox + 7, oy + 2), METAL[4])
-    cv.set(ox + 3, oy, METAL[5])
-    cv.set(ox + 6, oy + 1, METAL[2])
-    body = m_rect(ox, oy + 3, ox + 10, oy + 23) | m_ellipse(ox + 5, oy + 3, 5, 1.4) | m_ellipse(ox + 5, oy + 23, 5, 1.4)
-    paint(cv, body, BLACKP, f_cyl(ox, ox + 10, len(BLACKP), 0.3, 0.3), INK)
-    bfn = f_cyl(ox, ox + 10, len(band), 0.3, 0.6)
-    for y in range(oy + 8, oy + 18):
-        for x in range(ox + 1, ox + 9):
-            cv.set(x, y, pick(band, bfn(x, y), x, y))
-    bitmap(cv, ox + 3, oy + 9, ["..#", ".##", "##.", ".##", "##.", "#.."][:6] + ["...", "..."], {"#": mark})
-    bitmap(cv, ox + 2, oy + 9, [".#..", "###.", ".#.."], {"#": band[4]})
-    rim = m_ellipse(ox + 5, oy + 3, 5, 1.4)
-    paint(cv, rim, METAL, f_cyl(ox, ox + 10, len(METAL), 0.3, 1.0), METAL[1])
-    for x in range(ox + 1, ox + 9):
-        cv.set(x, oy + 22, METAL[2] if x > ox + 5 else METAL[3])
-    cv.vline(ox + 2, oy + 4, oy + 7, BLACKP[4])
-    cv.vline(ox + 2, oy + 18, oy + 21, BLACKP[4])
-
-
 def box3d(cv, x, y, w, h, dx, dy, front, top, side, outline, fv=None):
     F = m_rect(x, y + dy, x + w, y + dy + h)
     T = m_poly([(x, y + dy), (x + dx, y), (x + w + dx, y), (x + w, y + dy)])
@@ -943,25 +856,6 @@ def box3d(cv, x, y, w, h, dx, dy, front, top, side, outline, fv=None):
     cv.hline(x + 1, x + w - 1, y + dy, top[-1])
     cv.line(x + w, y + dy, x + w + dx - 1, y + 1, side[-1] if len(side) else top[-1])
     return F, T, S
-
-
-def ration_box(cv, ox, oy):
-    """W-Y ration pack box, 34x26."""
-    box3d(cv, ox, oy, 24, 18, 9, 6, KHAKI, KHAKI, KHAKI[:5], "#16140a")
-    # Label panel with the pack name and a red flavour band.
-    cv.rect(ox + 2, oy + 9, ox + 22, oy + 16, "#d8cf98")
-    cv.hline(ox + 2, ox + 21, oy + 16, "#8a8044")
-    draw_text_c(cv, F3, ox + 12, oy + 10, "MRE", "#1a1a12")
-    cv.rect(ox + 2, oy + 18, ox + 22, oy + 21, "#a01810")
-    for x in range(ox + 3, ox + 21, 3):
-        cv.set(x, oy + 19, "#ffd040")
-    # The W-Y mark stencilled on the side.
-    bitmap(cv, ox + 25, oy + 9, WY_MARK_S[:4], {"#": KHAKI[1]})
-    cv.hline(ox + 26, ox + 30, oy + 16, KHAKI[1])
-    cv.hline(ox + 26, ox + 29, oy + 19, KHAKI[1])
-    # Strap.
-    cv.line(ox + 6, oy + 6, ox + 15, oy, KHAKI[1])
-    cv.vline(ox + 6, oy + 6, oy + 8, KHAKI[1])
 
 
 def holo_head(cv, ox, oy, phase=0):
@@ -999,41 +893,6 @@ def holo_head(cv, ox, oy, phase=0):
             cv.set(ox + i + 2, gy, c)
 
 
-def vial(cv, ox, oy, liquid=None):
-    """Lasalle vaccine vial, 10x26."""
-    liquid = liquid or ramp("#0a3a1a", "#147a34", "#22b04c", "#6ee68a", "#c4ffd0")
-    cv.fill(m_rect(ox + 2, oy, ox + 8, oy + 4), "#b8bec6")
-    cap = m_rect(ox + 2, oy, ox + 8, oy + 4)
-    paint(cv, cap, METAL, f_cyl(ox + 2, ox + 8, len(METAL), 0.3, 1.5), METAL[1])
-    cv.hline(ox + 2, ox + 7, oy + 2, METAL[2])
-    neck = m_rect(ox + 3, oy + 4, ox + 7, oy + 6)
-    glass = neck | m_rrect(ox, oy + 6, ox + 10, oy + 26, 2)
-    glass_r = ramp("#2a3a44", "#4a6270", "#7c98a6", "#b8d4de", "#eaf8ff")
-    paint(cv, glass, glass_r, f_cyl(ox, ox + 10, 5, 0.3, 0.5), "#1a2830")
-    lq = {(x, y) for x, y in glass if y >= oy + 12 and (x, y) not in edge(glass)}
-    paint(cv, lq, liquid, f_cyl(ox, ox + 10, len(liquid), 0.3, 0.4))
-    cv.hline(ox + 1, ox + 8, oy + 12, liquid[4])
-    # Label.
-    cv.rect(ox + 1, oy + 15, ox + 9, oy + 22, WHITE)
-    cv.hline(ox + 1, ox + 8, oy + 21, "#c8c4b8")
-    bitmap(cv, ox + 3, oy + 16, [".#.", "###", ".#."], {"#": "#18a048"})
-    cv.hline(ox + 2, ox + 7, oy + 20, "#606060")
-    cv.vline(ox + 2, oy + 7, oy + 13, glass_r[4])
-    cv.vline(ox + 2, oy + 23, oy + 24, glass_r[4])
-
-
-def injector(cv, ox, oy):
-    """Autoinjector pen lying flat, 26x7."""
-    body = m_capsule(ox + 3, oy + 3, ox + 20, oy + 3, 3)
-    paint(cv, body, SHELL, f_hcyl(oy, oy + 7, len(SHELL), 0.3, 0.8), SHELL_OL)
-    cv.rect(ox + 8, oy + 1, ox + 14, oy + 6, "#18a048")
-    cv.hline(ox + 8, ox + 13, oy + 1, "#6ee68a")
-    cv.hline(ox + 8, ox + 13, oy + 5, "#0a5a24")
-    cap = m_rect(ox + 20, oy + 1, ox + 25, oy + 6)
-    paint(cv, cap, ORANGE, f_hcyl(oy + 1, oy + 6, len(ORANGE), 0.3, 1), ORANGE[0])
-    cv.set(ox + 25, oy + 3, METAL[3])
-
-
 def shuttle(cv, ox, oy, hull=SHELL, stripe="#e86a1a", flame=True):
     """Passenger shuttle flying left, 44x14."""
     if flame:
@@ -1053,68 +912,6 @@ def shuttle(cv, ox, oy, hull=SHELL, stripe="#e86a1a", flame=True):
     for wx in range(ox + 15, ox + 31, 3):
         cv.set(wx, oy + 6, "#ffe6a0")
     cv.vline(ox + 40, oy + 5, oy + 11, METAL[1])
-
-
-def power_loader(cv, ox, oy):
-    """Weyland-Yutani P-5000 powered work loader in side view facing right, 44x30."""
-    YL = YELLOW
-    OL = rgba("#1a1204")
-    flat = lambda v: (lambda x, y: v)
-    # Power pack behind the cage.
-    pack = m_rrect(ox + 1, oy + 5, ox + 8, oy + 18, 1)
-    paint(cv, pack, METAL, f_cyl(ox + 1, ox + 8, len(METAL), 0.3, 0.8), METAL[0], dither=0)
-    for y in range(oy + 7, oy + 17, 2):
-        cv.hline(ox + 2, ox + 6, y, METAL[1])
-    # Legs: back leg in shadow, then the skid foot both stand on.
-    for lx, v in ((ox + 15, 1.6), (ox + 8, 3.0)):
-        leg = m_rect(lx, oy + 18, lx + 6, oy + 27)
-        paint(cv, leg, YL, flat(v) if v < 2 else f_cyl(lx, lx + 6, len(YL), 0.3, 1.5), OL, dither=0)
-        cv.rect(lx + 2, oy + 20, lx + 4, oy + 27, METAL[3] if v > 2 else METAL[2])
-        cv.vline(lx + 2, oy + 20, oy + 26, METAL[5] if v > 2 else METAL[3])
-    foot = m_rrect(ox + 3, oy + 26, ox + 26, oy + 30, 1)
-    paint(cv, foot, METAL, f_hcyl(oy + 26, oy + 30, len(METAL), 0.2, 1.0), METAL[0], dither=0)
-    for x in range(ox + 5, ox + 25, 3):
-        cv.set(x, oy + 28, METAL[1])
-    # Roll cage.
-    cage = (m_rect(ox + 6, oy, ox + 8, oy + 13) | m_rect(ox + 22, oy, ox + 24, oy + 13) |
-            m_rect(ox + 6, oy, ox + 24, oy + 2))
-    paint(cv, cage, YL, flat(3.5), OL, dither=0)
-    cv.hline(ox + 7, ox + 22, oy + 1, YL[5])
-    # Operator in the cage.
-    cv.fill(m_rect(ox + 8, oy + 2, ox + 22, oy + 13), "#24262a")
-    cv.fill(m_ellipse(ox + 15, oy + 5.5, 2.6, 2.6), "#5a6070")
-    cv.hline(ox + 13, ox + 15, oy + 4, "#8a90a0")
-    cv.rect(ox + 16, oy + 5, ox + 18, oy + 8, "#d8a888")
-    cv.set(ox + 17, oy + 6, "#3a2a20")
-    cv.fill(m_rrect(ox + 11, oy + 8, ox + 19, oy + 13, 1), "#4e5e3c")
-    cv.hline(ox + 12, ox + 17, oy + 8, "#6a7a50")
-    cv.line(ox + 18, oy + 10, ox + 22, oy + 10, "#d8a888")
-    # Chassis with hazard stripes.
-    chassis = m_rrect(ox + 4, oy + 12, ox + 28, oy + 19, 1)
-    paint(cv, chassis, YL, f_hcyl(oy + 12, oy + 19, len(YL), 0.3, 1.5), OL, dither=0)
-    for x, y in chassis:
-        if oy + 15 <= y <= oy + 17 and (x + y) % 6 < 3 and (x, y) not in edge(chassis):
-            cv.set(x, y, "#16120a")
-    cv.hline(ox + 5, ox + 26, oy + 13, YL[5])
-    # Beacon.
-    cv.rect(ox + 13, oy - 2, ox + 17, oy, "#ff8a00")
-    cv.hline(ox + 13, ox + 14, oy - 2, "#ffe0a0")
-    # Boom arm, wrist and an open claw.
-    paint(cv, m_ellipse(ox + 25.5, oy + 11.5, 3.2, 3.2), METAL, f_sphere(ox + 24.5, oy + 10.5, 3.4, len(METAL)),
-          METAL[0], dither=0)
-    arm = m_rect(ox + 26, oy + 9, ox + 37, oy + 15)
-    paint(cv, arm, YL, f_hcyl(oy + 9, oy + 15, len(YL), 0.3, 1.5), OL, dither=0)
-    cv.hline(ox + 27, ox + 35, oy + 10, YL[5])
-    for x in range(ox + 28, ox + 36, 3):
-        cv.vline(x, oy + 12, oy + 13, YL[1])
-    wrist = m_rect(ox + 36, oy + 8, ox + 39, oy + 16)
-    paint(cv, wrist, METAL, f_cyl(ox + 36, ox + 39, len(METAL), 0.3, 1.0), METAL[0], dither=0)
-    top = m_poly([(ox + 38, oy + 8), (ox + 42, oy + 5), (ox + 44, oy + 7), (ox + 44, oy + 9), (ox + 42, oy + 8),
-                  (ox + 39, oy + 10)])
-    bot = m_poly([(ox + 38, oy + 16), (ox + 42, oy + 19), (ox + 44, oy + 17), (ox + 44, oy + 15), (ox + 42, oy + 16),
-                  (ox + 39, oy + 14)])
-    paint(cv, top, METAL, flat(4), METAL[0], dither=0)
-    paint(cv, bot, METAL, flat(2.6), METAL[0], dither=0)
 
 
 def crt_terminal(cv, ox, oy, lines=("APOLLO", "READY"), cursor=True, phase=0, w=34):
@@ -1323,7 +1120,9 @@ def b_working_joe():
             if math.hypot(x - 21, y - 22) > 21:
                 cv.set(x, y, pick(ramp("#123a64", "#0c2848", "#071a32", "#050f20"), y / (BH - 1) * 3, x, y, 4))
     scanlines(cv, 0, 0, BW, BH, 0.86)
-    working_joe(cv, 6, 5)
+    # The Working Joe is the game's own sprite, standing in the spotlight on its shadow.
+    cv.fill(m_ellipse(22, 37.5, 9, 1.4), "#030a14")
+    put_bc(cv, joe(), 22, 38)
     # Wordmark.
     blue_white = bands((3, "#ffffff"), (3, "#d8ecff"), (3, "#9cc8f0"))
     draw_text(cv, BOLD, 44, 4, "SEEGSON", blue_white, outline="#06101e", shadow="#2f6db0", shadow_off=(1, 1))
@@ -1334,29 +1133,6 @@ def b_working_joe():
     sticker(cv, 136, 19, 17, 12, 14, ramp("#5a0808", "#a01010", "#d82018", "#ff4a2a", "#ff8a5a"), "#2a0404",
             [(F5, "NEW", WHITE, -8), (F3, "MODEL", "#ffe0a0", 1)], shadow="#020810")
     frame(cv, "#03080f", "#2f6db0", "#081a30")
-    return cv
-
-
-def b_hypersleep():
-    cv = Canvas(BW, BH)
-    vgrad(cv, 0, 0, BW, BH, ["#01030a", "#030818", "#071228", "#0c1c3a"])
-    rng = random.Random(7)
-    starfield(cv, rng, 1, 1, BW - 1, BH - 1, 80)
-    # A planet limb low on the left.
-    planet = m_ellipse(14, 60, 40, 26)
-    paint(cv, planet, ramp("#08141e", "#0e2a3a", "#16465a", "#2a6a7a", "#5aa0a8"),
-          f_sphere(0, 34, 40, 5, 0.0, 1.4), None, 4)
-    for x, y in halo(planet, False):
-        if y < BH:
-            cv.set(x, y, "#3a8aa0")
-    cryo_pod(cv, 5, 14, L=52)
-    wy_logo(cv, 62, 4, "#c8d4f0", small=True)
-    draw_text(cv, F3, 73, 4, "WEYLAND-YUTANI", "#c8d4f0")
-    draw_text(cv, BOLD, 62, 11, "HYPERSLEEP", bands((2, "#ffffff"), (3, "#d8f6ff"), (2, "#8ee0f4"), (2, "#3ab0d0")),
-              outline="#020610", shadow="#0a3a50")
-    draw_text(cv, F5, 62, 23, "WAKE REFRESHED", "#ffd27a", shadow="#2a1a00")
-    draw_text(cv, F3, 62, 32, "DELTA-7 CRYO CHAMBERS", "#7a8aaa")
-    frame(cv, "#000000", "#1c3a5a", None)
     return cv
 
 
@@ -1385,72 +1161,6 @@ def b_aspen():
     price_tag(cv, 125, 7, 32, 17, ramp("#8a6a10", "#c49a1a", "#f0c83a", "#ffe68a", "#fff8d0"), "#3a2a04",
               [(F3, "6-PACK", "#3a1a02", 7, 3), (F5, "$9.99", "#8a0c12", 5, 9)], string=(136, 1))
     frame(cv, "#200204", "#d84030", "#4a0408")
-    return cv
-
-
-def b_power_cells():
-    cv = Canvas(BW, BH, "#021008")
-    for x in range(0, BW, 6):
-        cv.vline(x, 0, BH, "#06200e")
-    for y in range(2, BH, 6):
-        cv.hline(0, BW, y, "#06200e")
-    radial(cv, 24, 22, 26, ["#0c3a18", "#082a12", "#041a0c", "#021008"], 0, 0, 50, BH)
-    for x in range(0, 50, 6):
-        cv.vline(x, 0, BH, "#0a3016")
-    for y in range(2, BH, 6):
-        cv.hline(0, 50, y, "#0a3016")
-    for i, x in enumerate((8, 20, 32)):
-        power_cell(cv, x, 9 - (i % 2) * 3)
-    # Zap between the terminals.
-    for x, y in ((14, 3), (15, 2), (16, 3), (17, 4), (26, 2), (27, 1), (28, 2), (29, 3)):
-        cv.set(x, y, GREEN_P[5])
-    draw_text(cv, F3, 52, 4, "SEEGSON", GREEN_P[3])
-    draw_text(cv, F3, 82, 4, "APOLLO SERIES", GREEN_P[2])
-    draw_text(cv, BOLD, 52, 11, "POWER CELLS", bands((1, GREEN_P[5]), (6, GREEN_P[4]), (2, GREEN_P[3])),
-              outline="#010804", shadow=GREEN_P[1])
-    # Charge meter.
-    cv.fill(edge(m_rect(52, 24, 112, 31)), GREEN_P[3])
-    for i in range(11):
-        c = GREEN_P[4] if i < 10 else GREEN_P[1]
-        cv.rect(54 + i * 5, 26, 58 + i * 5, 29, c)
-    cv.rect(112, 26, 114, 29, GREEN_P[3])
-    draw_text(cv, F3, 52, 33, "LASTS THREE SHIFTS LONGER", GREEN_P[3])
-    # Price box.
-    cv.rect(129, 8, 157, 31, "#031a0a")
-    cv.fill(edge(m_rect(129, 8, 157, 31)), GREEN_P[4])
-    cv.fill(edge(m_rect(131, 10, 155, 29)), GREEN_P[1])
-    draw_text_c(cv, F3, 143, 12, "4-PACK", GREEN_P[3])
-    draw_text_c(cv, BOLD, 143, 18, "4.50", GREEN_P[5])
-    scanlines(cv, 0, 0, BW, BH, 0.72)
-    frame(cv, "#000000", "#1a4a28", "#010804")
-    for x, y in ((1, 1), (BW - 2, 1), (1, BH - 2), (BW - 2, BH - 2)):
-        cv.set(x, y, "#000000")
-    return cv
-
-
-def b_rations():
-    cv = Canvas(BW, BH)
-    vgrad(cv, 0, 0, BW, BH, ["#5a5430", "#4a4426", "#3a361e"])
-    rng = random.Random(3)
-    for _ in range(420):
-        x, y = rng.randrange(BW), rng.randrange(BH)
-        cv.tint({(x, y)}, 0.85 if rng.random() < 0.6 else 1.12)
-    # Diagonal hazard band on the left.
-    for y in range(BH):
-        for x in range(0, 7):
-            cv.set(x, y, "#e8c020" if (x + y) % 8 < 4 else "#16140a")
-    cv.vline(7, 0, BH, "#16140a")
-    wy_logo(cv, 12, 4, "#e2d9a0", small=True, shadow="#1a180c")
-    draw_text(cv, F3, 23, 4, "WEYLAND-YUTANI", "#e2d9a0", shadow="#1a180c")
-    draw_text(cv, BOLD, 12, 11, "RATIONS", bands((5, "#f4eccc"), (4, "#d4c890")), outline="#16140a",
-              shadow="#16140a", shadow_off=(1, 1))
-    draw_text(cv, F3, 12, 22, "HOT MEAL IN 90 SEC.", "#ffd040", shadow="#16140a")
-    ribbon(cv, 17, 99, 29, 8, ramp("#4a0806", "#8a1410", "#c02418", "#e84a30", "#ff8a6a"), "#2a0404",
-           "NOW ON COLONY SHELVES", F3, WHITE)
-    ration_box(cv, 118, 10)
-    sticker(cv, 105, 13, 12, 9, 12, ramp("#6a5004", "#b08a08", "#e8bc18", "#ffe048", "#fff4a0"), "#3a2a02",
-            [(F5, "NEW", "#8a1410", -4)], shadow="#16140a")
-    frame(cv, "#16140a", None, None)
     return cv
 
 
@@ -1496,9 +1206,13 @@ def b_lasalle():
         for x, y in edge(m_ellipse(128, 20, r, r)):
             if x > split(y) + 1:
                 cv.set(x, y, TEAL[3])
-    vial(cv, 116, 6)
-    vial(cv, 129, 9, ramp("#3a1a04", "#8a4a0a", "#d08a1a", "#ffc860", "#fff0c0"))
-    injector(cv, 110, 31)
+    # The game's vials and emergency autoinjector, at 2x; the vial fill layer is tinted the way the game tints
+    # it by reagent.
+    for vx, vy, liquid in ((122, 37, "#40d070"), (134, 39, "#e09a28")):
+        put_bc(cv, game("_RMC14/Objects/Chemistry/vials.rsi", "vial", k=2), vx, vy)
+        fill = RS.scaled(RS.tinted(RS.trim(RS.frame("_RMC14/Objects/Chemistry/vials.rsi", "vial3")), liquid), 2)
+        put_bc(cv, fill, vx, vy - 2)
+    put(cv, game("_RMC14/Objects/Medical/emergency_auto_injector.rsi", "autoinjector"), 99, 33)
     # Cross logo.
     cross = m_rect(10, 6, 14, 18) | m_rect(6, 10, 18, 14)
     paint(cv, cross, ramp("#0a5a24", "#128a3a", "#18a048", "#5ad080"), f_lin(6, 6, 18, 18, 3, 1), "#064a1c")
@@ -1624,35 +1338,6 @@ def b_souta():
     sticker(cv, 142, 29, 10, 7, 12, ramp("#ff9ab8", "#ffd6e4", "#fff4f8", "#ffffff"), "#86163e",
             [(F3, "20S", "#86163e", -2)], shadow="#86163e")
     frame(cv, "#4a0a24", "#ffd6e4", None)
-    return cv
-
-
-def b_power_loader():
-    cv = Canvas(BW, BH)
-    vgrad(cv, 0, 0, BW, BH, ["#3a3c40", "#2c2e32", "#1e2024"])
-    # Corrugated wall.
-    for x in range(0, BW, 4):
-        cv.vline(x, 4, BH - 5, "#34363a")
-        cv.vline(x + 1, 4, BH - 5, "#26282c")
-    for band_y in (0, BH - 4):
-        for y in range(band_y, band_y + 4):
-            for x in range(BW):
-                cv.set(x, y, "#f0c41e" if (x - y) % 10 < 5 else "#141210")
-    cv.hline(0, BW, 4, "#000000")
-    cv.hline(0, BW, BH - 5, "#000000")
-    # Floor shadow under the loader.
-    cv.fill(m_ellipse(22, 34.5, 18, 1.4), "#141518")
-    power_loader(cv, 4, 6)
-    draw_text(cv, F3, 50, 7, "WEYLAND-YUTANI HEAVY LIFT", "#c8c8c0")
-    draw_text(cv, BOLD, 50, 13, "P-5000", bands((3, "#fff6c0"), (3, "#ffe468"), (3, "#f0c41e")), outline="#000000",
-              shadow="#7a5a08", scale=1)
-    draw_text(cv, F5, 93, 13, "POWER", WHITE, shadow="#000000")
-    draw_text(cv, F5, 93, 21, "LOADER", WHITE, shadow="#000000")
-    draw_text(cv, F3, 50, 29, "LIFTS 4000 KG - CLASS 2", "#a8a8a0")
-    plate = m_rrect(131, 12, 157, 27, 2)
-    paint(cv, plate, YELLOW, f_lin(131, 12, 143, 27, 4.4, 2.6), "#1a1204")
-    draw_text_c(cv, F3, 144, 14, "LEASE", "#1a1204")
-    draw_text_c(cv, F3, 144, 20, "OR BUY", "#1a1204")
     return cv
 
 
@@ -2087,42 +1772,24 @@ def b_mining():
                     i += 1
                 if i:
                     cv.set(x, y, mix(cv.get(x, y), "#fff0c0", 0.2 * i))
-    # A rock ledge with a pick leaning on it, and the hard hat in profile, lamp to the right.
+    # A rock ledge with the game's pickaxe leaning on it and the game's hard hat, lamp on, resting on top.
     ledge = m_poly([(0, 29), (8, 27), (30, 27), (40, 30), (42, BH), (0, BH)])
     paint(cv, ledge, ramp("#1a1614", "#2a2420", "#3e362e", "#5a4e42"), f_lin(0, 27, 0, BH, 2.6, 0.4), "#0c0a0a",
           dither=4)
     cv.hline(8, 30, 27, "#6a5e50")
-    cv.fill(m_capsule(3, 6, 12, 27, 1.1), BROWN[3])
-    cv.line(4, 6, 12, 26, BROWN[5])
-    head = m_poly([(0, 7), (4, 3), (9, 2), (7, 5), (3, 8)])
-    paint(cv, head, METAL, lambda x, y: 4, METAL[0])
-    for x, y in m_ellipse(19, 27.5, 14, 1.2):
+    put(cv, game("_RMC14/Objects/Weapons/Melee/pickaxe.rsi", "icon"), 1, 5)
+    for x, y in m_ellipse(21, 27.5, 12, 1.2):
         cv.set(x, y, "#0c0a0a")
-    dome = {(x, y) for x, y in m_ellipse(18, 24, 12, 13) if y < 23}
-    paint(cv, dome, YELLOW, f_sphere(14, 14, 14, len(YELLOW), 0.25, 0.9), "#2a1e02", soft=YELLOW[1])
-    for x, y in dome:
-        if abs(x + 0.5 - (17 + (y - 11) * 0.15)) < 1.2 and y < 22 and (x, y) not in edge(dome):
-            cv.set(x, y, YELLOW[5] if x < 18 else YELLOW[3])
-    brim = m_poly([(4, 22), (32, 22), (37, 24), (36, 26), (5, 26), (3, 24)])
-    paint(cv, brim, YELLOW, f_lin(0, 22, 0, 26, 4.4, 1.4), "#2a1e02")
-    cv.hline(5, 33, 22, YELLOW[5])
-    draw_text(cv, F3, 8, 16, "W-Y", YELLOW[1])
-    lamp = m_rrect(27, 12, 34, 19, 1)
-    paint(cv, lamp, METAL, f_hcyl(12, 19, len(METAL), 0.3, 0.8), METAL[0])
-    cv.vline(34, 13, 17, "#fff6d0")
-    cv.vline(35, 14, 16, WHITE)
-    cv.set(28, 13, METAL[5])
-    blink(cv, 36, 15, "#fff0c0", big=True)
+    put_bc(cv, game("_RMC14/Objects/Clothing/Head/Helmets/Hardhats/yellow.rsi", "icon_on", k=2), 21, 28)
+    blink(cv, 33, 15, "#fff0c0", big=True)
     wy_logo(cv, 44, 4, "#e2d9a0", small=True)
     draw_text(cv, F3, 55, 4, "EXTRACTION DIVISION", "#c8b890")
     draw_text(cv, BOLD, 44, 11, "MINERS WANTED", bands((3, "#fff6c0"), (3, "#ffe468"), (3, "#f0c41e")),
               outline="#0c0a0a", shadow="#5a3a08")
     draw_text(cv, F5, 44, 23, "5-YEAR CONTRACTS", "#ffd27a", shadow="#0c0a0a")
     draw_text(cv, F3, 44, 32, "ROOM, BOARD & HAZARD PAY", "#c8b8a0", shadow="#0c0a0a")
-    ore = m_poly([(144, 30), (147, 24), (152, 23), (156, 27), (155, 33), (148, 35)])
-    paint(cv, ore, GOLD, f_sphere(147, 25, 11, len(GOLD), 0.45), GOLD[0])
-    cv.line(147, 25, 151, 31, GOLD[1])
-    blink(cv, 150, 26, "#fff8d8", big=True)
+    put_bc(cv, game("Objects/Materials/ore.rsi", "gold"), 150, 36)
+    blink(cv, 152, 24, "#fff8d8", big=True)
     frame(cv, "#000000", "#3a322c", None)
     return cv
 
@@ -2322,39 +1989,6 @@ def floor_lamp(cv, ox, oy, on=True):
     cv.hline(ox + 12, ox + 21, oy + 8, "#fff2c0" if on else TEAL[1])
 
 
-def flight_jacket(cv, ox, oy):
-    """Synthleather flight jacket, front view, 34x32."""
-    rib = ramp("#120804", "#24120a", "#3a1e10")
-    for sx, sgn in ((ox + 5, -1), (ox + 29, 1)):
-        arm = m_poly([(sx, oy + 4), (sx + sgn * 5, oy + 7), (sx + sgn * 6, oy + 28), (sx + sgn * 1, oy + 28),
-                      (sx, oy + 12)])
-        paint(cv, arm, LEATHER, f_cyl(min(sx, sx + sgn * 6), max(sx, sx + sgn * 6), len(LEATHER), 0.35, 0.4),
-              LEATHER[0])
-        cuff = {(x, y) for x, y in arm if y >= oy + 25}
-        paint(cv, cuff, rib, lambda x, y: 1 + (x % 2), LEATHER[0])
-    body = m_poly([(ox + 5, oy + 4), (ox + 12, oy + 2), (ox + 22, oy + 2), (ox + 29, oy + 4), (ox + 29, oy + 29),
-                   (ox + 5, oy + 29)])
-    paint(cv, body, LEATHER, f_cyl(ox + 5, ox + 29, len(LEATHER), 0.3, 0.6), LEATHER[0], soft=LEATHER[2])
-    band = {(x, y) for x, y in body if y >= oy + 26}
-    paint(cv, band, rib, lambda x, y: 1 + (x % 2), LEATHER[0])
-    # Zip, pockets, collar, patches.
-    cv.vline(ox + 17, oy + 9, oy + 28, METAL[4])
-    cv.vline(ox + 16, oy + 9, oy + 28, LEATHER[1])
-    for px in (ox + 8, ox + 20):
-        cv.hline(px, px + 5, oy + 20, LEATHER[1])
-        cv.hline(px, px + 5, oy + 21, LEATHER[4])
-    fur = ramp("#8a7a5a", "#c8b890", "#e8dcb8", "#fff6e0")
-    for sgn in (-1, 1):
-        col = m_poly([(ox + 17, oy + 11), (ox + 17 + sgn * 9, oy + 1), (ox + 17 + sgn * 12, oy + 3),
-                      (ox + 17 + sgn * 9, oy + 8), (ox + 17 + sgn * 2, oy + 13)])
-        paint(cv, col, fur, f_lin(ox + 8, oy, ox + 20, oy + 12, 3.4, 1.4), "#5a4a30", dither=4)
-    cv.fill(m_poly([(ox + 13, oy + 2), (ox + 21, oy + 2), (ox + 17, oy + 9)]), "#2a1a10")
-    cv.fill(m_ellipse(ox + 24, oy + 15, 2.6, 2.6), "#1c3a6a")
-    cv.set(ox + 24, oy + 14, "#ffd040")
-    cv.rect(ox + 8, oy + 13, ox + 14, oy + 16, "#e8dcb8")
-    cv.hline(ox + 9, ox + 12, oy + 14, "#5a4a30")
-
-
 def squadron_patch(cv, cx, cy, r=10):
     disc = m_ellipse(cx, cy, r, r)
     cv.fill(shift(disc, 1, 1), (0, 0, 0, 120))
@@ -2415,44 +2049,6 @@ def seed_packet(cv, ox, oy, band, crop):
         cv.line(cx, cy + 3, cx - 2, cy - 2, LEAF[1])
         cv.line(cx, cy + 3, cx + 2, cy - 1, LEAF[1])
     cv.hline(ox + 3, ox + 10, oy + 17, "#8a7a5a")
-
-
-def colonial_marine(cv, ox, oy):
-    """A Colonial Marine in M3 armour from the chest up, pulse rifle across the chest, 44x38."""
-    rim = rgba("#ffd27a")
-    torso = m_poly([(ox + 6, oy + 38), (ox + 7, oy + 23), (ox + 14, oy + 18), (ox + 30, oy + 18), (ox + 37, oy + 23),
-                    (ox + 38, oy + 38)])
-    paint(cv, torso, OLIVE, f_cyl(ox + 6, ox + 38, len(OLIVE), 0.3, 0.4), OLIVE[0], soft=rim)
-    for sx in (ox + 10, ox + 34):
-        pad = m_ellipse(sx, oy + 23, 6, 4.5)
-        paint(cv, pad, OLIVE, f_sphere(sx - 2, oy + 21, 7, len(OLIVE), 0.25), OLIVE[0], soft=rim)
-    plate = m_rrect(ox + 15, oy + 21, ox + 30, oy + 34, 2)
-    paint(cv, plate, OLIVE, f_lin(ox + 15, oy + 21, ox + 30, oy + 34, 4.6, 2.2), OLIVE[0])
-    cv.rect(ox + 18, oy + 23, ox + 27, oy + 26, "#2a2e1a")
-    # Neck, face and the M10 helmet.
-    cv.fill(m_rect(ox + 19, oy + 14, ox + 26, oy + 19), FLESH[1])
-    face = m_rrect(ox + 16, oy + 6, ox + 28, oy + 18, 3)
-    paint(cv, face, FLESH, f_sphere(ox + 19, oy + 9, 11, len(FLESH), 0.3), FLESH[0])
-    cv.hline(ox + 18, ox + 20, oy + 11, "#2a1a10")
-    cv.hline(ox + 23, ox + 25, oy + 11, "#2a1a10")
-    cv.hline(ox + 20, ox + 24, oy + 15, FLESH[0])
-    helm = {(x, y) for x, y in m_ellipse(ox + 22, oy + 9, 8.5, 8) if y < oy + 9}
-    helm |= m_rect(ox + 13, oy + 7, ox + 31, oy + 10)
-    paint(cv, helm, OLIVE, f_sphere(ox + 19, oy + 3, 11, len(OLIVE), 0.25), OLIVE[0], soft=rim)
-    cv.hline(ox + 15, ox + 29, oy + 9, OLIVE[1])
-    cv.fill(m_rect(ox + 29, oy + 6, ox + 33, oy + 10), METAL[2])
-    cv.set(ox + 31, oy + 7, "#ff3a2a")
-    # The pulse rifle across the chest.
-    gun = m_capsule(ox + 2, oy + 36, ox + 40, oy + 22, 2.2)
-    paint(cv, gun, METAL, f_lin(ox, oy + 20, ox, oy + 38, 3.6, 1.2), "#0a0b0e")
-    cv.fill(m_poly([(ox + 18, oy + 31), (ox + 22, oy + 29), (ox + 25, oy + 35), (ox + 21, oy + 37)]), METAL[1])
-    cv.line(ox + 5, oy + 34, ox + 38, oy + 22, METAL[4])
-    for k in range(4):
-        cv.set(ox + 30 + k * 2, oy + 26 - k, "#0a0b0e")
-    hand = m_ellipse(ox + 31, oy + 26, 2.5, 2.2)
-    paint(cv, hand, FLESH, f_sphere(ox + 30, oy + 25, 3, len(FLESH), 0.3), FLESH[0])
-    hand2 = m_ellipse(ox + 13, oy + 32, 2.5, 2.2)
-    paint(cv, hand2, FLESH, f_sphere(ox + 12, oy + 31, 3, len(FLESH), 0.3), FLESH[0])
 
 
 def container(cv, x, y, w, h, rmp, label=None, label_c=WHITE):
@@ -2535,7 +2131,8 @@ def b_jacket():
             if (x - y) % 6 == 0:
                 cv.set(x, y, mix(cv.get(x, y), OLIVE[0], 0.5))
     glow(cv, 22, 20, 24, 24, "#c8b070", 0.25, 0, 0, 44, BH)
-    flight_jacket(cv, 5, 5)
+    # The game's bomber jacket (the pilots' issue), at 2x.
+    put_bc(cv, game("_RMC14/Objects/Clothing/OuterClothing/Coats/bomber_khaki.rsi", "icon", k=2), 22, 37)
     squadron_patch(cv, 144, 13)
     draw_text(cv, F3, 46, 4, "GENUINE ISSUE PATTERN", "#d8d0a0", shadow=OLIVE[0])
     draw_text(cv, BOLD, 46, 11, "FLIGHT JACKET", bands((3, "#fff0d0"), (3, "#e8c890"), (3, "#c89a5a")),
@@ -2616,43 +2213,6 @@ def b_seeds():
                     cv.set(dx - 16 + x + 1, 4 + y + 1, (0, 0, 0, 120))
         cv.paste(sub, dx - 16, 4)
     frame(cv, "#06020a", PURPLE[2], None)
-    return cv
-
-
-def b_uscm():
-    cv = Canvas(BW, BH)
-    vgrad(cv, 0, 0, BW, BH, ["#0c1a34", "#0a1428", "#060e1e"])
-    for y in range(BH):
-        for x in range(96, BW):
-            a = math.atan2(y + 0.5 - 44, x + 0.5 - 134) * 18 / math.pi
-            if int(math.floor(a)) % 2 == 0:
-                k = 1 - math.hypot(x - 134, y - 44) / 70
-                if k > threshold(x, y, 4) * 0.8:
-                    cv.set(x, y, mix(cv.get(x, y), "#c49a1a", 0.35))
-    for i in range(5):
-        for x in range(0, 60):
-            cv.set(x, 36 + i, "#a01818" if i % 2 == 0 else "#e8e0d0")
-    colonial_marine(cv, 112, 3)
-    draw_text(cv, F5, 6, 4, "JOIN THE", "#ffd27a", shadow="#000000")
-    draw_text(cv, BOLD, 6, 13, "COLONIAL", bands((3, WHITE), (3, "#e8e8f0"), (3, "#b8c0d8")), outline="#04080f",
-              shadow="#a01818")
-    draw_text(cv, BOLD, 6, 24, "MARINES", bands((3, "#fff6c0"), (3, "#ffe068"), (3, "#f0b628")), outline="#04080f",
-              shadow="#a01818")
-    # Winged star.
-    star_c = (86, 22)
-    for sgn in (-1, 1):
-        for k in range(4):
-            y = star_c[1] - 4 + k * 2
-            x0 = star_c[0] + sgn * 8
-            x1 = star_c[0] + sgn * (21 - k * 3)
-            cv.hline(x0, x1, y, "#ffd27a" if k == 0 else "#c49a1a")
-            cv.hline(x0, x1 - sgn, y + 1, "#7a5a08")
-    disc = m_ellipse(star_c[0], star_c[1], 8, 8)
-    paint(cv, disc, GOLD, f_sphere(star_c[0] - 2, star_c[1] - 3, 11, len(GOLD), 0.4), GOLD[0])
-    cv.fill(m_ellipse(star_c[0], star_c[1], 6, 6), "#0c1a34")
-    cv.fill(m_burst(star_c[0], star_c[1] + 0.5, 5.5, 2.3, 5, -math.pi / 2), WHITE)
-    draw_text(cv, F3, 63, 34, "ENLIST TODAY", WHITE, shadow="#000000")
-    frame(cv, "#000000", "#c49a1a", None)
     return cv
 
 
@@ -2803,61 +2363,6 @@ DROP = ramp("#141810", "#262c1e", "#3a4230", "#525c44", "#6e7a5c", "#949e80")
 BEER = ramp("#5a2a04", "#9a5a0a", "#d4961c", "#f4c444", "#ffe890")
 
 
-def walking_joe(cv, hx, floor, p):
-    """Working Joe in profile walking right with a serving tray, about 24x27; p is the walk phase in radians."""
-    bob = -1 if abs(math.sin(p)) < 0.45 else 0
-    hip = (hx + 0.5, floor - 9 + bob)
-
-    def leg(off, rmp_v):
-        t = 0.5 * math.sin(p + off)
-        swing = math.cos(p + off)
-        knee = (hip[0] + math.sin(t) * 4.6, hip[1] + math.cos(t) * 4.6)
-        sa = t - (0.9 * swing if swing > 0 else 0)
-        foot = (knee[0] + math.sin(sa) * 4.6, min(floor - 1.0, knee[1] + math.cos(sa) * 4.6))
-        m = m_capsule(hip[0], hip[1], knee[0], knee[1], 1.4) | m_capsule(knee[0], knee[1], foot[0], foot[1], 1.3)
-        paint(cv, m, SUIT, lambda x, y: rmp_v, SUIT_OL)
-        boot = m_rrect(int(foot[0]) - 1, int(foot[1]) - 1, int(foot[0]) + 4, int(foot[1]) + 2, 1)
-        paint(cv, boot, BLACKP, lambda x, y: 2.4 if y < foot[1] else 1.2, INK)
-
-    leg(math.pi, 1.2)
-    top = floor - 27 + bob
-    torso = m_rrect(int(hx) - 4, top + 9, int(hx) + 5, top + 19, 2)
-    paint(cv, torso, SUIT, f_cyl(hx - 4, hx + 5, len(SUIT), 0.35, 0.6), SUIT_OL)
-    cv.rect(int(hx) + 1, top + 12, int(hx) + 4, top + 15, WHITE)
-    cv.set(int(hx) + 2, top + 13, "#2f6db0")
-    leg(0, 3.0)
-    neck = m_rect(int(hx) - 1, top + 7, int(hx) + 2, top + 10)
-    paint(cv, neck, SKIN, f_cyl(hx - 1, hx + 2, len(SKIN), 0.3, 0.5), SKIN_OL)
-    cv.hline(int(hx) - 1, int(hx) + 1, top + 9, SKIN[1])
-    head = m_ellipse(hx + 1, top + 4.5, 4, 4.6)
-    paint(cv, head, SKIN, f_sphere(hx - 0.5, top + 2.5, 6, len(SKIN), 0.12), SKIN_OL, soft=SKIN[1])
-    cv.set(int(hx) + 3, top + 4, GLOW[3])
-    cv.set(int(hx) + 4, top + 4, GLOW[2])
-    cv.set(int(hx) + 2, top + 4, SKIN[0])
-    cv.hline(int(hx) + 3, int(hx) + 4, top + 7, SKIN_OL)
-    cv.set(int(hx) - 1, top + 4, SKIN[1])
-    cv.set(int(hx) - 1, top + 5, SKIN[1])
-    # Arm out in front holding the tray level.
-    sh = (hx + 1, top + 11)
-    el = (hx + 2.5, top + 16)
-    hand = (hx + 7.5, top + 15)
-    paint(cv, m_capsule(sh[0], sh[1], el[0], el[1], 1.3) | m_capsule(el[0], el[1], hand[0], hand[1], 1.2), SUIT,
-          lambda x, y: 3.6, SUIT_OL)
-    paint(cv, m_ellipse(hand[0] + 0.5, hand[1], 1.6, 1.4), SKIN, lambda x, y: 4, SKIN_OL)
-    ty = top + 13
-    cv.hline(int(hx) + 5, int(hx) + 17, ty, METAL[5])
-    cv.hline(int(hx) + 5, int(hx) + 17, ty + 1, METAL[2])
-    mug = m_rect(int(hx) + 7, ty - 4, int(hx) + 11, ty)
-    paint(cv, mug, CAN_RED, f_cyl(hx + 7, hx + 11, len(CAN_RED), 0.3, 1.0), CAN_RED[0])
-    cv.set(int(hx) + 11, ty - 3, CAN_RED[1])
-    dome = {(x, y) for x, y in m_ellipse(hx + 14.5, ty, 3.5, 3.5) if y < ty}
-    paint(cv, dome, METAL, f_sphere(hx + 13.5, ty - 2.5, 4, len(METAL), 0.3), METAL[0])
-    cv.set(int(hx) + 14, ty - 4, METAL[5])
-    sp = int(round(math.sin(p * 2) * 0.8))
-    cv.set(int(hx) + 8 + sp, ty - 6, (220, 220, 230, 170))
-    cv.set(int(hx) + 9 - sp, ty - 8, (220, 220, 230, 110))
-
-
 def bb_joe_tray(i, n):
     cv = Canvas(BBW, BBH)
     s = i * 16 // n
@@ -2880,8 +2385,18 @@ def bb_joe_tray(i, n):
     for x in range(BBW):
         if (x + s) % 8 == 0:
             cv.vline(x, 27, BBH, "#16181c")
-    cv.fill(m_ellipse(28, 29.5, 9, 1.2), "#141618")
-    walking_joe(cv, 24, 30, i * 2 * math.pi / n)
+    cv.fill(m_ellipse(26, 30.5, 7, 1.2), "#141618")
+    # The game's Working Joe, side on, carrying a tray with the game's cup of Joe; it bobs as it walks.
+    bob = -1 if i % 2 else 0
+    jx, jy = put_bc(cv, joe(2), 24, 31 + bob)
+    tray_y = jy + 15
+    cup = game("_RMC14/Objects/Consumable/Drinks/coffee_joe.rsi", "icon")
+    put_bc(cv, cup, jx + 15, tray_y)
+    cv.hline(jx + 7, jx + 21, tray_y, "#c8ccd2")
+    cv.hline(jx + 8, jx + 20, tray_y + 1, "#6a7078")
+    sp = (i % 4) - 1
+    cv.set(jx + 15 + (1 if sp > 0 else 0), tray_y - cup.height - 2, (220, 220, 230, 170))
+    cv.set(jx + 16 - (1 if sp > 0 else 0), tray_y - cup.height - 4, (220, 220, 230, 110))
     panel = m_rect(52, 0, BBW, BBH)
     paint(cv, panel, SUIT, f_lin(52, 0, 76, BBH, 2.4, 0.8), None, 4)
     cv.vline(52, 0, BBH, "#4a8cbd")
@@ -2897,26 +2412,30 @@ def bb_joe_tray(i, n):
 
 
 def bb_cryo_wake(i, n):
+    """The game's hypersleep pod idles with its glass pulsing, opens with a burst of cold mist and seals again."""
     cv = Canvas(BBW, BBH)
     vgrad(cv, 0, 0, BBW, BBH, ["#02040c", "#040a1a", "#081428", "#0c1c36"])
     starfield(cv, random.Random(31), 1, 1, 60, 14, 18)
     for x in range(1, 60):
         cv.set(x, 15, "#1c2c44")
-    lid = [0, 0, 10, 22, 32, 36, 36, 26, 14, 4][i]
-    open_k = lid / 36
+    opened = 5 <= i <= 8
+    open_k = 1.0 if opened else 0.0
     glow(cv, 30, 26, 32, 8, "#2ab0d0", 0.2 + 0.25 * open_k, 0, 0, 62, BBH)
-    cryo_pod(cv, 3, 7, lid=lid, sleeper=True, L=56)
-    if lid >= 10:
-        t = i - 2 + 1
+    for x, y in m_ellipse(31, 30.5, 17, 1.6):
+        cv.set(x, y, "#0b3442")
+    pod = game(POD, "open", trim=False) if opened else game(POD, "closed", i % 7, trim=False)
+    put(cv, pod, 15, 0)
+    if opened:
+        t = i - 4
         for j in range(60):
             r = random.Random(j * 7 + 3)
-            sx = 9 + r.random() * 40
-            dx = (sx - 30) / 20 * 1.1 + (r.random() - 0.5) * 0.5
+            sx = 18 + r.random() * 26
+            dx = (sx - 31) / 20 * 1.1 + (r.random() - 0.5) * 0.5
             dy = -0.55 - r.random() * 0.35
             tt = t * (0.6 + r.random() * 0.6)
             x = sx + dx * tt * 2.2
-            y = 15 + dy * tt * 2.2 + 0.32 * tt * tt
-            a = max(0.0, 1 - tt / 10) * (0.5 + open_k * 0.5)
+            y = 12 + dy * tt * 2.2 + 0.32 * tt * tt
+            a = max(0.0, 1 - tt / 10)
             if a <= 0:
                 continue
             cv.set(int(x), int(y), (214, 244, 255, int(170 * a)))
@@ -2924,8 +2443,8 @@ def bb_cryo_wake(i, n):
                 cv.set(int(x) + ddx, int(y) + ddy, (190, 232, 250, int(60 * a)))
             for ddx, ddy in ((2, 0), (-2, 0), (1, 1), (-1, 1), (1, -1), (-1, -1)):
                 cv.set(int(x) + ddx, int(y) + ddy, (170, 220, 245, int(28 * a)))
-        for x, y in m_ellipse(30, 28, 30, 2.5):
-            cv.set(x, y, (180, 230, 250, int(70 * open_k)))
+        for x, y in m_ellipse(31, 29, 26, 2.5):
+            cv.set(x, y, (180, 230, 250, 70))
     panel = m_rect(62, 0, BBW, BBH)
     for x, y in panel:
         cv.set(x, y, mix(cv.get(x, y), "#02040c", 0.6))
@@ -2933,10 +2452,7 @@ def bb_cryo_wake(i, n):
     wy_logo(cv, 74, 3, "#c8d4f0", small=True)
     draw_text(cv, F5, 65, 11, "HYPER", bands((2, WHITE), (5, "#8ee0f4")))
     draw_text(cv, F5, 65, 19, "SLEEP", bands((2, WHITE), (5, "#8ee0f4")))
-    if lid >= 30:
-        draw_text(cv, F3, 65, 27, "WAKE UP", "#ffd27a")
-    else:
-        draw_text(cv, F3, 65, 27, "WAKE UP", "#3a4a6a")
+    draw_text(cv, F3, 65, 27, "WAKE UP", "#ffd27a" if opened else "#3a4a6a")
     frame(cv, "#000000", None, None)
     return cv
 
@@ -3516,62 +3032,36 @@ def badge_seegeye(i, n):
 
 
 def badge_joewave(i, n):
+    """The game's Working Joe says hello: a speech bubble pops up beside it and its greeting blinks."""
     cv = Canvas(32, 32)
-    a = math.sin(i * 2 * math.pi / n)
-    # Small Joe: draw at full size then sample down is too lossy, so a compact bust here.
-    cx = 13
-    body = m_poly([(1, 32), (2, 26), (6, 23), (20, 23), (24, 26), (25, 32)])
-    paint(cv, body, SUIT, f_cyl(1, 25, len(SUIT), 0.3, 0.4), SUIT_OL)
-    cv.fill(m_poly([(cx - 3, 23), (cx, 27), (cx + 3, 23)]), "#20242a")
-    cv.rect(16, 27, 19, 30, WHITE)
-    cv.set(17, 28, "#2f6db0")
-    neck = m_rect(cx - 2, 17, cx + 2, 24)
-    paint(cv, neck, SKIN, f_cyl(cx - 2, cx + 2, len(SKIN), 0.3, 0.5), SKIN_OL)
-    head = m_ellipse(cx, 11, 6, 7.5)
-    paint(cv, head, SKIN, f_sphere(cx - 1.5, 9, 8, len(SKIN), 0.12), SKIN_OL, soft=SKIN[1])
-    for sx in (cx - 3, cx + 2):
-        cv.hline(sx, sx + 1, 11, SKIN[0])
-        cv.set(sx, 11, GLOW[2])
-        cv.set(sx + 1, 11, GLOW[3])
-    cv.hline(cx - 1, cx + 1, 15, SKIN_OL)
-    # Raised arm waving from the elbow.
-    sh = (21.5, 25)
-    el = (25.5, 20)
-    ang = math.radians(-90 + a * 30)
-    hand = (el[0] + math.cos(ang) * 7, el[1] + math.sin(ang) * 7)
-    paint(cv, m_capsule(sh[0], sh[1], el[0], el[1], 2.2), SUIT, lambda x, y: 2.6, SUIT_OL)
-    paint(cv, m_capsule(el[0], el[1], hand[0], hand[1], 1.8), SUIT, lambda x, y: 3.4, SUIT_OL)
-    # Open palm with three fingers and a thumb, turned with the forearm.
-    ux, uy = math.cos(ang), math.sin(ang)
-    px, py = -uy, ux
-    palm = m_ellipse(hand[0] + ux * 1.5, hand[1] + uy * 1.5, 2.3, 2.3)
-    fingers = set()
-    for k in (-1.2, 0, 1.2):
-        fingers |= m_capsule(hand[0] + ux * 2.5 + px * k, hand[1] + uy * 2.5 + py * k,
-                             hand[0] + ux * 5 + px * k * 1.2, hand[1] + uy * 5 + py * k * 1.2, 0.6)
-    fingers |= m_capsule(hand[0] + ux * 1.5 - px * 2, hand[1] + uy * 1.5 - py * 2,
-                         hand[0] + ux * 2.5 - px * 3.5, hand[1] + uy * 2.5 - py * 3.5, 0.6)
-    paint(cv, palm | fingers, SKIN, f_sphere(hand[0] - 1, hand[1] - 2, 5, len(SKIN), 0.3), SKIN_OL)
-    if abs(a) > 0.7:
-        side = 1 if a > 0 else -1
-        for k in range(3):
-            cv.set(int(hand[0] + ux * 3 + side * (5 + k)), int(hand[1] + uy * 3 - 2 + k * 2), "#9cc8f0")
+    cv.fill(m_ellipse(10.5, 30.5, 8, 1.3), (0, 0, 0, 110))
+    put_bc(cv, joe(), 10, 31 - (1 if i in (2, 3) else 0))
+    if 1 <= i <= 4:
+        bub = m_rrect(19, 2, 31, 11, 2) | m_poly([(20, 10), (18, 14), (24, 10)])
+        cv.fill(shift(bub, 1, 1), (0, 0, 0, 110))
+        paint(cv, bub, ramp("#9cc8f0", "#e8f4ff", "#ffffff"), lambda x, y: 2 - (y - 2) / 9, "#08101a")
+        draw_text(cv, F3, 21, 4, "HI", "#2f6db0" if i % 2 else "#08101a")
+        cv.set(28, 4, "#ffb030")
+        cv.set(28, 5, "#ffb030")
+        cv.set(28, 6, "#ffb030")
+        cv.set(28, 8, "#ffb030")
     return cv
 
 
 def badge_cryopod(i, n):
-    """A hypersleep chamber whose canopy lifts, lets out a puff of cold mist and closes again."""
+    """The game's hypersleep pod: its glass pulses, it opens and lets out a puff of cold mist, then seals."""
     cv = Canvas(32, 32)
-    lid = [0, 0, 10, 22, 30, 30, 20, 8][i]
-    cryo_pod(cv, 1, 8, lid=lid, sleeper=True, L=30)
-    if lid >= 20:
+    opened = i in (5, 6)
+    pod = game(POD, "open", trim=False) if opened else game(POD, "closed", i % 7, trim=False)
+    put(cv, pod, 0, 0)
+    if opened:
         rng = random.Random(i)
-        for _ in range(16):
+        for _ in range(16 if i == 5 else 9):
             x = rng.randrange(6, 26)
-            y = rng.randrange(1, 9)
+            y = rng.randrange(0, 9)
             cv.set(x, y, (210, 244, 255, 120 + rng.randrange(100)))
-    if lid == 0 and i == 0:
-        blink(cv, 22, 4, GLASS[3])
+    if i == 0:
+        blink(cv, 25, 6, "#b6ecf8")
     return cv
 
 
@@ -3603,55 +3093,19 @@ def badge_pricetag(i, n):
     return cv
 
 
-def ration_tin_tex(tw):
-    """The printed wrap of a W-Y ration tin, laid out flat: tw wide, rows match the badge."""
-    tex = Canvas(tw, 32, KHAKI[3])
-    for y in (10, 24):
-        tex.hline(0, tw - 1, y, KHAKI[1])
-        tex.hline(0, tw - 1, y + 1, KHAKI[4])
-    tex.rect(0, 20, tw, 23, "#a01810")
-    for x in range(1, tw, 3):
-        tex.set(x, 21, "#ffd040")
-    tex.rect(3, 12, 22, 19, "#e8dfb0")
-    tex.hline(3, 21, 18, "#a89a60")
-    draw_text(tex, F3, 6, 13, "MRE", "#1a1a12")
-    bitmap(tex, 27, 13, WY_MARK_S, {"#": KHAKI[1]})
-    tex.hline(26, 36, 19, KHAKI[2])
-    return tex
-
-
 def badge_ration_tin(i, n):
+    """The game's MRE: it hops, glints and pops open."""
     cv = Canvas(32, 32)
-    tw = 56
-    tex = ration_tin_tex(tw)
-    cx, r = 16, 10
-    cv.fill(m_ellipse(17, 28.5, 12, 1.6), (0, 0, 0, 110))
-    body = m_rect(6, 9, 26, 27) | m_ellipse(cx, 27, r, 2.4)
-    off = i * tw / n
-    for x, y in body:
-        u = max(-1.0, min(1.0, (x + 0.5 - cx) / r))
-        th = math.asin(u)
-        tx = int((th / (2 * math.pi) * tw + off) % tw)
-        c = tex.get(tx, min(y, 26))
-        k = 0.55 + 0.6 * max(0.0, math.cos(th + 0.55))
-        if -0.75 < th < -0.45:
-            k += 0.25
-        cv.set(x, y, (min(255, int(c[0] * k)), min(255, int(c[1] * k)), min(255, int(c[2] * k)), 255))
-    for x, y in edge(body):
-        cv.set(x, y, "#16140a")
-    rim = m_ellipse(cx, 27, r, 2.4) - m_ellipse(cx, 26.4, r - 1, 1.8)
-    for x, y in rim:
-        if y >= 27:
-            cv.set(x, y, METAL[3] if x < cx else METAL[2])
-    lid = m_ellipse(cx, 9, r, 2.8)
-    paint(cv, lid, METAL, f_cyl(6, 26, len(METAL), 0.3, 1.5), METAL[1])
-    cv.fill(edge(m_ellipse(cx, 9, r - 2, 1.4)), METAL[2])
-    a = i * 2 * math.pi / n
-    tx, ty = cx + math.cos(a) * 5.5, 9 + math.sin(a) * 1.3
-    cv.set(int(tx), int(ty), METAL[5])
-    cv.set(int(tx) + 1, int(ty), METAL[4])
-    if i == 0:
-        blink(cv, 9, 4, WHITE)
+    cv.fill(m_ellipse(16.5, 29.5, 10, 1.4), (0, 0, 0, 110))
+    if i < 5:
+        hop = (0, -1, -2, -1, 0)[i]
+        put_bc(cv, game(MRE, "closed"), 16, 29 + hop)
+        if i == 2:
+            blink(cv, 22, 8, WHITE)
+    else:
+        put_bc(cv, game(MRE, "open"), 16, 29)
+        for k in range(i - 4):
+            cv.set(12 + k * 3, 3 - k % 2, (230, 220, 200, 150))
     return cv
 
 
@@ -3681,47 +3135,13 @@ def badge_neon_open(i, n):
 
 
 def badge_motion_tracker(i, n):
+    """The game's motion detector counting a contact in: its range readout ticks down while the ping ring
+    sweeps out, both from the detector's own sprite states."""
     cv = Canvas(32, 32)
-    body = m_rrect(2, 2, 30, 30, 3)
-    cv.fill(shift(body, 1, 1), (0, 0, 0, 110))
-    paint(cv, body, METAL, f_lin(2, 2, 20, 30, 3.8, 1.2), METAL[0], soft=METAL[3])
-    scr = m_rrect(5, 5, 27, 22, 2)
-    cv.fill(scr, "#021208")
-    ox, oy = 16, 22
-    for x, y in scr:
-        d = math.hypot(x + 0.5 - ox, y + 0.5 - oy)
-        ang = math.degrees(math.atan2(y + 0.5 - oy, x + 0.5 - ox))
-        if not (-150 <= ang <= -30):
-            continue
-        if any(abs(d - rr) < 0.5 for rr in (6, 11, 16)):
-            cv.set(x, y, "#0a3a18")
-        R = 2 + i * 2.6
-        if abs(d - R) < 0.7:
-            cv.set(x, y, GREEN_P[5])
-        elif 0.7 <= R - d < 2.2:
-            cv.set(x, y, GREEN_P[2])
-    for ang in (-150, -30):
-        for k in range(17):
-            x = ox + math.cos(math.radians(ang)) * k
-            y = oy + math.sin(math.radians(ang)) * k
-            if (int(x), int(y)) in scr:
-                cv.set(int(x), int(y), "#0a3a18")
-    R = 2 + i * 2.6
-    for bx, by in ((11, 10), (21, 13)):
-        d = math.hypot(bx + 0.5 - ox, by + 0.5 - oy)
-        age = R - d
-        if age >= 0:
-            c = GREEN_P[5] if age < 3 else GREEN_P[4] if age < 7 else GREEN_P[3]
-            cv.fill(m_rect(bx, by, bx + 2, by + 2), c)
-            if age < 3:
-                for dx, dy in N4:
-                    cv.set(bx + (dx > 0) + dx, by + (dy > 0) + dy, GREEN_P[3])
-    cv.set(ox, oy - 1, GREEN_P[4])
-    scanlines(cv, 5, 5, 27, 22, 0.78)
-    dist = ["--", "21", "18", "16", "14", "12", "11", "09"][i]
-    draw_text(cv, F3, 6, 24, dist + "M", GREEN_P[4])
-    cv.set(25, 25, "#ff3a2a" if i % 2 else "#6a1a10")
-    cv.hline(19, 23, 26, METAL[1])
+    put(cv, game(TRACKER, "detector_blip", i % 4, trim=False), 4, -3, alpha=0.55)
+    cv.fill(m_ellipse(16, 29.5, 10, 1.4), (0, 0, 0, 110))
+    put(cv, game(TRACKER, "detector", trim=False), 1, 2)
+    put(cv, game(TRACKER, f"detector_on_{9 - i}", i % 2, trim=False), 1, 2)
     return cv
 
 
@@ -3910,44 +3330,19 @@ def icon_wy():
 
 
 def icon_synthetic():
+    """The game's Working Joe, head and shoulders at 2x."""
     cv = Canvas(24, 24)
-    head = m_ellipse(12, 11, 8, 10)
-    neck = m_rect(9, 19, 15, 24)
-    cv.fill(shift(head | neck, 1, 1), (0, 0, 0, 110))
-    paint(cv, neck, SKIN, f_cyl(9, 15, len(SKIN), 0.3, 0.5), SKIN_OL)
-    cv.hline(10, 13, 21, SKIN[1])
-    paint(cv, head, SKIN, f_sphere(10, 8, 11, len(SKIN), 0.12), SKIN_OL, soft=SKIN[1])
-    cv.hline(6, 9, 8, SKIN[4])
-    cv.hline(14, 17, 8, SKIN[3])
-    for sx in (8.5, 15.5):
-        cv.fill(m_ellipse(sx, 10.5, 2.5, 1.5), SKIN[0])
-        cv.set(int(sx) - 1, 10, GLOW[2])
-        cv.set(int(sx), 10, GLOW[3])
-        cv.set(int(sx) + 1, 10, GLOW[1])
-    cv.set(11, 13, SKIN[2])
-    cv.set(12, 13, SKIN[1])
-    cv.hline(10, 13, 16, SKIN_OL)
-    cv.hline(11, 12, 17, SKIN[4])
-    cv.vline(5, 10, 14, SKIN[2])
-    cv.vline(18, 10, 14, SKIN[1])
+    j = joe()
+    cx = j.width // 2
+    bust = RS.scaled(j.crop((cx - 6, 0, cx + 6, 12)), 2)
+    put(cv, bust, 0, 0)
     return cv
 
 
 def icon_cryopod():
-    cv = Canvas(24, 24)
-    # Head-on view of a hypersleep chamber with the canopy closed.
-    shell = m_rrect(2, 4, 22, 22, 7)
-    cv.fill(shift(shell, 1, 1), (0, 0, 0, 110))
-    paint(cv, shell, SHELL, f_sphere(9, 8, 16, len(SHELL), 0.3), SHELL_OL)
-    glass = m_rrect(5, 6, 19, 17, 5)
-    paint(cv, glass, GLASS, f_lin(5, 6, 14, 17, 4.2, 1.2), GLASS[0])
-    cv.fill(m_ellipse(12, 10, 2.5, 2.5), GLASS[1])
-    cv.fill(m_rrect(8, 12, 16, 17, 2) & glass - edge(glass), GLASS[1])
-    for k in range(3):
-        cv.set(7 + k, 8 - (1 if k == 2 else 0) + (1 if k == 0 else 0), GLASS[4])
-    cv.hline(6, 17, 19, SHELL[2])
-    cv.set(9, 20, "#5aff8a")
-    cv.set(14, 20, "#ffb030")
+    """The game's hypersleep pod, closed (the popup shows icons at 2x whatever their size)."""
+    cv = Canvas(32, 32)
+    put(cv, game(POD, "closed", trim=False), 0, 0)
     return cv
 
 
@@ -4075,19 +3470,10 @@ def icon_sprout():
 
 
 def icon_ration_tin():
+    """The game's MRE."""
     cv = Canvas(24, 24)
-    body = m_rect(4, 5, 20, 21) | m_ellipse(12, 21, 8, 1.8)
-    cv.fill(shift(body, 1, 1), (0, 0, 0, 110))
-    paint(cv, body, KHAKI, f_cyl(4, 20, len(KHAKI), 0.3, 0.6), "#16140a")
-    lab = m_rect(5, 9, 19, 15)
-    paint(cv, lab, CREAM, f_cyl(4, 20, len(CREAM), 0.3, 1.0))
-    draw_text_c(cv, F3, 12, 10, "MRE", "#1a1a12")
-    cv.rect(5, 16, 19, 18, "#a01810")
-    for x in range(6, 19, 3):
-        cv.set(x, 16, "#ffd040")
-    lid = m_ellipse(12, 5, 8, 2)
-    paint(cv, lid, METAL, f_cyl(4, 20, len(METAL), 0.3, 1.5), METAL[1])
-    cv.fill(edge(m_ellipse(12, 5, 6, 1.1)), METAL[2])
+    cv.fill(m_ellipse(12.5, 22.5, 8, 1.2), (0, 0, 0, 110))
+    put_bc(cv, game(MRE, "closed"), 12, 22)
     return cv
 
 
@@ -4113,8 +3499,9 @@ def write_rsi(folder, entries, w, h, what):
         delays = delay if isinstance(delay, list) else [delay] * n
         assert len(delays) == n, name
         states.append({"name": name, "delays": [delays]})
+    extra = f". Some include game sprites: {sprite_credits()}" if USED else ""
     meta = {"version": 1, "license": "CC-BY-SA-3.0",
-            "copyright": f"{what} drawn for CMU, generated by {GENERATOR}",
+            "copyright": f"{what} drawn for CMU, generated by {GENERATOR}{extra}",
             "size": {"x": w, "y": h}, "states": states}
     with open(os.path.join(rsi, "meta.json"), "w", encoding="utf-8", newline="\n") as f:
         json.dump(meta, f, indent=2)
@@ -4150,7 +3537,8 @@ def main():
             names = ", ".join(f'"{n}"' for n in group)
             f.write(f"- files: [{names}]\n")
             f.write('  license: "CC-BY-SA-3.0"\n')
-            f.write(f'  copyright: "{what} drawn for CMU, generated by {GENERATOR}"\n')
+            extra = f". Some include game sprites: {sprite_credits()}" if USED else ""
+            f.write(f'  copyright: "{what} drawn for CMU, generated by {GENERATOR}{extra}"\n')
             f.write(f'  source: "{SOURCE}"\n')
             f.write("\n" if group is files else "")
 

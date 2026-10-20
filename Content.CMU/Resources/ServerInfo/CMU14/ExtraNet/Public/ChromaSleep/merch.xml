@@ -1,5 +1,6 @@
 <Document>
   <CMUNetStyle Background="#120A24" Text="#E6DDFF" Heading="#FF4FD8" Link="#00F0FF" Font="Display"/>
+  <CMUGuideImage Path="/Textures/CMU14/PersonalComputers/Sites/Public/ChromaSleep/banner.png" MaxHeight="150"/>
   # MERCH FROM THE CARGO HOLD
   [italic]Packed by hand at the Huygens docks by Precious's cousins. Prices in UA dollars. Ships with the next freighter going your way, which might be a while.[/italic]
 

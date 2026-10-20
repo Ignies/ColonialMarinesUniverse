@@ -13,6 +13,9 @@ Writes to Content.CMU/Resources/Textures/CMU14/PersonalComputers/:
   Wallpapers/attributions.yml and Retro/attributions.yml
 
 Everything is drawn at 1x on the pixel grid with no antialiasing, with ordered dithering for gradients.
+Anything that exists in the game as a sprite (the hypersleep pod, the Working Joe, the xenomorph queen, the
+entrenching tool) is the game's own sprite, loaded from its .rsi through SiteArt/rsi_sprites.py and pasted with
+nearest neighbour scaling, never redrawn; the attributions credit each one.
 
     python Retro.py              everything
     python Retro.py wall rsi     only some parts (wall, rsi, icons)
@@ -25,6 +28,9 @@ import random
 import sys
 
 from PIL import Image, ImageFilter
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import rsi_sprites as RS  # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(HERE, "..", "..", "..", ".."))
@@ -751,75 +757,6 @@ def seeg_logo(cv, cx, cy, r, ring, field, mark):
 
 
 
-def cryo_pod(cv, ox, oy, lid=0.0, glow=True, sleeper=True, L=46):
-    """W-Y hypersleep chamber in side view, L x 21. lid is the canopy opening angle in degrees."""
-    if glow:
-        for i, c in enumerate(("#0f4a5c", "#0b3442")):
-            cv.fill(m_ellipse(ox + L / 2, oy + 20.5, L / 2 - 1 - i * 4, 1.6 - i * 0.3), c)
-    plinth = m_rect(ox + 4, oy + 16, ox + L - 4, oy + 20)
-    paint(cv, plinth, METAL, f_hcyl(oy + 16, oy + 20, len(METAL), 0.2, 0.5), METAL[0])
-    for x in range(ox + 6, ox + L - 6, 4):
-        cv.set(x, oy + 18, "#3ad0f0")
-    shell = m_rrect(ox + 1, oy + 8, ox + L - 1, oy + 17, 4)
-    paint(cv, shell, SHELL, f_hcyl(oy + 8, oy + 17, len(SHELL), 0.25, 0.6), SHELL_OL)
-    cv.hline(ox + 4, ox + L - 5, oy + 14, SHELL[2])
-    cv.hline(ox + 4, ox + L - 5, oy + 15, SHELL[1])
-    # Foot end control panel and head end vents.
-    cv.rect(ox + L - 8, oy + 11, ox + L - 4, oy + 13, "#1d2229")
-    cv.set(ox + L - 7, oy + 11, "#5aff8a")
-    cv.set(ox + L - 5, oy + 11, "#ffb030")
-    for vx in range(ox + 4, ox + 9, 2):
-        cv.vline(vx, oy + 11, oy + 12, SHELL[2])
-    # Canopy: a flattened dome hinged at the head end.
-    c0, c1, base = ox + 4, ox + L - 6, oy + 10
-    hinge = (c0 + 0.5, base)
-    a = math.radians(lid)
-    pts = []
-    H = 6 + L * 0.08
-    for k in range(29):
-        t = k / 28
-        h = H * math.sin(math.pi * t) ** 0.55
-        pts.append((c0 + (c1 - c0) * t, base - h))
-    rot = []
-    for px, py in pts:
-        dx, dy = px - hinge[0], py - hinge[1]
-        rot.append((hinge[0] + dx * math.cos(a) + dy * math.sin(a), hinge[1] - dx * math.sin(a) + dy * math.cos(a)))
-    canopy = m_poly(rot)
-    head = m_ellipse(ox + L * 0.24, oy + 6.6, 2.4, 2.3)
-    body = m_capsule(ox + L * 0.24 + 3.5, oy + 7.4, ox + L * 0.76, oy + 8, 2.1)
-    cv.fill(m_rect(c0 + 1, oy + 8, c1, oy + 10), "#0a1a22")
-    if sleeper:
-        # The sleeper under a white sheet, head on a pillow at the hinge end.
-        cv.fill(m_rect(int(ox + L * 0.24 - 3), oy + 8, int(ox + L * 0.24 + 2), oy + 10), SHELL[3])
-        paint(cv, head, FLESH, f_sphere(ox + L * 0.24 - 1, oy + 5.8, 3.2, len(FLESH)), FLESH[0])
-        for x, y in head:
-            if y < oy + 6 and x < ox + L * 0.24:
-                cv.set(x, y, "#3a2a1e")
-        paint(cv, body, SHELL, f_hcyl(oy + 6, oy + 11, len(SHELL), 0.3, 1.5), SHELL_OL)
-    if lid > 0:
-        lo = min(y for _, y in canopy)
-        paint(cv, canopy, GLASS, lambda x, y: 4.2 - (y - lo) * 0.4, GLASS[0], soft=GLASS[1])
-    else:
-        # Tinted glass over whatever is inside: blend instead of covering.
-        rim = edge(canopy)
-        for x, y in canopy:
-            v = 4.0 - (y - (base - H)) / H * 3.0
-            under = cv.get(x, y)
-            g = pick(GLASS, v, x, y, 0)
-            inside = sleeper and ((x, y) in head or (x, y) in body or y >= oy + 8)
-            cv.set(x, y, mix(under, g, 0.3) if inside else g)
-        for x, y in rim:
-            cv.set(x, y, GLASS[0])
-        # Glass glints along the top.
-        gx = int(c0 + (c1 - c0) * 0.3)
-        for i in range(5):
-            cv.set(gx + i, int(base - H + 1.5), GLASS[4])
-        cv.set(gx + 8, int(base - H + 1.5), GLASS[4])
-        cv.set(gx + 9, int(base - H + 1.5), GLASS[3])
-    cv.hline(ox + 3, ox + L - 4, oy + 10, SHELL_OL)
-
-
-
 # -- Second wave: palettes, helpers and sprites -----------------------------------------------------------
 CASE = ramp("#16181c", "#2a2d33", "#40444b", "#585d65", "#767c85", "#9aa0a8")
 AMBER = ramp("#2a1200", "#5a2a00", "#a85200", "#f08a10", "#ffc060", "#fff0c8")
@@ -1106,72 +1043,51 @@ def gateway_big(cv, cx, cy, s):
             cv.set(x, max(ys) - 2, "#ffe6a0")
 
 
-def joe_big(cv, cx, top, s, bottom, wave=True):
-    """Working Joe bust at scale s; the head top sits near top, the suit runs down to bottom."""
-    S = lambda v: v * s
-    ox = cx - S(15)
-    if wave:
-        # Raised right arm (viewer's right), drawn behind the shoulder.
-        arm = m_capsule(cx + S(11), top + S(25), cx + S(19), top + S(15), S(3.1))
-        paint(cv, arm, SUIT, f_lin(cx + S(9), top, cx + S(22), top, 4.0, 1.4), SUIT_OL)
-        fore = m_capsule(cx + S(19), top + S(15), cx + S(20.5), top + S(5), S(2.5))
-        paint(cv, fore, SUIT, f_cyl(cx + S(17.5), cx + S(22.5), len(SUIT), 0.3, 0.6), SUIT_OL)
-        cuff = m_rect(cx + S(18), top + S(5), cx + S(23), top + S(6.5))
-        paint(cv, cuff, SKIN, lambda x, y: 2.2, SKIN_OL)
-        palm = m_ellipse(cx + S(20.6), top + S(2.2), S(2.4), S(2.8))
-        paint(cv, palm, SKIN, f_sphere(cx + S(19.5), top + S(1), S(3.6), len(SKIN), 0.2), SKIN_OL)
-        for i, fx in enumerate((18.6, 20.0, 21.4, 22.8)):
-            f = m_capsule(cx + S(fx), top + S(0.4), cx + S(fx + 0.2 * (i - 1.5)), top - S(2.2 - abs(i - 1.5) * 0.4),
-                          S(0.6))
-            paint(cv, f, SKIN, lambda x, y: 3.6, SKIN_OL)
-        thumb = m_capsule(cx + S(18.4), top + S(3), cx + S(16.8), top + S(1.2), S(0.6))
-        paint(cv, thumb, SKIN, lambda x, y: 3.6, SKIN_OL)
-        # Motion arcs beside the hand.
-        for r in (S(5.5), S(7)):
-            for a in range(-60, 30, 6):
-                t = math.radians(a)
-                cv.set(int(cx + S(20.5) + math.cos(t) * r), int(top + S(2) + math.sin(t) * r), "#1a1a1a")
-    body = m_poly([(ox, bottom), (ox + S(1), top + S(27)), (ox + S(4), top + S(23)), (ox + S(10), top + S(21)),
-                   (ox + S(20), top + S(21)), (ox + S(26), top + S(23)), (ox + S(29), top + S(27)),
-                   (ox + S(30), bottom)])
-    paint(cv, body, SUIT, f_cyl(ox, ox + S(30), len(SUIT), 0.3, 0.4), SUIT_OL)
-    vee = m_poly([(cx - S(5), top + S(21)), (cx, top + S(28)), (cx + S(5), top + S(21))])
-    cv.fill(vee, "#20242a")
-    cv.line(cx - S(5), top + S(21), cx, top + S(28), SUIT[4])
-    cv.line(cx + S(5), top + S(21), cx, top + S(28), SUIT[2])
-    cv.vline(int(cx), int(top + S(29)), bottom, SUIT[0])
-    cv.line(ox + S(5), top + S(24), ox + S(8), bottom, SUIT[1])
-    cv.line(ox + S(25), top + S(24), ox + S(22), bottom, SUIT[1])
-    # Seegson patch.
-    px0, py0 = int(ox + S(18)), int(top + S(29))
-    cv.rect(px0, py0, px0 + int(S(5)), py0 + int(S(4)), WHITE)
-    cv.rect(px0 + 1, py0 + 1, px0 + int(S(5)) - 1, py0 + int(S(4)) - 1, "#2f6db0")
-    cv.fill(edge(m_ellipse(px0 + S(2.5), py0 + S(2), S(1.3), S(1.3))), WHITE)
-    # Neck.
-    neck = m_rect(cx - S(3), top + S(15), cx + S(3), top + S(23))
-    paint(cv, neck, SKIN, f_cyl(cx - S(3), cx + S(3), len(SKIN), 0.3, 0.5), SKIN_OL)
-    for ry in (S(18), S(20)):
-        cv.hline(int(cx - S(2.5)), int(cx + S(2)), int(top + ry), SKIN[1])
-        cv.hline(int(cx - S(2.5)), int(cx + S(2)), int(top + ry) + 1, SKIN[3])
-    for ex in (cx - S(7.2), cx + S(7.2)):
-        paint(cv, m_ellipse(ex, top + S(11), S(1.6), S(2.6)), SKIN, f_sphere(ex - S(1), top + S(10), S(3), len(SKIN)),
-              SKIN_OL)
-    head = m_ellipse(cx, top + S(9.5), S(7), S(9))
-    paint(cv, head, SKIN, f_sphere(cx - S(1.5), top + S(7.5), S(9.5), len(SKIN), 0.12), SKIN_OL, soft=SKIN[1], dither=4)
-    cv.vline(int(cx - S(6)), int(top + S(9)), int(top + S(13)), SKIN[2])
-    cv.vline(int(cx + S(5.4)), int(top + S(9)), int(top + S(13)), SKIN[1])
-    cv.hline(int(cx - S(5)), int(cx - S(2)), int(top + S(7.6)), SKIN[5])
-    cv.hline(int(cx + S(1)), int(cx + S(4)), int(top + S(7.6)), SKIN[4])
-    for sxp in (cx - S(3.5), cx + S(3.5)):
-        cv.fill(m_ellipse(sxp, top + S(10.5), S(2.2), S(1.4)), SKIN[0])
-        eye = m_ellipse(sxp - S(0.4), top + S(10.4), S(1.5), S(0.75))
-        for x, y in eye:
-            d = abs(x + 0.5 - (sxp - S(0.4))) / S(1.5)
-            cv.set(x, y, GLOW[3] if d < 0.35 else GLOW[2] if d < 0.7 else GLOW[1])
-    cv.set(int(cx - S(1)), int(top + S(13)), SKIN[2])
-    cv.hline(int(cx - S(1)), int(cx), int(top + S(13.4)), SKIN[1])
-    cv.hline(int(cx - S(2)), int(cx + S(1.5)), int(top + S(15.2)), SKIN_OL)
-    cv.hline(int(cx - S(1.2)), int(cx + S(0.8)), int(top + S(16.2)), SKIN[4])
+# -- Game sprites ------------------------------------------------------------------------------------------------
+USED = {}
+POD = "_RMC14/Structures/Machines/hypersleep.rsi"
+QUEEN = "_RMC14/Mobs/Xenonids/Queen/queen.rsi"
+
+
+def _credit(rsi):
+    m = RS.meta(rsi)
+    USED[rsi] = (m.get("license", ""), m.get("copyright", "").strip())
+
+
+def game(rsi, state, index=0, direction=0, k=1, trim=True):
+    """One frame of a real game sprite as a PIL image, trimmed to its ink and scaled k times with nearest
+    neighbour."""
+    _credit(rsi)
+    img = RS.frame(rsi, state, index, direction)
+    return RS.scaled(RS.trim(img) if trim else img, k)
+
+
+def joe(direction=0, k=1):
+    """The Working Joe as the game draws it (body, jumpsuit and boots), trimmed and scaled k times."""
+    for rsi, _ in RS.WORKING_JOE:
+        _credit(rsi)
+    return RS.scaled(RS.trim(RS.working_joe(direction)), k)
+
+
+def put(cv, img, x, y, alpha=1.0, k=1.0):
+    """Alpha blends a sprite image onto the canvas with its top left at x, y. k scales its brightness."""
+    p = img.load()
+    for yy in range(img.height):
+        for xx in range(img.width):
+            r, g, b, a = p[xx, yy]
+            if a:
+                cv.set(x + xx, y + yy, (min(255, int(r * k)), min(255, int(g * k)), min(255, int(b * k)),
+                                        int(a * alpha)))
+
+
+def put_bc(cv, img, cx, bottom, **kw):
+    x0, y0 = int(cx - img.width // 2), int(bottom - img.height)
+    put(cv, img, x0, y0, **kw)
+    return x0, y0
+
+
+def sprite_credits():
+    return "; ".join(f"{rsi.split('/')[-1]} ({lic}, {c})".replace('"', "'") for rsi, (lic, c) in sorted(USED.items()))
 
 
 # -- Wallpapers ----------------------------------------------------------------------------------------------
@@ -1456,40 +1372,40 @@ def w_blueprint():
         cv.hline(0, W - 1, y, major if y % 40 == 0 else minor)
     L, F = rgba("#e4f2ff"), rgba("#80aee6")
     D = rgba("#5a8cd0")
+    # The Working Joe traced from the game's own sprite at 5x: its outline in bright line, the borders between its
+    # colour regions in a fainter one, and a light hatch inside.
+    s = 5
+    src = RS.trim(RS.working_joe(0))
+    for rsi, _ in RS.WORKING_JOE:
+        _credit(rsi)
+    sp = src.load()
+    sw, sh = src.size
     cx, top = 190, 16
-    s = 4.6
+    x0 = cx - sw * s // 2
+
+    def cls(x, y):
+        if not (0 <= x < sw and 0 <= y < sh):
+            return -1
+        r, g, b, a = sp[x, y]
+        if a < 40:
+            return -1
+        return min(3, (r * 30 + g * 59 + b * 11) // 100 // 64)
+
+    for y in range(sh * s):
+        for x in range(sw * s):
+            c = cls(x // s, y // s)
+            if c < 0:
+                continue
+            px, py = x0 + x, top + y
+            nb = [cls((x + dx) // s, (y + dy) // s) if 0 <= x + dx < sw * s and 0 <= y + dy < sh * s else -1
+                  for dx, dy in N4]
+            if -1 in nb:
+                cv.set(px, py, L)
+            elif any(n != c for n in nb[:1] + nb[2:3]):
+                cv.set(px, py, F)
+            elif (px + py) % 6 == 0:
+                cv.set(px, py, D)
     S = lambda v: v * s
-    head = m_ellipse(cx, top + S(9.5), S(7), S(9))
-    cv.fill(edge(head), L)
-    for ex in (cx - S(7.4), cx + S(7.4)):
-        e = m_ellipse(ex, top + S(11), S(1.6), S(2.6))
-        for x, y in edge(e):
-            if (x, y) not in head:
-                cv.set(x, y, L)
-    for sxp in (cx - S(3.5), cx + S(3.5)):
-        cv.fill(edge(m_ellipse(sxp, top + S(10.5), S(2.2), S(1.4))), L)
-        cv.fill(edge(m_ellipse(sxp, top + S(10.5), S(1.0), S(0.7))), F)
-        cv.set(int(sxp), int(top + S(10.5)), WHITE)
-    cv.hline(int(cx - S(5)), int(cx - S(2)), int(top + S(7.6)), L)
-    cv.hline(int(cx + S(2)), int(cx + S(5)), int(top + S(7.6)), L)
-    cv.line(cx - S(6), top + S(8.6), cx - S(6), top + S(13), F)
-    cv.line(cx + S(6), top + S(8.6), cx + S(6), top + S(13), F)
-    cv.hline(int(cx - S(1)), int(cx + S(1)), int(top + S(13.4)), L)
-    cv.hline(int(cx - S(2.2)), int(cx + S(2.2)), int(top + S(15.4)), L)
-    nk = m_rect(cx - S(3), top + S(18.4), cx + S(3), top + S(23))
-    for x, y in edge(nk):
-        if y > top + S(18.5):
-            cv.set(x, y, L)
-    for ry in (S(19.8), S(21.3)):
-        cv.hline(int(cx - S(3)), int(cx + S(3)), int(top + ry), F)
-    body = [(cx - S(15), H - 22), (cx - S(14), top + S(27)), (cx - S(11), top + S(23)), (cx - S(3), top + S(22.5)),
-            (cx + S(3), top + S(22.5)), (cx + S(11), top + S(23)), (cx + S(14), top + S(27)), (cx + S(15), H - 22)]
-    for (x0, y0), (x1, y1) in zip(body, body[1:]):
-        cv.line(x0, y0, x1, y1, L)
-    cv.line(cx - S(4), top + S(22.5), cx, top + S(28), L)
-    cv.line(cx + S(4), top + S(22.5), cx, top + S(28), L)
-    cv.fill(edge(m_rect(cx + S(6), top + S(30), cx + S(11), top + S(34))), L)
-    cv.fill(edge(m_ellipse(cx + S(8.5), top + S(32), S(1.2), S(1.2))), F)
     for y in range(top - 6, H - 20):
         if y % 6 < 3:
             cv.set(cx, y, D)
@@ -1504,17 +1420,19 @@ def w_blueprint():
         else:
             cv.hline(tx, tx + tw + 2, ty + 2, F)
             draw_text(cv, F3, tx + 2, ty - 4, text, L)
-    callout(int(cx - S(3.5)), int(top + S(10.5)), 150, 44, "OPTIC ARRAY", True)
-    callout(int(cx - S(7.4)), int(top + S(12.5)), 152, 92, "AUDIO PICKUP", True)
-    callout(int(cx + S(3)), int(top + S(20.5)), 248, 118, "NECK SERVO", False)
-    callout(int(cx - S(9)), int(top + S(32)), 152, 150, "PVC SHELL", True)
-    dx = int(cx + S(10))
-    cv.vline(dx, top, int(top + S(18.5)), F)
-    for yy in (top, int(top + S(18.5))):
+    # Callouts land on the traced sprite: the eyes, the side of the head, the neck and the hand.
+    callout(x0 + S(7) + 2, top + S(3) + 2, 150, 34, "OPTIC ARRAY", True)
+    callout(x0 + S(4) + 1, top + S(4) + 2, 152, 62, "AUDIO PICKUP", True)
+    callout(x0 + S(10) + 2, top + S(7) + 2, 246, 108, "NECK SERVO", False)
+    callout(x0 + S(1) + 2, top + S(16) + 2, 140, 118, "PVC SHELL", True)
+    dx = x0 + S(13) + 4
+    hy = top + S(7)
+    cv.vline(dx, top, hy, F)
+    for yy in (top, hy):
         cv.hline(dx - 2, dx + 2, yy, F)
     bitmap(cv, dx - 1, top + 1, [".#.", "###"], {"#": F})
-    bitmap(cv, dx - 1, int(top + S(18.5)) - 2, ["###", ".#."], {"#": F})
-    draw_text(cv, F3, dx + 4, int(top + S(9)) - 2, "0.31 M", L)
+    bitmap(cv, dx - 1, hy - 2, ["###", ".#."], {"#": F})
+    draw_text(cv, F3, dx + 4, top + S(3), "0.31 M", L)
     # Detail A: the optic in section.
     dcx, dcy = 284, 74
     cv.fill(edge(m_ellipse(dcx, dcy, 16, 16)), L)
@@ -1860,15 +1778,17 @@ def w_hypersleep():
             v = 3.2 - t * 2.6 + (0.6 if ((x - 210) * 6 // max(1, y - 110)) % 2 == 0 else 0)
             cv.set(x, y, pick(FLOOR, v, x, y, 4))
     cv.hline(0, W - 1, 118, "#5a7280")
-    for ox, oy, s, lid, sl in ((112, 72, 1.5, 0, True), (196, 76, 1.5, 0, True), (134, 112, 2.4, 34, False)):
-        L = 46
-        glow(cv, ox + L * s / 2, oy + 20 * s, L * s * 0.7, 9 * s, "#3ad0f0", 0.35)
-        pod_big(cv, ox, oy, s, L, lid, sl)
-        y0 = int(oy + 21 * s)
-        for x in range(int(ox + 4 * s), int(ox + (L - 4) * s)):
-            for k in range(1, 7):
-                if (x + k) % 2 == 0:
-                    dmix(cv, x, y0 + k, "#3a8aa0", 0.4 * (1 - k / 7))
+    # The game's hypersleep pods (hypersleep.rsi): two sealed at the back at 2x, one open at the front at 3x,
+    # each on a pool of cold light and its reflection in the floor.
+    for cx, bottom, k, state, idx in ((140, 121, 2, "closed", 0), (284, 123, 2, "closed", 3), (212, 180, 3, "open", 0)):
+        img = game(POD, state, idx, k=k)
+        glow(cv, cx, bottom - 3, img.width * 0.62, 5 * k, "#3ad0f0", 0.35)
+        put_bc(cv, img, cx, bottom)
+        x_left = cx - img.width // 2
+        for x in range(x_left + 2 * k, x_left + img.width - 2 * k):
+            for kk in range(1, 3 * k):
+                if (x + kk) % 2 == 0:
+                    dmix(cv, x, bottom + kk - 1, "#3a8aa0", 0.4 * (1 - kk / (3 * k)))
     cv.rect(96, 66, 110, 100, "#1a2028")
     cv.fill(edge(m_rect(96, 66, 110, 100)), "#05080c")
     for i, c in enumerate(("#5aff8a", "#5aff8a", "#ffb030", "#5aff8a", "#3ad0f0")):
@@ -1990,7 +1910,8 @@ def w_pinup():
     text_fill(cv, BOLD, cx - tw // 2, ty, ttl, lambda x, y: pick(red, 3.8 - (y - ty) / 18 * 3.2, x, y, 4), scale=2,
               outline=rgba("#fff6e0"), depth=2, depth_c=rgba("#3a1004"))
     draw_text_c(cv, F5, cx, ty + 22, "BY SEEGSON", "#2f5a9a", shadow="#fff6e0")
-    joe_big(cv, cx - 4, 56, 3.1, 172)
+    # The game's Working Joe, at 4x, standing on the poster.
+    put_bc(cv, joe(0, 4), cx + 6, 176)
     # Speech bubble.
     bub = m_rrect(122, 66, 176, 92, 6) | m_poly([(160, 90), (172, 100), (168, 90)])
     cv.fill(shift(bub, 1, 1), "#3a1004")
@@ -2031,16 +1952,12 @@ def w_nebula():
                 cv.set(x, y, pick(TEAL, t, x, y, 4))
             else:
                 cv.set(x, y, pick(NEB, v, x, y, 4))
-    # The xenomorph's head, a darker shape in the cloud with soft edges and a faint rim of nebula light.
-    head = [(142, 108), (146, 100), (152, 93), (160, 87), (172, 81), (186, 76), (204, 71), (224, 66), (246, 62),
-            (266, 59), (284, 58), (298, 60), (307, 65), (310, 72), (305, 78), (294, 82), (278, 87), (262, 93),
-            (250, 101), (243, 112), (240, 126), (240, 142), (244, 158), (216, 162), (211, 146), (206, 134),
-            (196, 126), (182, 121), (168, 117), (156, 114), (146, 112)]
-    hm = m_poly(head)
-    tubes = set()
-    for tx, ty, ex, ey in ((254, 104, 286, 92), (258, 118, 294, 110), (260, 132, 298, 128), (262, 146, 296, 148)):
-        tubes |= m_capsule(tx, ty, ex, ey, 3.4)
-    xeno = hm | tubes
+    # The xenomorph is the game's queen (queen.rsi, side on) at 3x: a darker shape in the cloud with soft edges, a
+    # faint rim of nebula light and her own shading showing through the dust.
+    q = game(QUEEN, "alive", 0, 2, k=3)
+    qx, qy = 300 - q.width, 186 - q.height
+    qp = q.load()
+    xeno = {(qx + x, qy + y) for y in range(q.height) for x in range(q.width) if qp[x, y][3] > 40}
     mask = Image.new("L", (W, H), 0)
     mp = mask.load()
     for x, y in xeno:
@@ -2052,19 +1969,13 @@ def w_nebula():
             a = soft[x, y] / 255
             if a > 0.02:
                 dmix(cv, x, y, "#030108", 0.68 * a)
+    for x, y in xeno:
+        r, g, b, _ = qp[x - qx, y - qy]
+        if cv.inside(x, y):
+            dmix(cv, x, y, (r, g, b, 255), 0.3)
     for x, y in edge(xeno):
         if cv.inside(x, y) and ((x, y - 1) not in xeno or (x - 1, y) not in xeno):
             dmix(cv, x, y, "#f08aa8", 0.4)
-    # Dome ribs, lip and teeth, barely there.
-    for k in range(4):
-        for x in range(196 + k * 10, 300 - k * 6, 2):
-            yy = int(76 + k * 4 - (x - 196) * 0.12 + ((x - 196) / 104) ** 2 * 6)
-            if (x, yy) in hm and (x, yy) not in edge(hm):
-                dmix(cv, x, yy, "#5a2a5a", 0.6)
-    for x in range(147, 190, 2):
-        y = int(110 - (x - 146) * 0.12)
-        dmix(cv, x, y, "#c8a0b8", 0.55)
-        dmix(cv, x, y + 1, "#7a5a7a", 0.4)
     rng = random.Random(12)
     stars(cv, rng, 0, 0, W, H, 300, ("#3a2a4a", "#7a6a9a", "#e0d4ff", "#ffffff"),
           density=lambda x, y: (0.12 if (x, y) in xeno else 1) * (0.5 if x < CALM_X else 1))
@@ -2072,66 +1983,6 @@ def w_nebula():
         sparkle(cv, sx, sy, 4, WHITE, "#ffc8e0", "#7a3a6a")
     calm(cv, "#04020a", 0.4)
     return cv
-
-
-def pod_big(cv, ox, oy, s, L=46, lid=0.0, sleeper=True):
-    """cryo_pod scaled by s."""
-    S = lambda v: v * s
-    R = lambda v: int(round(v))
-    for i, c in enumerate(("#0f4a5c", "#0b3442")):
-        cv.fill(m_ellipse(ox + S(L / 2), oy + S(20.5), S(L / 2 - 1 - i * 4), S(1.6 - i * 0.3)), c)
-    plinth = m_rect(R(ox + S(4)), R(oy + S(16)), R(ox + S(L - 4)), R(oy + S(20)))
-    paint(cv, plinth, METAL, f_hcyl(oy + S(16), oy + S(20), len(METAL), 0.2, 0.5), METAL[0])
-    for x in range(R(ox + S(6)), R(ox + S(L - 6)), R(S(4))):
-        cv.rect(x, R(oy + S(18)) - 1, x + 2, R(oy + S(18)) + 1, "#3ad0f0")
-    shell = m_rrect(R(ox + S(1)), R(oy + S(8)), R(ox + S(L - 1)), R(oy + S(17)), S(4))
-    paint(cv, shell, SHELL, f_hcyl(oy + S(8), oy + S(17), len(SHELL), 0.25, 0.6), SHELL_OL, dither=4)
-    for k, c in ((14, SHELL[2]), (15, SHELL[1])):
-        for d in range(R(s)):
-            cv.hline(R(ox + S(4)), R(ox + S(L - 5)), R(oy + S(k)) + d, c)
-    cv.rect(R(ox + S(L - 9)), R(oy + S(11)), R(ox + S(L - 4)), R(oy + S(13)), "#1d2229")
-    cv.rect(R(ox + S(L - 8)), R(oy + S(11.5)), R(ox + S(L - 7)), R(oy + S(12.5)), "#5aff8a")
-    cv.rect(R(ox + S(L - 6)), R(oy + S(11.5)), R(ox + S(L - 5)), R(oy + S(12.5)), "#ffb030")
-    for vx in range(R(ox + S(4)), R(ox + S(9)), R(S(2))):
-        cv.vline(vx, R(oy + S(11)), R(oy + S(13)), SHELL[2])
-    c0, c1, base = ox + S(4), ox + S(L - 6), oy + S(10)
-    hinge = (c0 + 0.5, base)
-    a = math.radians(lid)
-    Hh = S(6 + L * 0.08)
-    pts = []
-    for k in range(41):
-        t = k / 40
-        pts.append((c0 + (c1 - c0) * t, base - Hh * math.sin(math.pi * t) ** 0.55))
-    rot = [(hinge[0] + (px - hinge[0]) * math.cos(a) + (py - hinge[1]) * math.sin(a),
-            hinge[1] - (px - hinge[0]) * math.sin(a) + (py - hinge[1]) * math.cos(a)) for px, py in pts]
-    canopy = m_poly(rot)
-    head = m_ellipse(ox + S(L * 0.24), oy + S(6.6), S(2.4), S(2.3))
-    body = m_capsule(ox + S(L * 0.24 + 3.5), oy + S(7.4), ox + S(L * 0.76), oy + S(8), S(2.1))
-    cv.fill(m_rect(R(c0 + 1), R(oy + S(8)), R(c1), R(oy + S(10))), "#0a1a22")
-    if sleeper:
-        cv.fill(m_rect(R(ox + S(L * 0.24 - 3)), R(oy + S(8)), R(ox + S(L * 0.24 + 2)), R(oy + S(10))), SHELL[3])
-        paint(cv, head, FLESH, f_sphere(ox + S(L * 0.24 - 1), oy + S(5.8), S(3.2), len(FLESH)), FLESH[0])
-        for x, y in head:
-            if y < oy + S(6) and x < ox + S(L * 0.24):
-                cv.set(x, y, "#3a2a1e")
-        paint(cv, body, SHELL, f_hcyl(oy + S(6), oy + S(11), len(SHELL), 0.3, 1.5), SHELL_OL)
-    if lid > 0:
-        lo = min(y for _, y in canopy)
-        paint(cv, canopy, GLASS, lambda x, y: 4.2 - (y - lo) / s * 0.4, GLASS[0], soft=GLASS[1], dither=4)
-    else:
-        for x, y in canopy:
-            v = 4.0 - (y - (base - Hh)) / Hh * 3.0
-            under = cv.get(x, y)
-            g = pick(GLASS, v, x, y, 4)
-            inside = sleeper and ((x, y) in head or (x, y) in body or y >= oy + S(8))
-            cv.set(x, y, mix(under, g, 0.3) if inside else g)
-        for x, y in edge(canopy):
-            cv.set(x, y, GLASS[0])
-        gx = int(c0 + (c1 - c0) * 0.3)
-        for i in range(R(S(5))):
-            cv.set(gx + i, int(base - Hh + S(1.2)), GLASS[4])
-    for d in range(max(1, R(s / 2))):
-        cv.hline(R(ox + S(3)), R(ox + S(L - 4)), R(oy + S(10)) + d, SHELL_OL)
 
 
 WALLPAPERS = [
@@ -2237,38 +2088,6 @@ def a_new(i, n):
     return cv
 
 
-def mini_joe(cv, hx, floor, lean, theta, lift):
-    """A 20 pixel Working Joe in side view facing right, digging. theta is the shovel angle from vertical."""
-    # Legs.
-    hip = (hx, floor - 8)
-    for lx, c in ((hx - 2, SUIT[1]), (hx + 2, SUIT[2])):
-        cv.fill(m_capsule(hip[0], hip[1], lx, floor - 1, 1.3), c)
-        cv.rect(lx - 1, floor - 1, lx + 3, floor + 1, "#1a1c22")
-    sh = (hx + lean, floor - 15)
-    torso = m_capsule(hip[0], hip[1], sh[0], sh[1], 3.2)
-    paint(cv, torso, SUIT, f_cyl(hx - 4, hx + 4 + lean, len(SUIT), 0.3, 0.8), SUIT_OL)
-    # Shovel along theta, hands on it.
-    gx, gy = sh[0] + 6 + math.sin(theta) * 2, sh[1] + 5 - lift
-    ex, ey = gx + math.sin(theta) * 12, gy + math.cos(theta) * 12
-    sx0, sy0 = gx - math.sin(theta) * 6, gy - math.cos(theta) * 6
-    cv.line(sx0, sy0, ex, ey, "#8a5a2a")
-    cv.line(sx0 + 1, sy0, ex + 1, ey, "#5a3418")
-    cv.hline(int(sx0) - 1, int(sx0) + 1, int(sy0), "#2a1a0a")
-    blade = m_poly([(ex - math.cos(theta) * 3, ey + math.sin(theta) * 3),
-                    (ex + math.cos(theta) * 3, ey - math.sin(theta) * 3),
-                    (ex + math.cos(theta) * 2 + math.sin(theta) * 5, ey - math.sin(theta) * 2 + math.cos(theta) * 5),
-                    (ex - math.cos(theta) * 2 + math.sin(theta) * 5, ey + math.sin(theta) * 2 + math.cos(theta) * 5)])
-    paint(cv, blade, METAL, lambda x, y: 3.4, METAL[0])
-    for hx2, hy2 in ((sx0 + (ex - sx0) * 0.25, sy0 + (ey - sy0) * 0.25), (sx0 + (ex - sx0) * 0.6, sy0 + (ey - sy0) * 0.6)):
-        cv.fill(m_capsule(sh[0], sh[1] + 1, hx2, hy2, 1.1), SUIT[3])
-        cv.fill(m_ellipse(hx2, hy2, 1.4, 1.4), SKIN[3])
-    head = m_ellipse(sh[0] + 1.5, sh[1] - 4.5, 3.6, 4.2)
-    paint(cv, head, SKIN, f_sphere(sh[0], sh[1] - 6, 5, len(SKIN), 0.2), SKIN_OL)
-    cv.set(int(sh[0] + 3), int(sh[1] - 5), GLOW[3])
-    cv.set(int(sh[0] + 4), int(sh[1] - 5), GLOW[2])
-    cv.set(int(sh[0] - 1), int(sh[1] - 4), SKIN[1])
-
-
 def a_construction(i, n):
     cv = Canvas(A, A)
     # Sign board on posts.
@@ -2310,7 +2129,11 @@ def a_construction(i, n):
     poses = [(3, 0.55, 0), (4, 0.35, -2), (4, 0.1, -3), (2, 0.4, 0), (0, 0.9, 3), (-1, 1.3, 5), (0, 1.1, 3),
              (2, 0.8, 1)]
     lean, theta, lift = poses[i % len(poses)]
-    mini_joe(cv, 18, floor, lean, theta, lift)
+    # The game's Working Joe, side on, digging with the game's entrenching tool: it dips as the blade bites and
+    # straightens as it lifts.
+    dip = 1 if theta < 0.5 else 0
+    put_bc(cv, joe(2), 16, floor + 1 + dip)
+    put_bc(cv, game("_RMC14/Objects/Tools/etool.rsi", "etool"), 27, floor + 3 - lift)
     # Flying dirt clods.
     if i >= 4:
         k = i - 4
@@ -3051,7 +2874,8 @@ def write_attributions(folder, files, what):
     with open(os.path.join(folder, "attributions.yml"), "w", encoding="utf-8", newline="\n") as f:
         f.write(f"- files: [{names}]\n")
         f.write('  license: "CC-BY-SA-3.0"\n')
-        f.write(f'  copyright: "{what} drawn for CMU, generated by {GENERATOR}"\n')
+        extra = f". Some include game sprites: {sprite_credits()}" if USED else ""
+        f.write(f'  copyright: "{what} drawn for CMU, generated by {GENERATOR}{extra}"\n')
         f.write(f'  source: "{SOURCE}"\n')
 
 
@@ -3069,7 +2893,8 @@ def write_rsi(path, entries, w, h, what):
         assert len(delays) == n, name
         states.append({"name": name, "delays": [delays]})
     meta = {"version": 1, "license": "CC-BY-SA-3.0",
-            "copyright": f"{what} drawn for CMU, generated by {GENERATOR}",
+            "copyright": f"{what} drawn for CMU, generated by {GENERATOR}" + (
+                f". Some include game sprites: {sprite_credits()}" if USED else ""),
             "size": {"x": w, "y": h}, "states": states}
     with open(os.path.join(path, "meta.json"), "w", encoding="utf-8", newline="\n") as f:
         json.dump(meta, f, indent=2)

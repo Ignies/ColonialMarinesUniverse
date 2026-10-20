@@ -1,5 +1,6 @@
 <Document>
   <CMUNetStyle Background="#05050F" Text="#E0E0FF" Heading="#FF2FD0" Link="#3FF2FF" Font="Pixel"/>
+  <CMUGuideImage Path="/Textures/CMU14/PersonalComputers/Sites/Public/Arcade/banner.png" MaxHeight="150"/>
   <CMUNetBlink Rate="0.6">
     [color=#FF2FD0][bold]INSERT COIN[/bold][/color]
   </CMUNetBlink>

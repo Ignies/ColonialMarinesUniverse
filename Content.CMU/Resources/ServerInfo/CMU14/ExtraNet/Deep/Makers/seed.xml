@@ -1,5 +1,6 @@
 <Document>
   <CMUNetStyle Background="#0A0C0E" Text="#C3C7C1" Heading="#A9C3D6" Link="#D9B56C" Font="Display"/>
+  <CMUGuideImage Path="/Textures/CMU14/PersonalComputers/Sites/Deep/Makers/banner.png" MaxHeight="150"/>
   <CMUNetSprite Rsi="/Textures/CMU14/Yautja/Structures/consoles.rsi" State="engineerconsole" Scale="2"/>
   # I. THE SOWING
   [color=#55636E]The first teaching. As it is told at the start of every vigil, by the one who has kept watch longest.[/color]

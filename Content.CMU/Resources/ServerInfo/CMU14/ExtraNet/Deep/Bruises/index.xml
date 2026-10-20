@@ -1,5 +1,6 @@
 <Document>
   <CMUNetStyle Background="#17110F" Text="#D8D0C6" Heading="#D9574A" Link="#8DB6DA" Font="Sans"/>
+  <CMUGuideImage Path="/Textures/CMU14/PersonalComputers/Sites/Deep/Bruises/banner.png" MaxHeight="150"/>
   <CMUNetMarquee Text="WRITE IT DOWN THE SAME NIGHT  ///  PHOTOGRAPH THE BRUISE BEFORE IT TURNS  ///  BADGE NUMBERS, NOT NAMES  ///  NO REVENGE TALK, EVER  ///  KEEP A COPY OFF THE NETWORK" Speed="50" Color="#D9574A"/>
   # THE BRUISE BOOK
   [italic]A record of what the badge did when it thought nobody was keeping one.[/italic]

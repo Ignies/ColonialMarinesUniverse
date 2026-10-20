@@ -18,7 +18,7 @@ One system with themed skins, picked per computer:
 
 | Id             | Boots as                               | Used by                 | Look                          |
 |----------------|----------------------------------------|-------------------------|-------------------------------|
-| `CMUOsSeegson` | Seegson rewire, then Sevastolink       | colony and civilian PCs | green phosphor on near black  |
+| `CMUOsSeegson` | Seegson, then the colony network name (GARRISONLINK) | colony and civilian PCs | green phosphor on near black  |
 | `CMUOsWeyland` | Weyland-Yutani corporate terminal      | corporate PCs, WY labs  | amber phosphor                |
 
 Each theme sets the boot logos and lines, palette, accent, sounds, start button label, wallpaper,
@@ -140,9 +140,26 @@ pages, add `<root>/<map id>/index.xml` (and any of `history.xml`, `classifieds.x
 `StableGarrison/`). Herald mastheads are rendered by `SiteArt/Herald.py --colony "NAME" --out
 .../Sites/Herald/<folder>`.
 
+### Platoon editions (GOVFOR pages)
+
+A site with `platoonPages: true` also changes with the round's GOVFOR platoon. The server writes the
+platoon's id (`SelectedGovforPlatoon`) into every computer's `Platoon` field when it spawns, and checks every
+few seconds after that, since the platoon is often voted in or set by an admin after the map's computers
+spawned. The browser then serves the first of `<root>/<platoon id>/<file>`, `<root>/<colony>/<file>` and
+`<root>/<file>` that exists, so a platoon page wins over a colony page, and any page a platoon leaves out
+falls back to the colony or generic one. Platoon pages do not combine with colony pages.
+
+`command.govfor.mil` uses it: `Boards/Govfor/<platoon>/` has the platoon's own `index.xml`, `garrison.xml`,
+`guidance.xml` and `zones.xml`, each with a `CMUNetStyle` line for the platoon's colours and a letterhead
+built from its real patch and flag sprites. The tabs and the board under the index stay the site's own.
+To add a platoon, make a folder named exactly after its `platoon` prototype id and copy the generic pages
+in as a start; keep what GOVFOR does at the colony, the zones and the rules for troops, in the unit's voice.
+`CMUExtraNetTest` checks the folder is a platoon id, every page parses and links resolve, and every file in
+it stands in for one of the site's pages. `ComputersFollowGovforPlatoon` covers the server side.
+
 ### Networks
 
-`CMUNetPublic`, `CMUNetSeegson`, `CMUNetWeylandYutani` and `CMUNetUSCM` (`cmuNetwork` prototypes).
+`CMUNetPublic`, `CMUNetSeegson`, `CMUNetWeylandYutani`, `CMUNetUSCM`, `CMUNetCMB` (the Marshals) and `CMUNetDeep` (hacked terminals) (`cmuNetwork` prototypes).
 A site lists the networks it is on. A computer lists the networks it can reach. A corporate terminal reaches Public and
 Weyland-Yutani. A colony desktop reaches only Public.
 
@@ -150,32 +167,126 @@ Pages ship in the client's resources, so this is in-universe flavour, not a secr
 must stay hidden from players (passwords for an objective, for example) has to come from the
 server in a later phase.
 
-## Authoring a page
+## Contributing pages
 
-1. Write the XML under `Content.CMU/Resources/ServerInfo/CMU14/ExtraNet/<Brand>/<Site>/`.
-2. Add it to the site's `pages` list in `Content.CMU/Resources/Prototypes/CMU14/PersonalComputers/sites.yml`,
-   or add a new `cmuNetSite` for a new site.
-3. Run the YAML linter (checks network ids) and `CMUExtraNetTest`. The test checks that every page
-   file exists and parses, every `netlink` points to a real page, addresses are lowercase and unique,
-   every site has an index, every OS home page is reachable, every tag in pages and OS documents
-   parses (a bad colour, font or sprite fails it), and logo paths are absolute .png or .rsi paths.
-4. To look at it without a desktop, start the client with `--cvar cmu.panel_preview=pc`.
-5. To use it in a round: `Content.CMU/Design/PersonalComputers/Test/server.toml` starts Stable Garrison with
-   no lobby, spawns players as the journalist (`cmu.pc.dev_job`) and puts both desktops beside them
-   (`cmu.pc.dev_desks`).
+Pages are content, not code: a new site is an XML folder, one YAML entry and a few locale strings, sent as a
+pull request like any other change. Nothing is uploaded in game.
 
-Built in pages: `sys://directory` lists every listed site the computer can reach. Set `unlisted: true`
-on a site to keep it out of the directory. Unknown hosts, missing pages and denied networks get themed
-error pages.
+### The easy way: a site package
 
-## Phases
+A site package is one folder that is the whole site: a `site.yml`, its pages and its images. Drop it anywhere
+under `Content.CMU/Resources/ServerInfo/CMU14/ExtraNet/` (new ones go in `Packages/`) and the game picks it up
+at startup. Nothing else to edit: titles, tab names and board labels can be plain text, `root` can be left out
+(it is the package's folder), and pages refer to their own files as `./banner.png`.
 
-1. Done: data model, `netlink`, resolver, validation test, seed sites.
-2. Done: computer component and BUI, `RMCPersonalDesktop` hookup.
-3. Done: boot splash with logos, desktop, program windows, taskbar and start menu, window pop out,
-   page styling, sprites, blink and marquee, Files and System.
-4. Done: board sites with round postings and comments for the press, administration, garrison command
-   and embassies.
-5. Done: site tabs, mastheads and lore, per map colony editions.
-6. Next: photos on postings once the photo camera PR lands, round-local Notepad, laptops, a USCM theme.
-7. Later: server-delivered pages (objective secrets, round events).
+`Packages/LostAndFound/` is a complete example. The ExtraNet editor (hosted at https://extraneteditor.ignies.net,
+source at https://github.com/Ignies/ExtraNet-Editor, a static web page anyone can host) builds packages from blocks
+with a live in-game preview, picks real game sprites, and exports a zip to drop in and open a pull request with. Its
+Library opens every site already in the game for curating, and its emulator runs the whole PC in a browser.
+
+### By hand, with the shared files
+
+The sites that came with the feature use shared files instead; new sites can too:
+
+1. Make a folder for it under `Content.CMU/Resources/ServerInfo/CMU14/ExtraNet/`:
+   `Public/<Site>/` for the open ExtraNet, `Deep/<Site>/` for the deep web, `Retro/<Site>/` for the 80s style
+   sites, `Boards/<Site>/` for boards. Write `index.xml` and any tab pages in it.
+2. Add a `cmuNetSite` to `Content.CMU/Resources/Prototypes/CMU14/PersonalComputers/` (`sites.yml` for public
+   sites, `boards.yml` for boards, `deep_web.yml` for deep sites). Give it an address, a title, its networks,
+   its root folder, its pages, a `style:` block and `tabs:`.
+3. Add the title and tab names to `Content.CMU/Resources/Locale/en-US/CMU14/personal-computers.ftl`.
+4. Art: a banner goes in `Content.CMU/Resources/Textures/CMU14/PersonalComputers/Sites/<Group>/<Site>/banner.png`
+   with an `attributions.yml`, shown at the top of every page with
+   `<CMUGuideImage Path="/Textures/CMU14/PersonalComputers/Sites/<Group>/<Site>/banner.png" MaxHeight="150"/>`.
+   **Reuse the game's real sprites for anything that exists in game** (machines, items, xenos, people): put them
+   on the page with `<CMUNetSprite>` or `<CMUNetAd>`, or composite their RSI frames into the banner. Only paint
+   backgrounds, text and things with no sprite. The banner generators in
+   `Content.CMU/Design/PersonalComputers/SiteArt/` show how.
+5. Test: run the YAML linter and `CMUExtraNetTest`, then look at it in game (see Testing below).
+
+Rules the test enforces: addresses are lowercase hosts without slashes and unique; every site has an index
+(`""`) page; every page parses; every tag is valid (colours, fonts, sprite paths and states, ad ids); every
+`netlink` points to a page that exists. In page text, avoid `<`, `>`, `&` and double quotes outside markup.
+`{colony}` in any page becomes the round's colony name.
+
+### Page tags
+
+The guidebook basics work (`#` headings, lists, `[bold]`, `[italic]`, `[color=#hex]`, `<Box>`, `<Table>`,
+`<CMUGuideImage>`), plus:
+
+| Tag | What it does |
+|-----|--------------|
+| `[netlink="Text" link="host/path"]` | A link. `net://random` goes to a random listed site the reader can reach; `cam://<network>` opens a camera grid (deep web only). In a site package, links to other hosts are not checked, so a package can link anywhere. |
+| `<CMUNetStyle .../>` | Page colours, font and background image (see above). |
+| `<CMUNetSprite Rsi="/Textures/....rsi" State="..." Scale="2" Align="Center"/>` | A game sprite, animated if it has frames. |
+| `<CMUNetBlink Rate="0.5">...</CMUNetBlink>` / `<CMUNetMarquee Text="..." Speed="60" Color="#hex"/>` | Blinking and scrolling text. |
+| `<CMUNetAd Id="CMUDeepAdMre" Flip="true"/>` | A product ad drawn from an item's own sprite (`deep_ads.yml`). |
+| `<CMUNetPopup Title="..." Text="..." Link="host" LinkText="..." Icon="/Textures/....png" X="0.6" Y="0.2" Delay="1.5"/>` | A pop up over the page, inside the browser window. |
+| `<CMUNetWallpaper Id="CMUWallpaperSynthwave"/>` | A wallpaper players can put on their desktop (`wallpapers.yml`). |
+| `<CMUNetRecipes Kind="Food" Group="Savory"/>` | The cookbook, built live from the game's microwave recipes. |
+| `<CMUNetArcade Game="HuggerRun"/>`, `<CMUNetSportsbook/>`, `<CMUNetSpaceGpt/>` | The arcade, the zero-g ball sportsbook, SpaceGPT. |
+| `<CMUNetMarket/>` | The deep contraband market. |
+| `<CMUNetCmbPanel Kind="Alerts"/>` | A Marshals' panel: `Alerts`, `Map`, `Faxes` or `Records`. |
+
+### Boards
+
+Add a `board:` block to a site to give it round postings under its index page:
+
+```yaml
+  board:
+    postLabel: cmu-net-board-classifieds-post   # composer button
+    empty: cmu-net-board-classifieds-empty      # shown with no postings
+    posters: [AU14JobCivilianJournalist]        # jobs that may post (exact ids)
+    posterWhitelist: { components: [CLFMember] } # or anyone matching this
+    anyonePosts: true                           # or everyone (forums, classifieds)
+    showTerminals: true                         # show "Terminal #N" on postings
+    bounties: true                              # cash rewards from the poster's account
+    leaks: true                                 # random hacker leaks land here (deep only)
+    hijackable: true                            # insurgents can seize the front page
+```
+
+### Deep web sites
+
+Deep sites sit on the `CMUNetDeep` network and should be `unlisted: true`. Every round each one gets a new
+random address (ending in `aliasSuffix`, default `.deep`, e.g. `.file` or `.cam`), so the name in its
+prototype is only for links between pages. `hidden: true` keeps a site out of scans: it can only be reached
+through the ad maze, whose chains are laid out fresh every round. Players find unlisted sites with The
+deeps.exi's scan.
+
+### Ads, wallpapers and art for the ad maze
+
+- Product ads (`deep_ads.yml`, `cmuDeepAd`): an `entity` (drawn from its sprite) or a `gear` starting gear (a
+  dressed person), plus brand, product, slogan, price, colours and an optional badge state.
+- Wallpapers (`wallpapers.yml`, `cmuWallpaper`): a name and a 960x600 PNG, offered on a page with
+  `<CMUNetWallpaper>`.
+- Ad maze art: every `banner_*.png`, `icon_*.png` and RSI state in `Textures/CMU14/PersonalComputers/Sites/Ads/`
+  and `.../Retro/` is picked up automatically. Slogans, headlines and pop up texts are localized datasets in
+  `deep_web.yml`.
+
+### Testing
+
+- `CMUExtraNetTest` validates every site; the other `CMU14.PersonalComputers` tests cover boards, the deep
+  web, sessions, bounties and the rest.
+- `--cvar cmu.panel_preview=pc` on the client walks the desktop through every OS and site without a round.
+- `Content.CMU/Design/PersonalComputers/Test/server.toml` starts Stable Garrison with no lobby, spawns players
+  as the journalist next to a colony desktop, a W-Y desktop and a Marshals' console, with an access tuner,
+  engineering skill and insurgent status, and leaks every minute.
+
+## Feature switches
+
+Every feature is a server CVar, so admins can switch any of them off mid round, e.g.
+`cvar cmu.pc.deep_web false`. Clients hide what is off.
+
+| CVar | Feature |
+|------|---------|
+| `cmu.pc.enabled` | Everything |
+| `cmu.pc.needs_power` | Terminals need the area's equipment power |
+| `cmu.pc.boards`, `cmu.pc.shortcuts`, `cmu.pc.login`, `cmu.pc.logs` | Postings, saved links, ID card logins, terminal logs |
+| `cmu.pc.deep_web`, `cmu.pc.leaks`, `cmu.pc.hijack`, `cmu.pc.camera_tap` | Hacking and the deep web, leaks, Herald hijack, camera taps |
+| `cmu.pc.bounties`, `cmu.pc.wire`, `cmu.pc.lore_events`, `cmu.pc.company_spin` | Bounty money, the Herald wire, forums reacting to the round, Company spin |
+| `cmu.pc.trace`, `cmu.pc.log_tamper`, `cmu.pc.cmb` | Marshal traces, wiping and forging logs, the CMB network |
+| `cmu.pc.mail`, `cmu.pc.notes`, `cmu.pc.wallpapers` | Mail, notes, wallpapers |
+| `cmu.pc.arcade`, `cmu.pc.betting`, `cmu.pc.spacegpt` | Arcade, sportsbook, SpaceGPT |
+| `cmu.pc.market`, `cmu.pc.hacker_tools` | Deep market, packet sniffer and camera loop |
+
+Ghosts can turn off SpaceGPT questions for themselves with `cmu.pc.spacegpt_ghost_polls`.

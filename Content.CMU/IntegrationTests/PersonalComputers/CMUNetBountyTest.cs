@@ -37,6 +37,8 @@ public sealed class CMUNetBountyTest : GameTest
             posterAccount.AccountBalance = 1000;
             hunterAccount.AccountBalance = 0;
 
+            SEntMan.GetComponent<CMUPersonalComputerComponent>(posterPc).On = true;
+            SEntMan.GetComponent<CMUPersonalComputerComponent>(hunterPc).On = true;
             SEntMan.EventBus.RaiseLocalEvent(posterPc, new InteractUsingEvent(poster, posterCard, posterPc, map.GridCoords));
             SEntMan.EventBus.RaiseLocalEvent(hunterPc, new InteractUsingEvent(hunter, hunterCard, hunterPc, map.GridCoords));
 

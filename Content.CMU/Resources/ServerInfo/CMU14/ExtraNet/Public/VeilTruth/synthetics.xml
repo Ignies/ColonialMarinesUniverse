@@ -1,5 +1,6 @@
 <Document>
   <CMUNetStyle Background="#0B0B05" Text="#E8E8C8" Heading="#FFE000" Link="#FF5050" Font="Terminal"/>
+  <CMUGuideImage Path="/Textures/CMU14/PersonalComputers/Sites/Public/VeilTruth/banner.png" MaxHeight="150"/>
   # SYNTHETICS AMONG US
   [italic]Not the Working Joes. You can hear a Joe coming. We mean the other ones.[/italic]
 

@@ -1,5 +1,6 @@
 <Document>
   <CMUNetStyle Background="#E9F0E9" Text="#1C2A1C" Heading="#B02020" Link="#1E5AA0" Font="Mono"/>
+  <CMUGuideImage Path="/Textures/CMU14/PersonalComputers/Sites/Public/ClinicDispensary/banner.png" MaxHeight="150"/>
   # {colony} CLINIC DISPENSARY
   [italic]The counter at the front of the colony clinic. Medicines, first aid stock and advice, for every colonist with an ID card.[/italic]
 

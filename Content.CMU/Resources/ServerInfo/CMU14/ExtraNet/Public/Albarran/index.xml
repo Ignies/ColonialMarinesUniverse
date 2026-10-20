@@ -1,5 +1,6 @@
 <Document>
   <CMUNetStyle Background="#2B1A10" Text="#EADBC4" Heading="#D9A441" Link="#E8C77A" Font="Display"/>
+  <CMUGuideImage Path="/Textures/CMU14/PersonalComputers/Sites/Public/Albarran/banner.png" MaxHeight="150"/>
   # CASA ALBARRAN
   [italic]Hand rolled in Havana since 2061. Earth leaf, Earth soil, Earth sun. Carried to the stars one box at a time.[/italic]
 

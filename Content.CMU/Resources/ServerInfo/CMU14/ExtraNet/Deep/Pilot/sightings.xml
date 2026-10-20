@@ -1,5 +1,6 @@
 <Document>
   <CMUNetStyle Background="#0A0912" Text="#C4BFAE" Heading="#D9A44E" Link="#6FCFC0" Font="Mono"/>
+  <CMUGuideImage Path="/Textures/CMU14/PersonalComputers/Sites/Deep/Pilot/banner.png" MaxHeight="150"/>
   <CMUGuideImage Path="/Textures/CMU14/PersonalComputers/Sites/Deep/Pilot/emblem.png" MaxHeight="88"/>
   # Sightings Log
 

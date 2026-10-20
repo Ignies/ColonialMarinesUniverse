@@ -36,8 +36,11 @@ public sealed partial class CMUNetSitePrototype : IPrototype
     [DataField(required: true)]
     public HashSet<ProtoId<CMUNetworkPrototype>> Networks = new();
 
-    /// <summary>Folder the page files are relative to.</summary>
-    [DataField(required: true)]
+    /// <summary>
+    /// Folder the page files are relative to. A site package may leave it out: it is then the folder its
+    /// <c>site.yml</c> is in.
+    /// </summary>
+    [DataField]
     public ResPath Root;
 
     /// <summary>
@@ -57,6 +60,13 @@ public sealed partial class CMUNetSitePrototype : IPrototype
     /// <summary>Makes the site a board of round postings shown under its index page.</summary>
     [DataField]
     public CMUNetBoardDefinition? Board;
+
+    /// <summary>
+    /// Serves <c>&lt;root&gt;/&lt;platoon&gt;/&lt;file&gt;</c> when the round's GOVFOR platoon has its own version
+    /// of a page, before any colony version. The folder is a <c>PlatoonPrototype</c> id.
+    /// </summary>
+    [DataField]
+    public bool PlatoonPages;
 
     /// <summary>Hidden sites still resolve but are left out of directory listings.</summary>
     [DataField]

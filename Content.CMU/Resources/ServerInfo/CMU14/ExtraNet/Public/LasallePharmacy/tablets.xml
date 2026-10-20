@@ -1,5 +1,6 @@
 <Document>
   <CMUNetStyle Background="#F6FAFA" Text="#13282E" Heading="#0E7C7B" Link="#1B5FA8" Font="Sans"/>
+  <CMUGuideImage Path="/Textures/CMU14/PersonalComputers/Sites/Public/LasallePharmacy/banner.png" MaxHeight="150"/>
   # TABLETS: THE PILL BOTTLE RANGE
   [italic]Sixteen tablets to an airtight bottle. All tablets are available over the dispensary counter unless marked. Follow the label, not your neighbour.[/italic]
 

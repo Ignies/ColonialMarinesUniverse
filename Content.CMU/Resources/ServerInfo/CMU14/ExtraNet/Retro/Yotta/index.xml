@@ -1,4 +1,5 @@
 <Document>
+  <CMUGuideImage Path="/Textures/CMU14/PersonalComputers/Sites/Retro/Yotta/banner.png" MaxHeight="150"/>
   <CMUNetMarquee Text="YOTTA! THE BIGGEST INDEX IN KNOWN SPACE  ///  NOW LISTING OVER 60 SITES  ///  YOTTA! MAIL COMING SOON TO A RELAY NEAR YOU  ///  DO YOU YOTTA?" Speed="70" Color="#6A0DAD"/>
   <Box>
     <CMUNetSprite Rsi="/Textures/_RMC14/Structures/communications_tower_dish.rsi" State="comm_tower" Scale="1"/>

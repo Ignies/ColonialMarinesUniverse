@@ -1,5 +1,6 @@
 <Document>
   <CMUNetStyle Background="#12100C" Text="#CFC4A8" Heading="#C9442C" Link="#7FB7A8" Font="Mono"/>
+  <CMUGuideImage Path="/Textures/CMU14/PersonalComputers/Sites/Deep/Defector/banner.png" MaxHeight="150"/>
   <CMUGuideImage Path="/Textures/CMU14/PersonalComputers/Sites/Deep/Defector/emblem.png" MaxHeight="64"/>
   # I. RATION CARDS
   [italic]Entry one. Day 203 since I left. Written at 0340, colony time.[/italic]

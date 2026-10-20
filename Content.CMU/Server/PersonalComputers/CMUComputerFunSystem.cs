@@ -14,17 +14,13 @@ using Robust.Shared.Timing;
 namespace Content.Server.CMU14.PersonalComputers;
 
 /// <summary>
-/// The break room on the ExtraNet: arcade high score boards for the round, and a zero-g ball sportsbook where
-/// colonists bet ATM credits on matches played every few minutes. A new arcade record makes the Herald wire.
+/// The break room on the ExtraNet: arcade high score boards for the round, and a sportsbook where colonists bet
+/// ATM credits on sprints, boxing, baseball and zero-g ball played live every few minutes. A new arcade record makes
+/// the Herald wire.
 /// </summary>
 public sealed partial class CMUComputerFunSystem : EntitySystem
 {
     private static readonly ProtoId<CMUNetSitePrototype> Herald = "CMUNetSiteColonyHerald";
-    private static readonly string[] Teams =
-    {
-        "Gateway Comets", "Titan Dockers", "Hadley Hawks", "Thedus Tritons", "Sol Strikers", "Rim Runners",
-        "Arcturus Aces", "Fiorina Furies",
-    };
 
     [Dependency] private IAdminLogManager _adminLog = default!;
     [Dependency] private IConfigurationManager _cfg = default!;
@@ -34,7 +30,7 @@ public sealed partial class CMUComputerFunSystem : EntitySystem
     [Dependency] private CMUNetBoardSystem _boards = default!;
     [Dependency] private UserInterfaceSystem _ui = default!;
 
-    private sealed record Bet(int Account, string Name, int Match, bool Home, int Amount);
+    private sealed record Bet(int Account, string Name, int Match, int Entrant, int Amount);
 
     private readonly Dictionary<CMUArcadeGame, List<CMUArcadeScore>> _scores = new();
     private readonly List<CMUBetMatch> _matches = new();
@@ -123,6 +119,8 @@ public sealed partial class CMUComputerFunSystem : EntitySystem
             || ent.Comp.SessionAccount == 0
             || ent.Comp.SessionUser is not { } user
             || _matches.FirstOrDefault(m => m.Id == matchId) is not { Result: null } match
+            || args.Entrant < 0
+            || args.Entrant >= match.Entrants.Count
             || _timing.CurTime >= match.Kickoff
             || _bank.FindAccount(ent.Comp.SessionAccount) is not { } account
             || account.card.AccountBalance < args.Amount)
@@ -131,9 +129,9 @@ public sealed partial class CMUComputerFunSystem : EntitySystem
         account.card.AccountBalance -= args.Amount;
         Dirty(account.uid, account.card);
         _bank.RecordTransaction(account.uid, AtmHistoryKind.Purchase, args.Amount);
-        _bets.Add(new Bet(ent.Comp.SessionAccount, user, match.Id, args.Home, args.Amount));
+        _bets.Add(new Bet(ent.Comp.SessionAccount, user, match.Id, args.Entrant, args.Amount));
         _adminLog.Add(LogType.Action, LogImpact.Low,
-            $"{ToPrettyString(args.Actor):player} bet {args.Amount} on {(args.Home ? match.Home : match.Away)} as {user}");
+            $"{ToPrettyString(args.Actor):player} bet {args.Amount} on {match.Name(args.Entrant)} as {user}");
         SendBets(ent, args.Actor);
     }
 
@@ -144,14 +142,19 @@ public sealed partial class CMUComputerFunSystem : EntitySystem
         {
             var match = _matches.FirstOrDefault(m => m.Id == bet.Match);
             if (match != null)
-                slips.Add(Loc.GetString("cmu-bet-slip", ("amount", bet.Amount), ("team", bet.Home ? match.Home : match.Away)));
+                slips.Add(Loc.GetString("cmu-bet-slip", ("amount", bet.Amount), ("team", match.Name(bet.Entrant)),
+                    ("sport", Loc.GetString($"cmu-sport-{match.Sport}"))));
         }
 
-        _ui.ServerSendUiMessage(ent.Owner, CMUPersonalComputerUiKey.Key,
-            new CMUBetStateMessage(_matches.TakeLast(6).Reverse().ToList(), slips), actor);
+        var now = _timing.CurTime;
+        var shown = _matches.Where(m => m.Result == null)
+            .Concat(_matches.Where(m => m.Result != null).TakeLast(6).Reverse())
+            .Select(m => m.Public(now))
+            .ToList();
+        _ui.ServerSendUiMessage(ent.Owner, CMUPersonalComputerUiKey.Key, new CMUBetStateMessage(shown, slips), actor);
     }
 
-    /// <summary>Schedules the next match when none is open, and plays matches whose time is up.</summary>
+    /// <summary>Keeps a couple of matches taking bets, reveals each at kickoff and settles it when it ends.</summary>
     public override void Update(float frameTime)
     {
         base.Update(frameTime);
@@ -159,51 +162,79 @@ public sealed partial class CMUComputerFunSystem : EntitySystem
             return;
 
         var now = _timing.CurTime;
-        if (_matches.All(m => m.Result != null))
+        while (_matches.Count(m => m.Kickoff > now) < CMUBetLimits.Upcoming)
             Schedule(now);
 
         for (var i = 0; i < _matches.Count; i++)
         {
             var match = _matches[i];
-            if (match.Result != null || now < match.Kickoff + CMUBetLimits.MatchLength)
+            if (match.Result != null || now < match.End)
                 continue;
 
             _matches[i] = Play(match);
         }
     }
 
+    /// <summary>
+    /// Kicks off after the last scheduled match ends, never a different sport twice in a row. Odds come from each
+    /// entrant's chance with a house cut, and the winner is drawn from those chances now.
+    /// </summary>
     private void Schedule(TimeSpan now)
     {
-        var teams = Teams.ToList();
-        _random.Shuffle(teams);
-        var homeOdds = (float) Math.Round(1.3 + _random.NextDouble() * 2, 1);
-        var awayOdds = (float) Math.Round(1.3 + _random.NextDouble() * 2, 1);
-        _matches.Add(new CMUBetMatch(_nextMatch++, teams[0], teams[1], homeOdds, awayOdds, now + CMUBetLimits.BettingWindow, null));
+        var last = _matches.Count > 0 ? _matches[^1] : null;
+        var kickoff = now + CMUBetLimits.BettingWindow;
+        if (last != null && last.End + CMUBetLimits.Gap > kickoff)
+            kickoff = last.End + CMUBetLimits.Gap;
+
+        var sports = Enum.GetValues<CMUSport>().Where(s => s != last?.Sport).ToList();
+        var sport = _random.Pick(sports);
+        var roster = Enumerable.Range(0, CMUSports.UsesTeams(sport) ? CMUSports.Teams.Length : CMUSports.Athletes.Length).ToList();
+        _random.Shuffle(roster);
+        var entrants = roster.Take(CMUSports.Entrants(sport)).ToList();
+
+        var weights = entrants.Select(_ => 0.5f + _random.NextFloat() * 1.5f).ToList();
+        var total = weights.Sum();
+        var odds = weights.Select(w => (float) Math.Max(1.1, Math.Round(total / w * 0.9, 1))).ToList();
+        var roll = _random.NextFloat() * total;
+        var winner = 0;
+        for (; winner < weights.Count - 1; winner++)
+        {
+            roll -= weights[winner];
+            if (roll < 0)
+                break;
+        }
+
+        _matches.Add(new CMUBetMatch(_nextMatch++, sport, entrants, odds, kickoff, _random.Next(), winner, null));
         if (_matches.Count > 12)
             _matches.RemoveAt(0);
     }
 
-    /// <summary>The longer the odds, the less likely the win; winners get their stake times the odds.</summary>
+    public IReadOnlyList<CMUBetMatch> Matches => _matches;
+
+    /// <summary>Plays a match right away and settles its bets, for admins and tests.</summary>
+    public void PlayNow(int id)
+    {
+        var index = _matches.FindIndex(m => m.Id == id && m.Result == null);
+        if (index >= 0)
+            _matches[index] = Play(_matches[index]);
+    }
+
+    /// <summary>Winners get their stake times the odds; everyone else already paid.</summary>
     private CMUBetMatch Play(CMUBetMatch match)
     {
-        var homeChance = (1 / match.HomeOdds) / (1 / match.HomeOdds + 1 / match.AwayOdds);
-        var homeWins = _random.Prob(homeChance);
-        var winnerGoals = _random.Next(1, 6);
-        var loserGoals = _random.Next(0, winnerGoals);
-        var result = homeWins ? $"{winnerGoals} - {loserGoals}" : $"{loserGoals} - {winnerGoals}";
-
-        foreach (var bet in _bets.Where(b => b.Match == match.Id && b.Home == homeWins).ToList())
+        var play = CMUSports.Play(match.Sport, match.Seed, match.Entrants.Count, match.Winner);
+        foreach (var bet in _bets.Where(b => b.Match == match.Id && b.Entrant == match.Winner).ToList())
         {
             if (_bank.FindAccount(bet.Account) is not { } account)
                 continue;
 
-            var payout = (int) (bet.Amount * (homeWins ? match.HomeOdds : match.AwayOdds));
+            var payout = (int) (bet.Amount * match.Odds[match.Winner]);
             account.card.AccountBalance += payout;
             Dirty(account.uid, account.card);
             _bank.RecordTransaction(account.uid, AtmHistoryKind.TransferIn, payout);
         }
 
         _bets.RemoveAll(b => b.Match == match.Id);
-        return new CMUBetMatch(match.Id, match.Home, match.Away, match.HomeOdds, match.AwayOdds, match.Kickoff, result);
+        return match.WithResult(play.Result);
     }
 }

@@ -1,5 +1,6 @@
 <Document>
   <CMUNetStyle Background="#070A08" Text="#B8C0B4" Heading="#E6E1D3" Link="#93AE8B" Font="Mono"/>
+  <CMUGuideImage Path="/Textures/CMU14/PersonalComputers/Sites/Deep/DontAnswer/banner.png" MaxHeight="150"/>
   <CMUNetMarquee Text="it only knows what it heard  ///  your mother is asleep at home  ///  count heads at the fire  ///  do not answer  ///  do not answer  ///  do not answer" Speed="30" Color="#5C6B58"/>
   # DON'T ANSWER
   [italic]Stories from the treeline. Most of them are just stories. Keep the fire going anyway.[/italic]

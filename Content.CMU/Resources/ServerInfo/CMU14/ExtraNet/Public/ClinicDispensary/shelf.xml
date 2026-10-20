@@ -1,5 +1,6 @@
 <Document>
   <CMUNetStyle Background="#E9F0E9" Text="#1C2A1C" Heading="#B02020" Link="#1E5AA0" Font="Mono"/>
+  <CMUGuideImage Path="/Textures/CMU14/PersonalComputers/Sites/Public/ClinicDispensary/banner.png" MaxHeight="150"/>
   # WHAT IS ON THE SHELF
   [italic]The standard stock. What is actually on the shelf today depends on the last freighter and the last bad shift.[/italic]
 

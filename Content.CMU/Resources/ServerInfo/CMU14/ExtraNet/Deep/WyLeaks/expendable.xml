@@ -1,5 +1,6 @@
 <Document>
   <CMUNetStyle Background="#0C0C0A" Text="#BDB9AC" Heading="#F2EEE3" Link="#6FA8FF" Font="Mono"/>
+  <CMUGuideImage Path="/Textures/CMU14/PersonalComputers/Sites/Deep/WyLeaks/banner.png" MaxHeight="150"/>
   # DOC 02 // EXPENDABLE
   [color=#FF3B30][bold]COMPANY CONFIDENTIAL :: SPECIAL SERVICES :: MANAGEMENT GRADE ONLY[/bold][/color]
 

@@ -1,5 +1,6 @@
 <Document>
   <CMUNetStyle Background="#2A1A0E" Text="#F2E3C6" Heading="#E8A33C" Link="#9FD0E0" Font="Sans"/>
+  <CMUGuideImage Path="/Textures/CMU14/PersonalComputers/Sites/Public/RosieKetch/banner.png" MaxHeight="150"/>
   # THE SONGBOOK
   [italic]Six records, oldest at the bottom like a good stack of pancakes. The stories behind the songs, told by Rosie between sets.[/italic]
 

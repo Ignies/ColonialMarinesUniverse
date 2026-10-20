@@ -5,15 +5,20 @@ using Content.Shared.CMU14.PersonalComputers.DeepWeb;
 using Content.Shared.Maps;
 using Robust.Shared.Configuration;
 using Robust.Shared.Prototypes;
+using Robust.Shared.Timing;
 
 namespace Content.Server.CMU14.PersonalComputers;
 
 /// <summary>
 /// Tells each computer which colony it is in, so colony sites are about this round's map. Every round spawns its
-/// map's computers fresh, so a new map is picked up with no setup. Also keeps the pages saved to each desktop.
+/// map's computers fresh, so a new map is picked up with no setup. Also tells them the round's GOVFOR platoon, for
+/// sites with platoon pages, and keeps the pages saved to each desktop.
 /// </summary>
 public sealed partial class CMUPersonalComputerSystem : EntitySystem
 {
+    /// <summary>How often computers are checked against the round's GOVFOR platoon.</summary>
+    private static readonly TimeSpan PlatoonCheckEvery = TimeSpan.FromSeconds(5);
+
     [Dependency] private IConfigurationManager _cfg = default!;
     [Dependency] private IGameMapManager _gameMaps = default!;
     [Dependency] private IPrototypeManager _prototype = default!;
@@ -21,6 +26,10 @@ public sealed partial class CMUPersonalComputerSystem : EntitySystem
     [Dependency] private CMUExtraNetSystem _net = default!;
     [Dependency] private DeepWeb.CMUDeepAliasSystem _aliases = default!;
     [Dependency] private CMUComputerSessionSystem _sessions = default!;
+    [Dependency] private PlatoonSpawnRuleSystem _platoons = default!;
+    [Dependency] private IGameTiming _timing = default!;
+
+    private TimeSpan _nextPlatoonCheck;
 
     public override void Initialize()
     {
@@ -136,11 +145,46 @@ public sealed partial class CMUPersonalComputerSystem : EntitySystem
 
     private void OnMapInit(Entity<CMUPersonalComputerComponent> ent, ref MapInitEvent args)
     {
+        Setup(ent);
+    }
+
+    /// <summary>Gives a computer its terminal number, colony and platoon; the console bridge calls it too.</summary>
+    public void Setup(Entity<CMUPersonalComputerComponent> ent)
+    {
         ent.Comp.TerminalId = _sessions.NextTerminalId();
         if (ent.Comp.Colony == null && CurrentColony() is { } colony)
             (ent.Comp.Colony, ent.Comp.ColonyName) = colony;
 
+        ent.Comp.Platoon = _platoons.SelectedGovforPlatoon?.ID;
         Dirty(ent);
+    }
+
+    public override void Update(float frameTime)
+    {
+        base.Update(frameTime);
+        if (_timing.CurTime < _nextPlatoonCheck)
+            return;
+
+        _nextPlatoonCheck = _timing.CurTime + PlatoonCheckEvery;
+        RefreshPlatoon();
+    }
+
+    /// <summary>
+    /// Gives every computer the round's GOVFOR platoon. The platoon is often voted in or set by an admin after the
+    /// map's computers have spawned, and can change mid round, so this runs every few seconds.
+    /// </summary>
+    public void RefreshPlatoon()
+    {
+        var platoon = _platoons.SelectedGovforPlatoon?.ID;
+        var computers = EntityQueryEnumerator<CMUPersonalComputerComponent>();
+        while (computers.MoveNext(out var uid, out var computer))
+        {
+            if (computer.Platoon == platoon)
+                continue;
+
+            computer.Platoon = platoon;
+            Dirty(uid, computer);
+        }
     }
 
     /// <summary>

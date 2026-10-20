@@ -1,5 +1,6 @@
 <Document>
   <CMUNetStyle Background="#161B0C" Text="#E5E8C8" Heading="#FF7A1A" Link="#FFD24A" Font="Display"/>
+  <CMUGuideImage Path="/Textures/CMU14/PersonalComputers/Sites/Public/RexMaddox/banner.png" MaxHeight="150"/>
   # EVERY EPISODE, EVERY WORLD
   [italic]Seven seasons. Forty worlds. One knife, replaced eleven times. Relay dates vary with distance and with whether your relay operator likes watching a man eat bugs.[/italic]
 

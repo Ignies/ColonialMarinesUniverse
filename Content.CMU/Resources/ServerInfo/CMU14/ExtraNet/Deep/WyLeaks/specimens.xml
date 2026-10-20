@@ -1,5 +1,6 @@
 <Document>
   <CMUNetStyle Background="#0C0C0A" Text="#BDB9AC" Heading="#F2EEE3" Link="#6FA8FF" Font="Mono"/>
+  <CMUGuideImage Path="/Textures/CMU14/PersonalComputers/Sites/Deep/WyLeaks/banner.png" MaxHeight="150"/>
   # DOC 01 // SPECIMENS
   [color=#FF3B30][bold]COMPANY CONFIDENTIAL :: SPECIAL PROJECTS :: EYES ONLY[/bold][/color]
 

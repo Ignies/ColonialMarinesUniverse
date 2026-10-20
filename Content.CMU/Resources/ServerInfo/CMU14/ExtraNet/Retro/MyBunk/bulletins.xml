@@ -1,4 +1,5 @@
 <Document>
+  <CMUGuideImage Path="/Textures/CMU14/PersonalComputers/Sites/Retro/MyBunk/banner.png" MaxHeight="150"/>
   <Box>
     <CMUNetSprite Rsi="/Textures/_RMC14/Objects/Devices/clocks.rsi" State="cat_clock_motion" Scale="2"/>
   </Box>

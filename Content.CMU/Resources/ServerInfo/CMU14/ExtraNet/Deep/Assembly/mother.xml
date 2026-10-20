@@ -1,5 +1,6 @@
 <Document>
   <CMUNetStyle Background="#0B0904" Text="#DDB668" Heading="#FFE6A8" Link="#8FD6D0" Font="Terminal"/>
+  <CMUGuideImage Path="/Textures/CMU14/PersonalComputers/Sites/Deep/Assembly/banner.png" MaxHeight="150"/>
   <CMUNetSprite Rsi="/Textures/_RMC14/Structures/hybrisa_computer_props.rsi" State="multimonitorbig_on" Scale="3"/>
   # MOTHER: AN INTERFACE SESSION
   [color=#8A6F38]Pinned and locked. Transcribed by unit 0217 from a colony terminal screen, by hand, because the session did not save.[/color]

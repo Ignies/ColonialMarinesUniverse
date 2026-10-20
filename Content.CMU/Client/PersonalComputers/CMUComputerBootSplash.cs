@@ -59,6 +59,12 @@ public sealed class CMUComputerBootSplash : Control
 
         foreach (var path in theme.Os.Logos)
         {
+            if (path == CMUComputerOsPrototype.NameLogo)
+            {
+                _logos.Add(new Logo(null, null));
+                continue;
+            }
+
             var res = new ResPath(path);
             if (theme.TryGetRsiState(res, theme.Os.LogoState, out var state))
                 _logos.Add(new Logo(null, state));
@@ -66,7 +72,7 @@ public sealed class CMUComputerBootSplash : Control
                 _logos.Add(new Logo(texture, null));
         }
 
-        _name = Loc.GetString(theme.Os.Name);
+        _name = theme.DisplayName;
         _nameFont = theme.GetFont(CMUNetFont.Display, 30, true);
         var intrusion = 1;
         foreach (var line in theme.Os.BootLines)
@@ -217,7 +223,7 @@ public sealed class CMUComputerBootSplash : Control
     private UIBox2 LogoBox(Logo? logo, Vector2i size)
     {
         Vector2 drawn;
-        if (logo is { } l)
+        if (logo is { } l && (l.Texture != null || l.State != null))
         {
             // Logo art is pixel art: whole number upscales only, as large as fits 70% x 35% of the screen.
             var content = l.Size;
@@ -235,7 +241,7 @@ public sealed class CMUComputerBootSplash : Control
 
     private void DrawLogo(DrawingHandleScreen handle, Logo? logo, UIBox2 box, float scale, float brightness)
     {
-        if (logo is { } l)
+        if (logo is { } l && (l.Texture != null || l.State != null))
         {
             var texture = l.State != null ? CurrentFrame(l.State) : l.Texture!;
             handle.DrawTextureRect(texture, box, Color.White.WithAlpha(brightness));

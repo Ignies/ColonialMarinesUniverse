@@ -1,5 +1,6 @@
 <Document>
   <CMUNetStyle Background="#100B07" Text="#D6C8AC" Heading="#D9A23A" Link="#A6DB5E" Font="Pixel"/>
+  <CMUGuideImage Path="/Textures/CMU14/PersonalComputers/Sites/Deep/Blooded/banner.png" MaxHeight="150"/>
   <CMUNetSprite Rsi="/Textures/CMU14/Yautja/yautja_items.rsi" State="queen_skull" Scale="3"/>
   # THE RELICS
   [color=#7A5A22]Pinned. What you carry, where it came from, how you came to have it. The truth, or nothing.[/color]

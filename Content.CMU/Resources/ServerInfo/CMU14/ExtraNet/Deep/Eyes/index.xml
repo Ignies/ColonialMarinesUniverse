@@ -1,5 +1,6 @@
 <Document>
   <CMUNetStyle Background="#020A06" Text="#9FE0B0" Heading="#3FFF7A" Link="#E0FF6A" Font="Terminal"/>
+  <CMUGuideImage Path="/Textures/CMU14/PersonalComputers/Sites/Deep/Eyes/banner.png" MaxHeight="150"/>
   <CMUNetBlink Rate="0.5">
     [color=#3FFF7A][bold]EYES[/bold][/color]
   </CMUNetBlink>

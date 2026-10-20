@@ -1,5 +1,6 @@
 <Document>
   <CMUNetStyle Background="#0A0C0E" Text="#C3C7C1" Heading="#A9C3D6" Link="#D9B56C" Font="Display"/>
+  <CMUGuideImage Path="/Textures/CMU14/PersonalComputers/Sites/Deep/Makers/banner.png" MaxHeight="150"/>
   <CMUNetMarquee Text="they made us  ///  they left us the map  ///  they are not gone, they are waiting  ///  we are the seed and the seed remembers  ///  keep the vigil  ///  look up" Speed="28" Color="#55636E"/>
   <CMUNetSprite Rsi="/Textures/CMU14/Yautja/Structures/engineerJockey.rsi" State="spacejockey" Scale="1"/>
   # THE VIGIL OF THE RETURN

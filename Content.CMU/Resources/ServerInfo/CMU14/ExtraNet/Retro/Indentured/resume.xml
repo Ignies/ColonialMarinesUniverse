@@ -1,4 +1,5 @@
 <Document>
+  <CMUGuideImage Path="/Textures/CMU14/PersonalComputers/Sites/Retro/Indentured/banner.png" MaxHeight="150"/>
   <Box>
     <CMUNetSprite Rsi="/Textures/_RMC14/Objects/Misc/paper.rsi" State="folder_blue" Scale="2"/>
     <CMUNetSprite Rsi="/Textures/_RMC14/Objects/Misc/paper.rsi" State="weya_pen" Scale="2"/>

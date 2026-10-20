@@ -31,6 +31,7 @@ public sealed class CMUComputerFeaturesTest : GameTest
         var card = SEntMan.GetComponent<IdCardComponent>(cardUid);
         card.FullName = $"Colonist {cardUid.Id}";
         card.AccountBalance = money;
+        SEntMan.GetComponent<CMUPersonalComputerComponent>(computer).On = true;
         SEntMan.EventBus.RaiseLocalEvent(computer, new InteractUsingEvent(user, cardUid, computer, at));
         return (user, card);
     }

@@ -3,6 +3,7 @@ using Content.Shared.CMU14.PersonalComputers;
 using Content.Shared.CMU14.PersonalComputers.DeepWeb;
 using Robust.Client.Graphics;
 using Robust.Shared.Prototypes;
+using Robust.Shared.Timing;
 
 namespace Content.Client.CMU14.PersonalComputers;
 
@@ -24,6 +25,7 @@ public sealed class CMUPersonalComputerPreview
     private readonly PreviewDeep _deep = new();
     private CMUPersonalComputerWindow? _window;
     private int _step = -1;
+    private System.Numerics.Vector2 _defaultSize;
     private float _timer;
 
     public CMUPersonalComputerPreview()
@@ -31,9 +33,32 @@ public sealed class CMUPersonalComputerPreview
         _title = _osWindow.Title;
         _steps = new (string, float, Action)[]
         {
+            ("panel-off", 2.5f, () =>
+            {
+                _deep.PressPower();
+                Boot("CMUOsSeegson");
+            }),
+            ("panel-card-out", 2f, () => _deep.UseReader()),
+            ("panel-booting", 1.5f, () => _deep.PressPower()),
+            ("panel-login", 9f, () => { }),
+            ("panel-card-in", 2.5f, () => _deep.UseReader()),
             ("seegson-rewire", 3.6f, () => Boot("CMUOsSeegson")),
-            ("seegson-sevastolink", 3.4f, () => { }),
+            ("seegson-colonylink", 3.4f, () => { }),
             ("seegson-desktop", 2f, () => { }),
+            // The smallest the window can be dragged to, to check nothing on the desktop is cut off.
+            ("seegson-min", 2.5f, () =>
+            {
+                if (_window == null)
+                    return;
+
+                _defaultSize = _window.SetSize;
+                _window.SetSize = _window.MinSize;
+            }),
+            ("seegson-max-back", 1f, () =>
+            {
+                if (_window != null)
+                    _window.SetSize = _defaultSize;
+            }),
             ("seegson-start-menu", 2f, () => _window?.Desktop?.ToggleStartMenu()),
             ("seegson-browser", 2.5f, () =>
             {
@@ -63,6 +88,13 @@ public sealed class CMUPersonalComputerPreview
             ("weyland-boot-log", 3.6f, () => { }),
             ("weyland-browser", 2.5f, () => _window?.Desktop?.Open(CMUComputerApp.Browser)),
             ("weyland-memo", 3f, () => _window?.Desktop?.Browser?.Navigate("intranet.wy/memo")),
+            ("cmb-splash", 6f, () => Boot("CMUOsCMB")),
+            ("cmb-desktop", 3f, () => { }),
+            // The law enforcers' casings, each booted to its desktop.
+            ("law-cmb", 11f, () => Boot("CMUOsCMB", casing: CMUComputerCasing.Cmb)),
+            ("law-security", 11f, () => Boot("CMUOsSeegson", casing: CMUComputerCasing.Security)),
+            ("law-rangers", 11f, () => Boot("CMUOsSeegson", casing: CMUComputerCasing.Rangers)),
+            ("law-nspa", 11f, () => Boot("CMUOsSeegson", casing: CMUComputerCasing.Nspa)),
             ("deep-boot", 4.5f, () => Boot("CMUOsSeegson", true)),
             ("deep-desktop", 2.5f, () => { }),
             ("deep-home", 3f, () => _window?.Desktop?.Open(CMUComputerApp.Deeps)),
@@ -91,7 +123,7 @@ public sealed class CMUPersonalComputerPreview
         _osWindow.Title = $"{_title} [pc-preview {_step} {name}]";
     }
 
-    private void Boot(string osId, bool jacked = false)
+    private void Boot(string osId, bool jacked = false, CMUComputerCasing? casing = null)
     {
         _window?.Close();
         var os = _prototype.Index<CMUComputerOsPrototype>(osId);
@@ -100,9 +132,9 @@ public sealed class CMUPersonalComputerPreview
             networks.Add("CMUNetDeep");
 
         _window = new CMUPersonalComputerWindow();
-        _window.OpenCentered();
+        _window.OpenCenteredAt(new System.Numerics.Vector2(0.32f, 0.1f));
         _window.Boot(os, networks, os.HomePage, NoDocuments, "Preview terminal", _boards, "StableGarrison", "Stable Garrison",
-            jacked ? _deep : null, _deep);
+            jacked ? _deep : null, _deep, casing);
     }
 
     /// <summary>A hacked computer that has found a few things, with links saved to its desktop.</summary>
@@ -141,11 +173,35 @@ public sealed class CMUPersonalComputerPreview
 
         public IReadOnlyDictionary<ProtoId<CMUNetSitePrototype>, string> Aliases => _aliases;
         public int TerminalId => 23;
-        public string? SessionUser => "Preview";
+        public string? SessionUser => CardPrototype != null && On ? "Preview" : null;
         public string? SessionJob => "Journalist";
-        public bool RequireLogin => false;
+        public bool RequireLogin => true;
         public TimeSpan TraceStarted => TimeSpan.Zero;
         public TimeSpan TraceEnds => TimeSpan.Zero;
+
+        public bool Carrier => true;
+
+        public string? Platoon => null;
+
+        public bool On { get; private set; } = true;
+
+        public string? CardPrototype { get; private set; } = "CMIDCardGold";
+
+        public void PressPower()
+        {
+            On = !On;
+        }
+
+        public IReadOnlyList<string> ConsoleApps { get; } = new List<string> { "colony budget console", "criminal records computer" };
+
+        public void OpenConsoleApp(int app)
+        {
+        }
+
+        public void UseReader()
+        {
+            CardPrototype = CardPrototype == null ? "CMIDCardGold" : null;
+        }
 
         public void Trace(NetEntity terminal)
         {
@@ -169,14 +225,18 @@ public sealed class CMUPersonalComputerPreview
 
         public void RequestBets()
         {
+            // the preview plays a sprint that started a moment ago, so the arena has something to show
+            var now = IoCManager.Resolve<IGameTiming>().CurTime;
             BetsReceived?.Invoke(new CMUBetStateMessage(new List<CMUBetMatch>
             {
-                new(2, "Gateway Comets", "Titan Dockers", 1.8f, 2.4f, TimeSpan.FromHours(1), null),
-                new(1, "Hadley Hawks", "Sol Strikers", 2.1f, 1.6f, TimeSpan.Zero, "3 - 1"),
+                new(3, CMUSport.Sprint, new List<int> { 0, 1, 2, 3, 4 }, new List<float> { 3.1f, 4.4f, 6.0f, 3.8f, 5.2f }, now - TimeSpan.FromSeconds(4), 7, 3, null),
+                new(4, CMUSport.Boxing, new List<int> { 5, 6 }, new List<float> { 1.6f, 2.4f }, now + TimeSpan.FromMinutes(2), 0, -1, null),
+                new(2, CMUSport.ZeroGBall, new List<int> { 0, 1 }, new List<float> { 1.8f, 2.2f }, TimeSpan.Zero, 11, 0, "3 - 1"),
+                new(1, CMUSport.Baseball, new List<int> { 2, 4 }, new List<float> { 2.1f, 1.6f }, TimeSpan.Zero, 5, 1, "2 - 4"),
             }, new List<string>()));
         }
 
-        public void PlaceBet(int match, bool home, int amount)
+        public void PlaceBet(int match, int entrant, int amount)
         {
         }
 

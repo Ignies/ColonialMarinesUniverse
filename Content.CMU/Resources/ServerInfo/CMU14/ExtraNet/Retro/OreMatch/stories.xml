@@ -1,4 +1,5 @@
 <Document>
+  <CMUGuideImage Path="/Textures/CMU14/PersonalComputers/Sites/Retro/OreMatch/banner.png" MaxHeight="150"/>
   <Box>
     <CMUNetSprite Rsi="/Textures/Objects/Consumable/Drinks/mug_heart.rsi" State="icon" Scale="2"/>
     <CMUNetSprite Rsi="/Textures/Objects/Consumable/Drinks/champagnebottle.rsi" State="icon" Scale="2"/>

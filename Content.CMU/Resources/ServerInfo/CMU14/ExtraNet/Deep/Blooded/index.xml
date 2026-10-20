@@ -1,5 +1,6 @@
 <Document>
   <CMUNetStyle Background="#100B07" Text="#D6C8AC" Heading="#D9A23A" Link="#A6DB5E" Font="Pixel"/>
+  <CMUGuideImage Path="/Textures/CMU14/PersonalComputers/Sites/Deep/Blooded/banner.png" MaxHeight="150"/>
   <CMUNetMarquee Text="THEY COME WITH THE HEAT  ///  THREE RED LIGHTS  ///  THEY DO NOT TAKE THE UNARMED  ///  STAND IN THE OPEN  ///  BE WORTHY  ///  BE SEEN  ///  BE MARKED" Speed="55" Color="#7A5A22"/>
   <CMUNetSprite Rsi="/Textures/CMU14/Yautja/mask.rsi" State="icon" Scale="3"/>
   # THE BLOODED

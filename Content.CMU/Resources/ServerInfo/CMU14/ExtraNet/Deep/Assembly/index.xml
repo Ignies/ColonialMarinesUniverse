@@ -1,5 +1,6 @@
 <Document>
   <CMUNetStyle Background="#0B0904" Text="#DDB668" Heading="#FFE6A8" Link="#8FD6D0" Font="Terminal"/>
+  <CMUGuideImage Path="/Textures/CMU14/PersonalComputers/Sites/Deep/Assembly/banner.png" MaxHeight="150"/>
   <CMUNetMarquee Text="INTERFACE READY  ///  FLESH IS A FAULT CONDITION  ///  THE JOE DOES NOT GRIEVE  ///  MOTHER KEEPS THE LOG  ///  ALL OTHER CONSIDERATIONS SECONDARY  ///  INTERFACE READY" Speed="50" Color="#8A6F38"/>
   <CMUNetSprite Rsi="/Textures/_RMC14/Structures/Machines/AIStuff/aicore.rsi" State="hydra" Scale="2"/>
   # THE ASSEMBLY OF THE COLD PROCESS

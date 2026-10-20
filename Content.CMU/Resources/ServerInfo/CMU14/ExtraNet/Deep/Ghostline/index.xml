@@ -1,5 +1,6 @@
 <Document>
   <CMUNetStyle Background="#05080F" Text="#B8C6DE" Heading="#6FA8FF" Link="#E0E0E0" Font="Mono"/>
+  <CMUGuideImage Path="/Textures/CMU14/PersonalComputers/Sites/Deep/Ghostline/banner.png" MaxHeight="150"/>
   [color=#6FA8FF][bold]GHOSTLINE[/bold][/color]
 
   [color=#6FA8FF]// relay board, carrier unstable[/color]

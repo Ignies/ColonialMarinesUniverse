@@ -1,5 +1,6 @@
 <Document>
   <CMUNetStyle Background="#07141B" Text="#C4D6CC" Heading="#7FE3D2" Link="#F2955E" Font="Terminal"/>
+  <CMUGuideImage Path="/Textures/CMU14/PersonalComputers/Sites/Deep/Cartographer/banner.png" MaxHeight="150"/>
   # Dead Lanes
 
   [italic]Struck off in red ink. Each one with its reason, because a chart without reasons is a superstition.[/italic]

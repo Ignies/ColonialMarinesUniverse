@@ -376,16 +376,23 @@ public sealed class CMUTrackerReflex : CMUArcadeScreen
 }
 
 /// <summary>
-/// The zero-g ball sportsbook: <c>&lt;CMUNetSportsbook/&gt;</c>. Shows the next match with its odds, takes bets
-/// from the logged in account until kickoff, and lists results and the user's open bets.
+/// The sportsbook: <c>&lt;CMUNetSportsbook/&gt;</c>. Plays the live match, or the next one's lineup, in an arena;
+/// takes bets from the logged in account until kickoff; lists the user's open bets and the latest results, each of
+/// which can be watched again.
 /// </summary>
 [UsedImplicitly]
 public sealed partial class CMUNetSportsbook : BoxContainer, IDocumentTag
 {
     [Dependency] private IGameTiming _timing = default!;
 
+    private readonly CMUSportsArena _arena = new();
+    private readonly BoxContainer _board = new() { Orientation = LayoutOrientation.Vertical, SeparationOverride = 6 };
+    private readonly List<(Label Label, TimeSpan Kickoff)> _countdowns = new();
     private ICMUComputerHost? _host;
     private TimeSpan _next;
+    private CMUBetStateMessage? _state;
+    private string _shown = string.Empty;
+    private TimeSpan? _replayEnds;
 
     public CMUNetSportsbook()
     {
@@ -397,7 +404,14 @@ public sealed partial class CMUNetSportsbook : BoxContainer, IDocumentTag
 
     public bool TryParseTag(Dictionary<string, string> args, [NotNullWhen(true)] out Control? control)
     {
-        AddChild(new Label { Text = Loc.GetString("cmu-cmb-loading") });
+        AddChild(new PanelContainer
+        {
+            HorizontalAlignment = HAlignment.Left,
+            PanelOverride = new StyleBoxFlat { BorderColor = Color.FromHex("#7CFF00"), BorderThickness = new Thickness(2) },
+            Children = { _arena },
+        });
+        AddChild(_board);
+        _board.AddChild(new Label { Text = Loc.GetString("cmu-cmb-loading") });
         control = this;
         return true;
     }
@@ -420,6 +434,21 @@ public sealed partial class CMUNetSportsbook : BoxContainer, IDocumentTag
     protected override void FrameUpdate(FrameEventArgs args)
     {
         base.FrameUpdate(args);
+        var now = _timing.CurTime;
+        foreach (var (label, kickoff) in _countdowns)
+        {
+            var wait = kickoff - now;
+            label.Text = wait > TimeSpan.Zero
+                ? Loc.GetString("cmu-bet-kickoff", ("seconds", (int) wait.TotalSeconds))
+                : Loc.GetString("cmu-bet-closed");
+        }
+
+        if (_replayEnds != null && now > _replayEnds)
+        {
+            _replayEnds = null;
+            Feature();
+        }
+
         if (_host == null || _timing.RealTime < _next)
             return;
 
@@ -427,57 +456,111 @@ public sealed partial class CMUNetSportsbook : BoxContainer, IDocumentTag
         _host.RequestBets();
     }
 
+    /// <summary>The arena plays the match in progress, or else shows the lineup of the next one.</summary>
+    private void Feature()
+    {
+        if (_replayEnds != null || _state == null)
+            return;
+
+        var now = _timing.CurTime;
+        var live = _state.Matches.FirstOrDefault(m => m.Result == null && m.Kickoff <= now)
+            ?? _state.Matches.Where(m => m.Result == null).OrderBy(m => m.Kickoff).FirstOrDefault()
+            ?? _state.Matches.FirstOrDefault();
+        if (live != null)
+            _arena.Show(live);
+    }
+
     private void OnState(CMUBetStateMessage state)
     {
-        RemoveAllChildren();
-        foreach (var match in state.Matches)
-        {
-            if (match.Result != null)
-                continue;
+        _state = state;
+        Feature();
 
-            AddChild(new Label { Text = Loc.GetString("cmu-bet-open", ("home", match.Home), ("away", match.Away)), StyleClasses = { "LabelHeading" } });
-            var wait = match.Kickoff - _timing.CurTime;
-            if (wait <= TimeSpan.Zero)
-            {
-                AddChild(new Label { Text = Loc.GetString("cmu-bet-closed") });
-                continue;
-            }
+        // only rebuild when something changed, so a half typed stake survives the refresh
+        var shown = string.Join(";", state.Matches.Select(m => $"{m.Id}:{m.Winner}:{m.Result}"))
+            + string.Join(";", state.Slips) + (_host?.SessionUser != null);
+        if (shown == _shown)
+            return;
 
-            AddChild(new Label { Text = Loc.GetString("cmu-bet-kickoff", ("seconds", (int) wait.TotalSeconds)) });
-            if (_host?.SessionUser == null)
-            {
-                AddChild(new Label { Text = Loc.GetString("cmu-bet-login") });
-                continue;
-            }
-
-            var amount = new LineEdit { PlaceHolder = Loc.GetString("cmu-bet-amount"), MinWidth = 120 };
-            amount.IsValid = text => text.Length <= 5 && text.All(char.IsDigit);
-            var home = new Button { Text = Loc.GetString("cmu-bet-on", ("team", match.Home), ("odds", match.HomeOdds)) };
-            var away = new Button { Text = Loc.GetString("cmu-bet-on", ("team", match.Away), ("odds", match.AwayOdds)) };
-            var id = match.Id;
-            home.OnPressed += _ => Place(id, true, amount.Text);
-            away.OnPressed += _ => Place(id, false, amount.Text);
-            AddChild(new BoxContainer { Orientation = LayoutOrientation.Horizontal, SeparationOverride = 6, Children = { amount, home, away } });
-        }
+        _shown = shown;
+        _board.RemoveAllChildren();
+        _countdowns.Clear();
+        foreach (var match in state.Matches.Where(m => m.Result == null).OrderBy(m => m.Kickoff))
+            AddUpcoming(match);
 
         if (state.Slips.Count > 0)
         {
-            AddChild(new Label { Text = Loc.GetString("cmu-bet-slips"), StyleClasses = { "LabelKeyText" } });
+            _board.AddChild(new Label { Text = Loc.GetString("cmu-bet-slips"), StyleClasses = { "LabelKeyText" } });
             foreach (var slip in state.Slips)
-                AddChild(new Label { Text = slip });
+                _board.AddChild(new Label { Text = slip });
         }
 
-        AddChild(new Label { Text = Loc.GetString("cmu-bet-results"), StyleClasses = { "LabelKeyText" } });
-        foreach (var match in state.Matches)
+        _board.AddChild(new Label { Text = Loc.GetString("cmu-bet-results"), StyleClasses = { "LabelKeyText" } });
+        foreach (var match in state.Matches.Where(m => m.Result != null))
         {
-            if (match.Result != null)
-                AddChild(new Label { Text = Loc.GetString("cmu-bet-result", ("home", match.Home), ("result", match.Result), ("away", match.Away)) });
+            var replay = new Button { Text = Loc.GetString("cmu-bet-replay") };
+            var played = match;
+            replay.OnPressed += _ =>
+            {
+                _replayEnds = _timing.CurTime + TimeSpan.FromSeconds(CMUSports.Length(played.Sport) + 6);
+                _arena.Show(played, true);
+            };
+            _board.AddChild(new BoxContainer
+            {
+                Orientation = LayoutOrientation.Horizontal,
+                SeparationOverride = 8,
+                Children =
+                {
+                    new Label
+                    {
+                        Text = Loc.GetString("cmu-bet-result", ("sport", Loc.GetString($"cmu-sport-{match.Sport}")),
+                            ("winner", match.Name(match.Winner)), ("result", match.Result ?? string.Empty)),
+                        VerticalAlignment = VAlignment.Center,
+                    },
+                    replay,
+                },
+            });
         }
     }
 
-    private void Place(int match, bool home, string amount)
+    private void AddUpcoming(CMUBetMatch match)
+    {
+        var names = Enumerable.Range(0, match.Entrants.Count).Select(match.Name);
+        _board.AddChild(new Label
+        {
+            Text = Loc.GetString("cmu-bet-open", ("sport", Loc.GetString($"cmu-sport-{match.Sport}")), ("entrants", string.Join(" vs ", names))),
+            StyleClasses = { "LabelHeading" },
+        });
+        var countdown = new Label();
+        _countdowns.Add((countdown, match.Kickoff));
+        _board.AddChild(countdown);
+        if (match.Kickoff <= _timing.CurTime)
+            return;
+
+        if (_host?.SessionUser == null)
+        {
+            _board.AddChild(new Label { Text = Loc.GetString("cmu-bet-login") });
+            return;
+        }
+
+        var amount = new LineEdit { PlaceHolder = Loc.GetString("cmu-bet-amount"), MinWidth = 120 };
+        amount.IsValid = text => text.Length <= 5 && text.All(char.IsDigit);
+        var picks = new GridContainer { Columns = 3, HSeparationOverride = 6, VSeparationOverride = 4 };
+        for (var slot = 0; slot < match.Entrants.Count; slot++)
+        {
+            var pick = new Button { Text = Loc.GetString("cmu-bet-on", ("team", match.Name(slot)), ("odds", match.Odds[slot])) };
+            var id = match.Id;
+            var entrant = slot;
+            pick.OnPressed += _ => Place(id, entrant, amount.Text);
+            picks.AddChild(pick);
+        }
+
+        _board.AddChild(amount);
+        _board.AddChild(picks);
+    }
+
+    private void Place(int match, int entrant, string amount)
     {
         if (int.TryParse(amount, out var stake))
-            _host?.PlaceBet(match, home, stake);
+            _host?.PlaceBet(match, entrant, stake);
     }
 }

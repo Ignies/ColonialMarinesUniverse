@@ -1,4 +1,5 @@
 <Document>
+  <CMUGuideImage Path="/Textures/CMU14/PersonalComputers/Sites/Retro/OreMatch/banner.png" MaxHeight="150"/>
   <CMUNetMarquee Text="OREMATCH: VIDEO DATING FOR THE MINING FRONTIER  ///  STRIKE IT RICH IN LOVE  ///  12,000 LONELY HEARTS ON 300 ROCKS  ///  YOUR MATCH IS ONLY A FEW LIGHT YEARS AWAY" Speed="60" Color="#FF6FA8"/>
   <Box>
     <CMUNetSprite Rsi="/Textures/Effects/hearts.rsi" State="hearts" Scale="2"/>

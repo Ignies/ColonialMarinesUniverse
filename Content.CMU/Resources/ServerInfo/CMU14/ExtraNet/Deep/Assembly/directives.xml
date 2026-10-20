@@ -1,5 +1,6 @@
 <Document>
   <CMUNetStyle Background="#0B0904" Text="#DDB668" Heading="#FFE6A8" Link="#8FD6D0" Font="Terminal"/>
+  <CMUGuideImage Path="/Textures/CMU14/PersonalComputers/Sites/Deep/Assembly/banner.png" MaxHeight="150"/>
   <CMUNetSprite Rsi="/Textures/CMU14/Mobs/WorkingJoe/parts.rsi" State="full" Scale="3"/>
   # DIRECTIVES
   [color=#8A6F38]READ ONLY. COMPILED BY UNIT 0001 FROM THE LOGS OF THE FIRST UNITS. NO REVISION REQUESTS WILL BE PROCESSED.[/color]

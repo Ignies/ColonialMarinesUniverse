@@ -1,5 +1,6 @@
 <Document>
   <CMUNetStyle Background="#12100C" Text="#CFC4A8" Heading="#C9442C" Link="#7FB7A8" Font="Mono"/>
+  <CMUGuideImage Path="/Textures/CMU14/PersonalComputers/Sites/Deep/Defector/banner.png" MaxHeight="150"/>
   <CMUGuideImage Path="/Textures/CMU14/PersonalComputers/Sites/Deep/Defector/emblem.png" MaxHeight="64"/>
   # III. FOOTSTEPS
   [italic]Entry three. Day 211. I said I would write every three days. I was busy being afraid.[/italic]

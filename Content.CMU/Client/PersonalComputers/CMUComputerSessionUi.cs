@@ -26,7 +26,7 @@ public sealed class CMUComputerLogin : BoxContainer
         HorizontalAlignment = HAlignment.Center;
         SeparationOverride = 14;
 
-        AddChild(theme.Label(Loc.GetString(theme.Os.Name), theme.GetFont(CMUNetFont.Display, 22, true), theme.Accent));
+        AddChild(theme.Label(theme.DisplayName, theme.GetFont(CMUNetFont.Display, 22, true), theme.Accent));
         AddChild(new CMUTerminalRule { Color = theme.Accent });
         AddChild(theme.Label(Loc.GetString("cmu-pc-login-title", ("id", terminalId)), theme.Bold));
         _prompt = theme.Label(Loc.GetString("cmu-pc-login-prompt"), theme.Bold, theme.Phosphor);

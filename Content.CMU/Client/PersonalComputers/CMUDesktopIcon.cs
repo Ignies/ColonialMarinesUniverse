@@ -13,6 +13,9 @@ public enum CMUComputerApp : byte
     System,
     Deeps,
     Mail,
+
+    /// <summary>One of a colony console's own screens.</summary>
+    Console,
 }
 
 /// <summary>

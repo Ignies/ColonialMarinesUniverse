@@ -1,3 +1,4 @@
+using System.Linq;
 using Robust.Shared.Audio;
 using Robust.Shared.Prototypes;
 using Robust.Shared.Utility;
@@ -16,6 +17,38 @@ public sealed partial class CMUComputerOsPrototype : IPrototype
     /// <summary>Product name, e.g. "SEEGSON SYSTEM/3".</summary>
     [DataField(required: true)]
     public LocId Name;
+
+    /// <summary>
+    /// Call the OS after the colony's network instead, the way Sevastopol's is Sevastolink: Stable Garrison
+    /// becomes GARRISONLINK. Taken from the round's map name, so a new map needs no setup.
+    /// </summary>
+    [DataField]
+    public bool NamedAfterColony;
+
+    /// <summary>A logo entry that shows the OS name as text, e.g. the colony's network name.</summary>
+    public const string NameLogo = "name";
+
+    private static readonly HashSet<string> Generic = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "the", "stable", "fort", "port", "new", "old", "upper", "lower", "camp", "station", "outpost", "colony",
+    };
+
+    /// <summary>
+    /// The colony's network name: its most telling word, possessives and symbols dropped, plus LINK.
+    /// Hadley's Hope becomes HADLEYLINK, Stable Garrison becomes GARRISONLINK.
+    /// </summary>
+    public static string ColonyLink(string mapName)
+    {
+        var words = mapName
+            .Replace("'s", string.Empty, StringComparison.OrdinalIgnoreCase)
+            .Split(new[] { ' ', '-', '_' }, StringSplitOptions.RemoveEmptyEntries)
+            .Select(w => new string(w.Where(char.IsLetterOrDigit).ToArray()))
+            .Where(w => w.Length > 0)
+            .ToList();
+
+        var word = words.FirstOrDefault(w => !Generic.Contains(w)) ?? words.FirstOrDefault() ?? "COLONY";
+        return word.ToUpperInvariant() + "LINK";
+    }
 
     /// <summary>Lines printed one by one while the computer boots.</summary>
     [DataField]
@@ -64,6 +97,10 @@ public sealed partial class CMUComputerOsPrototype : IPrototype
     [DataField]
     public List<CMUComputerDocument> Documents = new();
 
+    /// <summary>The casing drawn round the screen: Seegson beige, Weyland-Yutani gunmetal or Marshals navy.</summary>
+    [DataField]
+    public CMUComputerCasing Casing = CMUComputerCasing.Seegson;
+
     [DataField]
     public SoundSpecifier? BootSound;
 
@@ -72,4 +109,29 @@ public sealed partial class CMUComputerOsPrototype : IPrototype
 
     [DataField]
     public SoundSpecifier? ClickSound;
+}
+
+/// <summary>
+/// The machine a computer is built into: its OS's by default, or the computer's own. Each has its own art in
+/// Textures/CMU14/PersonalComputers/Machine/, named after it in lower case.
+/// </summary>
+public enum CMUComputerCasing : byte
+{
+    /// <summary>Seegson beige, the colony's own machines.</summary>
+    Seegson,
+
+    /// <summary>Weyland-Yutani gunmetal with gold trim.</summary>
+    Weyland,
+
+    /// <summary>Colonial Marshal Bureau navy with silver trim and gold stars.</summary>
+    Cmb,
+
+    /// <summary>Colony security's pale grey with the blue and white police checker.</summary>
+    Security,
+
+    /// <summary>Colonial Wilderness Preservation Service rangers' forest green with khaki trim.</summary>
+    Rangers,
+
+    /// <summary>Neroid Sector Policing Authority black with red trim.</summary>
+    Nspa,
 }

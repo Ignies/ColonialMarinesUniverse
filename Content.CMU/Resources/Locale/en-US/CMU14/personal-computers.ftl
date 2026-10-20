@@ -51,6 +51,8 @@ cmu-pc-browser-denied-body = This terminal is not authorised to reach {$address}
 cmu-pc-browser-missing-page-title = ERROR 404: DOCUMENT NOT FOUND
 cmu-pc-browser-missing-page-body = The server answered, but holds no document at {$address}.
 cmu-pc-browser-unknown-host-title = HOST UNREACHABLE
+cmu-pc-browser-no-carrier-title = NO CARRIER
+cmu-pc-browser-no-carrier-body = The colony network is down: no sensor tower is answering. {$address} will load again once the tower is repaired and switched on.
 cmu-pc-browser-unknown-host-body = No ExtraNet node answers at {$address}. Check the address and try again.
 
 ## Desktop
@@ -517,7 +519,13 @@ cmu-net-tab-public-galley-cakes = Cakes and Desserts
 ## Sessions, logs and the multitool menu
 
 cmu-pc-login-title = TERMINAL #{$id}
-cmu-pc-login-prompt = SWIPE AN ID CARD TO LOG IN
+cmu-pc-login-prompt = INSERT AN ID CARD IN THE READER BELOW
+cmu-pc-card-none = You have no ID card on you.
+cmu-pc-card-occupied = There is already a card in the reader.
+cmu-pc-panel-power = Power
+cmu-pc-panel-reader = ID card reader: click to insert or take out a card
+cmu-pc-panel-power-led = Power light
+cmu-pc-panel-disk-led = Disk activity
 cmu-pc-login-popup = Logged in as {$name}.
 cmu-pc-logout-popup = Logged out.
 cmu-pc-start-log-off = Log off
@@ -767,6 +775,7 @@ cmu-mail-send = Send
 cmu-mail-empty = No mail.
 cmu-mail-from-line = From {$from} at {$time}
 cmu-mail-to-line = To {$to} at {$time}
+cmu-mail-no-carrier = No carrier. Mail waits until the colony sensor tower is back up.
 cmu-mail-login = Log in with an ID card to read mail.
 cmu-mail-directory = Colony directory: {$names}
 cmu-notes-new = New note
@@ -848,17 +857,44 @@ cmu-arcade-no-scores = No scores yet. Be the first.
 cmu-arcade-score-line = {$rank}. {$name} {$score}
 cmu-arcade-help-hugger = Click the screen, then steer with the arrow keys or the buttons. Eat eggs, do not bite your tail.
 cmu-arcade-help-tracker = Click the blips before they fade. Thirty seconds on the clock.
-cmu-bet-slip = ${$amount} on {$team}
-cmu-bet-open = NEXT MATCH: {$home} vs {$away}
+cmu-bet-slip = ${$amount} on {$team} ({$sport})
+cmu-bet-open = {$sport}: {$entrants}
 cmu-bet-kickoff = Betting closes in {$seconds}s
 cmu-bet-closed = In play, betting closed
-cmu-bet-result = {$home} {$result} {$away}
+cmu-bet-result = {$sport}: {$winner} won, {$result}
+cmu-bet-replay = Watch again
 cmu-bet-amount = Stake in dollars
 cmu-bet-on = Bet on {$team} (x{$odds})
 cmu-bet-slips = Your bets
 cmu-bet-results = Latest results
 cmu-bet-login = Log in with an ID card to place bets from your account.
 cmu-net-site-public-arcade = Break Room Arcade
+cmu-sport-Sprint = 100 m dash
+cmu-sport-Boxing = Boxing
+cmu-sport-Baseball = Baseball
+cmu-sport-ZeroGBall = Zero-g ball
+cmu-sport-starts = Starts in {$seconds}s
+cmu-sport-final = FINAL
+cmu-sport-winner = {$name} wins!
+cmu-sport-marks = On your marks
+cmu-sport-set = Set
+cmu-sport-go = GO!
+cmu-sport-round = ROUND {$round}
+cmu-sport-round-clock = Round {$round}  {$clock}
+cmu-sport-landed = Landed: {$count}
+cmu-sport-ko = K.O.!
+cmu-sport-inning = Inning {$inning} {$half}
+cmu-sport-outs = Outs: {$outs}
+cmu-sport-out = OUT
+cmu-sport-single = SINGLE!
+cmu-sport-double = DOUBLE!
+cmu-sport-triple = TRIPLE!
+cmu-sport-homer = HOME RUN!
+cmu-sport-runs = {$runs ->
+    [one] +1 run
+   *[other] +{$runs} runs
+}
+cmu-sport-goal = GOAL! {$team}
 cmu-net-site-public-sportsbook = Zero-G Ball Sportsbook
 
 ## Retro sites
@@ -981,3 +1017,13 @@ cmu-wallpaper-hypersleep = Hypersleep Bay
 cmu-wallpaper-colony-night = Colony After Dark
 cmu-wallpaper-joe-pinup = Always On Shift
 cmu-wallpaper-nebula = Something In The Clouds
+cmu-pc-no-power = The screen stays dark. No power.
+cmu-pc-examine-terminal = It is [color=lightblue]terminal #{$id}[/color].
+cmu-pc-examine-session = The screen shows a session still open: [color=yellow]{$name}[/color] never logged off.
+cmu-pc-examine-login = The screen waits at the login prompt.
+cmu-pc-examine-dark = The screen is dark.
+cmu-pc-examine-card = An ID card sticks out of the reader.
+
+## Colony consoles bridged to the PC OS
+cmu-pc-access-denied = ACCESS DENIED. The reader hands your card back.
+cmu-pc-log-denied = Login refused: {$name} has no access to this console

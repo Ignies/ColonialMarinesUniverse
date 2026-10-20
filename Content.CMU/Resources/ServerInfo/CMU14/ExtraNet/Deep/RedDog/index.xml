@@ -1,5 +1,6 @@
 <Document>
   <CMUNetStyle Background="#140F0A" Text="#DACBB1" Heading="#D0582C" Link="#EDB24C" Font="Pixel"/>
+  <CMUGuideImage Path="/Textures/CMU14/PersonalComputers/Sites/Deep/RedDog/banner.png" MaxHeight="150"/>
   <CMUNetMarquee Text="IT DOES NOT BARK  ///  IT IS NOT A DOG  ///  LOCK THE PENS  ///  DO NOT GO INTO THE DRAINS  ///  IF YOU HEAR CLICKING, GO INDOORS" Speed="55" Color="#D0582C"/>
   # THE RED DOG WATCH
   [italic]Night sightings around {colony}. Whatever it is, it is fast, it is red, and security says it is nothing.[/italic]

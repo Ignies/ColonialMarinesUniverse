@@ -170,6 +170,23 @@ public sealed partial class CMUComputerDesktop : BoxContainer
         if (_shortcuts == null)
             return;
 
+        // A colony console's own screens, each opening the old console window.
+        var host = _shortcuts;
+        for (var i = 0; i < host.ConsoleApps.Count; i++)
+        {
+            var index = i;
+            var name = host.ConsoleApps[i];
+            var icon = new CMUDesktopIcon(_theme, CMUComputerApp.Console, Loc.TryGetString(name, out var localized) ? localized : name);
+            icon.OnSelect += SelectIcon;
+            icon.OnOpen += _ =>
+            {
+                OnClicked?.Invoke();
+                host.OpenConsoleApp(index);
+            };
+            _icons.Add(icon);
+            _iconGrid.AddChild(icon);
+        }
+
         foreach (var shortcut in _shortcuts.Shortcuts)
         {
             var app = _deep != null && IsDeepLink(shortcut.Address) ? CMUComputerApp.Deeps : CMUComputerApp.Browser;
@@ -235,7 +252,7 @@ public sealed partial class CMUComputerDesktop : BoxContainer
     private PanelContainer BuildStartMenu()
     {
         var list = new BoxContainer { Orientation = LayoutOrientation.Vertical, Margin = new Thickness(4), SeparationOverride = 2 };
-        list.AddChild(_theme.Label(Loc.GetString(_theme.Os.Name), _theme.Bold, _theme.Accent));
+        list.AddChild(_theme.Label(_theme.DisplayName, _theme.Bold, _theme.Accent));
         list.AddChild(new CMUTerminalRule { Color = _theme.Accent, Margin = new Thickness(0, 2, 0, 4) });
 
         foreach (var (app, label) in new[]
@@ -370,7 +387,7 @@ public sealed partial class CMUComputerDesktop : BoxContainer
             handle.DrawLine(new Vector2(0, y), new Vector2(PixelWidth, y), grid);
 
         // The largest size that keeps the name within 70% of the screen; long corporate names step down.
-        var name = Loc.GetString(_theme.Os.Name);
+        var name = _theme.DisplayName;
         Font font = default!;
         var width = 0f;
         foreach (var size in new[] { 22, 18, 15, 12 })
@@ -580,7 +597,7 @@ public sealed partial class CMUComputerDesktop : BoxContainer
             if (child is Label label)
                 label.ClipText = true;
         };
-        box.AddChild(_theme.Label(Loc.GetString(_theme.Os.Name), _theme.Bold));
+        box.AddChild(_theme.Label(_theme.DisplayName, _theme.Bold));
         if (_theme.Os.BootLines.Count > 0)
             box.AddChild(_theme.Label(Loc.GetString(_theme.Os.BootLines[0]), _theme.Font, _theme.Dim));
 

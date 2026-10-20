@@ -1,5 +1,6 @@
 <Document>
   <CMUNetStyle Background="#F6FAFA" Text="#13282E" Heading="#0E7C7B" Link="#1B5FA8" Font="Sans"/>
+  <CMUGuideImage Path="/Textures/CMU14/PersonalComputers/Sites/Public/LasallePharmacy/banner.png" MaxHeight="150"/>
   # AUTOINJECTORS
   [italic]Fast help when it matters. Press firmly against the thigh or upper arm, through clothing if you must, and hold until the click.[/italic]
 

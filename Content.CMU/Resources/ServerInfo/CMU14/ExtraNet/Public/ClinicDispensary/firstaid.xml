@@ -1,5 +1,6 @@
 <Document>
   <CMUNetStyle Background="#E9F0E9" Text="#1C2A1C" Heading="#B02020" Link="#1E5AA0" Font="Mono"/>
+  <CMUGuideImage Path="/Textures/CMU14/PersonalComputers/Sites/Public/ClinicDispensary/banner.png" MaxHeight="150"/>
   # BASIC FIRST AID UNTIL HELP ARRIVES
   [italic]What to do in the minutes before the medic gets there. None of it replaces the clinic.[/italic]
 

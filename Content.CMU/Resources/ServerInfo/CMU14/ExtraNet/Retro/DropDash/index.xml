@@ -1,4 +1,5 @@
 <Document>
+  <CMUGuideImage Path="/Textures/CMU14/PersonalComputers/Sites/Retro/DropDash/banner.png" MaxHeight="150"/>
   <CMUNetMarquee Text="DROPDASH: WE DROP IT, YOU DASH  ///  HOT FOOD TO YOUR LANDING PAD IN UNDER NINETY MINUTES OR UNDER NINETY DAYS  ///  NO RECIPES, NO QUESTIONS, NO REFUNDS" Speed="75" Color="#FF3B00"/>
   <Box>
     <CMUNetSprite Rsi="/Textures/_RMC14/Objects/Storage/pizza_galaxy_box.rsi" State="pizzabox1" Scale="2"/>

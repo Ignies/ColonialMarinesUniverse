@@ -1,5 +1,6 @@
 <Document>
   <CMUNetStyle Background="#1E0F1E" Text="#F5E6F0" Heading="#FF5FD2" Link="#FFD27A" Font="Sans"/>
+  <CMUGuideImage Path="/Textures/CMU14/PersonalComputers/Sites/Public/VexStarr/banner.png" MaxHeight="150"/>
   <CMUNetMarquee Text="GATEWAY GENERAL SEASON TEN  ///  NOW ON HOLO ACROSS THE CORE AND THE OUTER VEIL  ///  THE LONG SLEEP IN CINEMAS 2184  ///  STARRLIGHT SOCIETY MEMBERSHIP OPEN" Speed="60" Color="#FF5FD2"/>
   # VEX STARR
   [italic]Official site of the star of Gateway General, Hardlight and the forthcoming The Long Sleep. Approved by Vex, run by the Starrlight Society.[/italic]

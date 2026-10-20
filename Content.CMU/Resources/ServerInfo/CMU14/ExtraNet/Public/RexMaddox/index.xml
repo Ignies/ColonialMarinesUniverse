@@ -1,5 +1,6 @@
 <Document>
   <CMUNetStyle Background="#161B0C" Text="#E5E8C8" Heading="#FF7A1A" Link="#FFD24A" Font="Display"/>
+  <CMUGuideImage Path="/Textures/CMU14/PersonalComputers/Sites/Public/RexMaddox/banner.png" MaxHeight="150"/>
   <CMUNetMarquee Text="HOSTILE WORLDS WITH REX MADDOX  ///  SEASON SEVEN ON THE RELAY NOW  ///  FORTY WORLDS, ONE KNIFE, NO EXCUSES  ///  REX MADDOX LIVE: HOW TO SURVIVE ANYTHING  ///  DO NOT TRY THIS AT HOME" Speed="85" Color="#FF7A1A"/>
   # REX MADDOX: HOSTILE WORLDS
   <CMUNetBlink Rate="0.7">

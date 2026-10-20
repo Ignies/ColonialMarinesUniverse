@@ -1,5 +1,6 @@
 <Document>
   <CMUNetStyle Background="#090806" Text="#BDB5A6" Heading="#E6DCC2" Link="#C98C52" Font="Mono"/>
+  <CMUGuideImage Path="/Textures/CMU14/PersonalComputers/Sites/Deep/Answer/banner.png" MaxHeight="150"/>
   <CMUNetSprite Rsi="/Textures/_RMC14/Structures/Flora/Trees/flora_trees_tyrargodead.rsi" State="tyrargo_deadtree02" Scale="2"/>
   # THE KEPT: WHOSE VOICES WE HAVE HEARD
   [color=#5E5648]Pinned. First names, or what they were called. What they said. Where you heard it. Nothing else.[/color]

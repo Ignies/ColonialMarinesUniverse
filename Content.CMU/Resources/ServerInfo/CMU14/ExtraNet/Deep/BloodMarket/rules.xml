@@ -1,5 +1,6 @@
 <Document>
   <CMUNetStyle Background="#140709" Text="#D9C8AA" Heading="#FFB23E" Link="#8CFF5A" Font="Mono"/>
+  <CMUGuideImage Path="/Textures/CMU14/PersonalComputers/Sites/Deep/BloodMarket/banner.png" MaxHeight="150"/>
   <CMUGuideImage Path="/Textures/CMU14/PersonalComputers/Sites/Deep/BloodMarket/emblem.png" MaxHeight="96"/>
 
   # HOUSE RULES

@@ -14,6 +14,10 @@ public sealed partial class CMUPersonalComputerComponent : Component
     [DataField, AutoNetworkedField]
     public ProtoId<CMUComputerOsPrototype> Os = "CMUOsSeegson";
 
+    /// <summary>The machine's casing when set, e.g. a Marshals' desk running the colony OS; else the OS's own.</summary>
+    [DataField, AutoNetworkedField]
+    public CMUComputerCasing? Casing;
+
     /// <summary>Overrides the OS networks when set, e.g. a colony PC wired into a corporate network.</summary>
     [DataField, AutoNetworkedField]
     public HashSet<ProtoId<CMUNetworkPrototype>>? Networks;
@@ -33,6 +37,13 @@ public sealed partial class CMUPersonalComputerComponent : Component
     [DataField, AutoNetworkedField]
     public string? ColonyName;
 
+    /// <summary>
+    /// The round's GOVFOR platoon, a <c>PlatoonPrototype</c> id, or null before one is picked. Sites with
+    /// <see cref="CMUNetSitePrototype.PlatoonPages"/> serve that platoon's own pages. Kept current by the server.
+    /// </summary>
+    [DataField, AutoNetworkedField]
+    public string? Platoon;
+
     /// <summary>Documents on this computer, in addition to the OS ones. Mappers use it for notes left on a PC.</summary>
     [DataField, AutoNetworkedField]
     public List<CMUComputerDocument> Documents = new();
@@ -40,6 +51,25 @@ public sealed partial class CMUPersonalComputerComponent : Component
     /// <summary>Pages saved to the desktop with the browser's save link button. Lasts the round.</summary>
     [DataField, AutoNetworkedField]
     public List<CMUNetShortcut> Shortcuts = new();
+
+    /// <summary>The reader on the front panel. A card stays in it for the whole session.</summary>
+    public const string CardSlotId = "cmu_pc_card";
+
+    /// <summary>Switched on with the power button. Losing power switches it off.</summary>
+    [DataField, AutoNetworkedField]
+    public bool On;
+
+    /// <summary>The card in the reader, as a prototype for the panel to draw; null when the reader is empty.</summary>
+    [DataField, AutoNetworkedField]
+    public string? CardPrototype;
+
+    /// <summary>Whether the terminal's network goes through the colony sensor tower. Off for wired consoles.</summary>
+    [DataField]
+    public bool NeedsTower = true;
+
+    /// <summary>Whether the terminal reaches the network right now. Kept up to date by the server.</summary>
+    [DataField, AutoNetworkedField]
+    public bool Carrier = true;
 
     /// <summary>This round's terminal number, e.g. 23 for Terminal #23. Given out by the server at map init.</summary>
     [DataField, AutoNetworkedField]
