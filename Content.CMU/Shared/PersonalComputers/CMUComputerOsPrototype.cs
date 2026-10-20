@@ -138,10 +138,7 @@ public sealed partial class CMUComputerOsPrototype : IPrototype
     public SoundSpecifier? ErrorSound;
 }
 
-/// <summary>
-/// The machine a computer is built into: its OS's by default, or the computer's own. Each has its own art in
-/// Textures/CMU14/PersonalComputers/Machine/, named after it in lower case.
-/// </summary>
+/// <summary>How an OS lays out its desktop.</summary>
 public enum CMUComputerShell : byte
 {
     /// <summary>Icons on the desktop, a start button and a taskbar.</summary>
@@ -160,6 +157,10 @@ public enum CMUComputerShell : byte
     Weyland,
 }
 
+/// <summary>
+/// The machine a computer is built into: its OS's by default, or the computer's own. Each has its own art in
+/// Textures/CMU14/PersonalComputers/Machine/, named after it in lower case.
+/// </summary>
 public enum CMUComputerCasing : byte
 {
     /// <summary>Seegson beige, the colony's own machines.</summary>
