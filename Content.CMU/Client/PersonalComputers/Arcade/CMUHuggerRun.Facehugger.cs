@@ -23,6 +23,13 @@ public sealed class CMUHuggerFacehugger : CMUHuggerCorridorStage
     private const float HumanEveryMin = 9;
     private const float HumanEveryMax = 15;
     private const float MarinesFrom = 30;
+
+    // locker traps: the first, the gap between them, and what is inside (the rest are empty fake-outs)
+    private const float FirstLocker = 6;
+    private const float LockerEveryMin = 8;
+    private const float LockerEveryMax = 13;
+    private const float LockerMarines = 0.4f;
+    private const float LockerColonists = 0.35f;
     private const int ColonistBonus = 1000;
     private const int MarineBonus = 1500;
 
@@ -62,6 +69,7 @@ public sealed class CMUHuggerFacehugger : CMUHuggerCorridorStage
 
     private float _nextShot;
     private float _nextHuman;
+    private float _nextLocker;
     private CMUHuggerHuman? _host;
     private float _scene;
     private bool _preburst;
@@ -85,6 +93,7 @@ public sealed class CMUHuggerFacehugger : CMUHuggerCorridorStage
         base.Enter();
         _nextShot = 1.4f;
         _nextHuman = FirstHuman;
+        _nextLocker = FirstLocker;
         _host = null;
         _scene = 0;
         _preburst = false;
@@ -96,7 +105,17 @@ public sealed class CMUHuggerFacehugger : CMUHuggerCorridorStage
     {
         _nextShot -= dt;
         _nextHuman -= dt;
-        var blocked = HumanAhead();
+        _nextLocker -= dt;
+        var blocked = HumanAhead() || LockerAhead();
+        if (_nextLocker <= 0 && !blocked && !ShotsQueued && !BulletsAhead())
+        {
+            SpawnLocker(LockerMarines, LockerColonists);
+            _nextLocker = LockerEveryMin + Run.Fx() * (LockerEveryMax - LockerEveryMin);
+            _nextHuman = MathF.Max(_nextHuman, 3);
+            _nextShot = MathF.Max(_nextShot, 1.2f);
+            return;
+        }
+
         if (_nextHuman <= 0 && !blocked && !ShotsQueued && !BulletsAhead())
         {
             var marine = Time >= MarinesFrom && Run.Rng.NextDouble() < 0.4;

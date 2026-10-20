@@ -65,6 +65,7 @@ public sealed class CMUHuggerRun : CMUArcadeScreen
     private const string Clothing = "/Textures/_RMC14/Objects/Clothing/";
     private const string Rifle = "/Textures/CMU14/Weapons/Guns/USCM/m41mk2.rsi";
     private const string Knife = "/Textures/_RMC14/Objects/Weapons/Melee/m5_bayonet.rsi";
+    private const string Shotgun = "/Textures/_RMC14/Objects/Weapons/Guns/Shotguns/m37a1/classic.rsi";
 
     private static readonly string[] Jumpsuits =
     {
@@ -782,6 +783,8 @@ public sealed class CMUHuggerRun : CMUArcadeScreen
         Layer(person, Clothing + MarineHelmet, "equipped-HELMET", Color.White);
         if (outfit == CMUHuggerOutfit.Rifleman)
             Layer(person, Rifle, "wielded-inhand-left", Color.White);
+        else if (outfit == CMUHuggerOutfit.Shotgunner)
+            Layer(person, Shotgun, "wielded-inhand-left", Color.White);
         else
             Layer(person, Knife, "inhand-left", Color.White);
     }
@@ -1073,6 +1076,17 @@ public sealed class CMUHuggerRun : CMUArcadeScreen
         handle.SetTransform(saved);
     }
 
+    /// <summary>
+    /// Draws part of a texture into a screen rectangle, for cutting or stretching a sprite. <paramref name="source"/>
+    /// is in the texture's own pixels (for an RSI frame, 0..32).
+    /// </summary>
+    public void DrawRegion(DrawingHandleScreen handle, Texture texture, float x, float y, float width, float height, UIBox2 source, Color modulate)
+    {
+        x += _o.X;
+        y += _o.Y;
+        handle.DrawTextureRectRegion(texture, new UIBox2(x * _s, y * _s, (x + width) * _s, (y + height) * _s), source, modulate);
+    }
+
     /// <summary>Phosphor text from its top left: a dark drop, a soft glow either side, then the letters.</summary>
     public void Text(DrawingHandleScreen handle, Font font, string text, float x, float y, Color colour)
     {
@@ -1119,12 +1133,13 @@ public sealed class CMUHuggerRun : CMUArcadeScreen
     #endregion
 }
 
-/// <summary>What a <see cref="CMUHuggerPerson"/> wears: a colonist, a marine with an M41A, or a marine with a bayonet.</summary>
+/// <summary>What a <see cref="CMUHuggerPerson"/> wears: a colonist, or a marine with an M41A, a bayonet or an M37A1 shotgun.</summary>
 public enum CMUHuggerOutfit : byte
 {
     Colonist,
     Rifleman,
     Knifeman,
+    Shotgunner,
 }
 
 /// <summary>A human built from the game's body part and clothing sprites by <see cref="CMUHuggerRun.Dress"/>.</summary>

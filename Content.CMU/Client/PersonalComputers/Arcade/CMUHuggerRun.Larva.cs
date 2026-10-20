@@ -25,6 +25,15 @@ public sealed class CMUHuggerLarva : CMUHuggerCorridorStage
     // An airlock: a door slab across the corridor with this gap under it, too low for anything not ducking.
     private const float AirlockWidth = 40;
     private const float AirlockGap = 14;
+
+    // the airlock's beacon starts this many seconds before the larva would reach it, and the slab drops at this
+    private const float AirlockWarn = 1.3f;
+    private const float AirlockDrop = 0.8f;
+    private const float AirlockFall = 2600;
+
+    // locker traps in the larva's corridor: more marines, fewer people to run from
+    private const float LockerMarines = 0.5f;
+    private const float LockerColonists = 0.2f;
     private const float VentWidth = 44;
     private const float DiveReach = 24;
     private const float DiveTime = 0.75f;
@@ -35,12 +44,28 @@ public sealed class CMUHuggerLarva : CMUHuggerCorridorStage
     private const string Steam = "/Audio/Effects/extinguish.ogg";
     private const string Clang = "/Audio/Effects/clang.ogg";
     private const string VentIn = "/Audio/_RMC14/Xeno/alien_ventpass1.ogg";
-    private const string Shutter = Structures + "Doors/Shutters/Almayer/shutter.rsi";
+    private const string Alert = "/Audio/Effects/alert.ogg";
+    private const string Drop = "/Audio/Effects/thudswoosh.ogg";
+    private const string BlastDoor = Structures + "Doors/Shutters/Almayer/poddoor.rsi";
     private const string Pump = Structures + "Piping/Atmospherics/vent_pump.rsi";
 
-    /// <summary>The shutter is a 32 px sprite at 1.44, its closed slats ending 28 px down.</summary>
-    private const float ShutterSize = 46;
-    private const float ShutterSlats = 28;
+    private static readonly string[] Thuds = { "/Audio/Effects/metal_thud1.ogg", "/Audio/Effects/metal_thud2.ogg", "/Audio/Effects/metal_thud3.ogg" };
+
+    private static readonly string[] SparkSounds =
+    {
+        "/Audio/Effects/sparks1.ogg", "/Audio/Effects/sparks2.ogg", "/Audio/Effects/sparks3.ogg", "/Audio/Effects/sparks4.ogg",
+    };
+
+    private static readonly Color DarkAlarm = Color.FromHex("#4A1210");
+
+    private enum AirlockPhase : byte
+    {
+        Raised,
+        Warning,
+        Falling,
+        Jammed,
+        Shut,
+    }
 
     private struct Obstacle
     {
@@ -48,9 +73,16 @@ public sealed class CMUHuggerLarva : CMUHuggerCorridorStage
         public bool Vent;
         public float X;
         public bool Heard;
+        public AirlockPhase Phase;
 
-        /// <summary>Seconds since the shutter slammed shut behind the larva, or -1.</summary>
-        public float Slam;
+        /// <summary>Where the slab's bottom edge is on screen, and how fast it is falling.</summary>
+        public float Bottom;
+
+        public float Speed;
+        public float Timer;
+
+        /// <summary>The stage's first airlock, which says what to do in big letters.</summary>
+        public bool First;
     }
 
     private readonly Obstacle[] _obstacles = new Obstacle[3];
@@ -60,6 +92,7 @@ public sealed class CMUHuggerLarva : CMUHuggerCorridorStage
     private float _dive = -1;
     private float _diveX;
     private string? _shotText;
+    private int _airlocks;
 
     protected override float HalfWidth => 13;
     protected override float Height => 20;
@@ -80,6 +113,7 @@ public sealed class CMUHuggerLarva : CMUHuggerCorridorStage
         _nextShot = 2;
         _nextVent = FirstVent;
         _dive = -1;
+        _airlocks = 0;
         for (var i = 0; i < _obstacles.Length; i++)
         {
             _obstacles[i] = default;
@@ -103,6 +137,7 @@ public sealed class CMUHuggerLarva : CMUHuggerCorridorStage
         return false;
     }
 
+    /// <summary>An airlock or the vent, on the next bare stretch of wall so it never lands on a door or a locker.</summary>
     private void AddObstacle(bool vent)
     {
         for (var i = 0; i < _obstacles.Length; i++)
@@ -110,7 +145,15 @@ public sealed class CMUHuggerLarva : CMUHuggerCorridorStage
             if (_obstacles[i].Active)
                 continue;
 
-            _obstacles[i] = new Obstacle { Active = true, Vent = vent, X = Scroll + CMUHuggerRun.ScreenWidth + 40, Slam = -1 };
+            _obstacles[i] = new Obstacle
+            {
+                Active = true,
+                Vent = vent,
+                X = BareSlot(Scroll + CMUHuggerRun.ScreenWidth + 40) - (vent ? 0 : AirlockWidth / 2),
+                Phase = AirlockPhase.Raised,
+                Bottom = CeilingY + 6,
+                First = !vent && _airlocks++ == 0,
+            };
             return;
         }
     }
@@ -121,7 +164,7 @@ public sealed class CMUHuggerLarva : CMUHuggerCorridorStage
         _nextThreat -= dt;
         _nextShot -= dt;
         _nextVent -= dt;
-        var busy = HumanAhead() || ObstacleAhead(out _);
+        var busy = HumanAhead() || ObstacleAhead(out _) || LockerAhead();
         if (_nextVent <= 0 && !busy && !ShotsQueued && !BulletsAhead())
         {
             AddObstacle(true);
@@ -142,6 +185,8 @@ public sealed class CMUHuggerLarva : CMUHuggerCorridorStage
             var roll = Run.Fx();
             if (Time > 6 && roll < 0.35f)
                 AddObstacle(false);
+            else if (Time > 4 && roll < 0.55f)
+                SpawnLocker(LockerMarines, LockerColonists);
             else if (Time > 18 && roll < 0.5f)
                 SpawnHuman(CMUHuggerOutfit.Rifleman, true);
             else if (roll < 0.62f)
@@ -195,7 +240,7 @@ public sealed class CMUHuggerLarva : CMUHuggerCorridorStage
                 continue;
             }
 
-            if (!Overlap(left, right, top, bottom, x, x + AirlockWidth, CeilingY, FloorY - AirlockGap))
+            if (!Overlap(left, right, top, bottom, x, x + AirlockWidth, CeilingY, obstacle.Bottom))
                 continue;
 
             // smacked into the door face
@@ -238,20 +283,11 @@ public sealed class CMUHuggerLarva : CMUHuggerCorridorStage
                 Run.Play(Steam, -10, 0.8f);
             }
 
-            // through: the shutter slams down behind the larva
-            if (!obstacle.Vent && obstacle.Slam < 0 && x + AirlockWidth < PlayerX - 8)
-            {
-                obstacle.Slam = 0;
-                Run.Play(Clang, -6, 0.9f);
-                Run.Shake(1.5f, 0.15f);
-            }
-            else if (obstacle.Slam >= 0)
-            {
-                obstacle.Slam += dt;
-            }
+            if (!obstacle.Vent)
+                MoveAirlock(ref obstacle, x, dt);
 
             // steam hisses out from under a closed airlock
-            if (!obstacle.Vent && Run.Fx() < dt * 14)
+            if (!obstacle.Vent && obstacle.Phase >= AirlockPhase.Jammed && Run.Fx() < dt * 14)
             {
                 Run.Emit(new Vector2(obstacle.X + Run.Fx() * AirlockWidth, FloorY - 4), 1, Color.White.WithAlpha(0.25f), 40, 0.8f, 3,
                     MathF.PI + (Run.Fx() < 0.5f ? 0 : MathF.PI), 0.6f, -30, kind: CMUHuggerRun.Smoke);
@@ -311,36 +347,151 @@ public sealed class CMUHuggerLarva : CMUHuggerCorridorStage
     }
 
     /// <summary>
-    /// A bulkhead of reinforced wall with the Almayer shutter in it. Coming into view the shutter rolls down through
-    /// its closing frames and jams just short of the deck; once the larva is through it slams the rest of the way.
+    /// A full airlock: a frame of posts and a lintel with a warning beacon, and the Almayer blast door as its slab. As
+    /// the larva closes in the beacon flashes, then the slab falls from the lintel and jams just short of the deck,
+    /// leaving the gap to duck through; once the larva is through it slams the rest of the way in sparks.
     /// </summary>
-    private void DrawAirlock(DrawingHandleScreen handle, Obstacle obstacle, float x)
+    private void MoveAirlock(ref Obstacle obstacle, float x, float dt)
     {
-        var closing = Math.Clamp((230 - x) / 50, 0, 1);
-        var slam = obstacle.Slam >= 0 ? MathF.Min(1, obstacle.Slam / 0.1f) * AirlockGap : 0;
-        var bottom = FloorY - AirlockGap + slam;
-        var top = bottom - ShutterSlats * ShutterSize / 32;
-        var centre = x + AirlockWidth / 2;
+        obstacle.Timer += dt;
 
-        var wall = Run.Frame(ReinforcedWall, "full");
-        for (var y = top - AirlockWidth; y > CeilingY - AirlockWidth * 2; y -= AirlockWidth)
+        // timed by when the larva will get there, so the drop always lands first
+        var eta = (x - PlayerX) / MathF.Max(1, Speed);
+        switch (obstacle.Phase)
         {
-            Run.DrawSprite(handle, wall, new Vector2(centre, y + AirlockWidth / 2), new Vector2(AirlockWidth, AirlockWidth), 0,
-                CMUHuggerCorridorStage.WallTint);
+            case AirlockPhase.Raised:
+                if (eta > AirlockWarn || x > CMUHuggerRun.ScreenWidth + 10)
+                    return;
+
+                obstacle.Phase = AirlockPhase.Warning;
+                obstacle.Timer = 0;
+                Run.Play(Alert, -6, 1.1f);
+                return;
+            case AirlockPhase.Warning:
+                if (eta > AirlockDrop)
+                    return;
+
+                obstacle.Phase = AirlockPhase.Falling;
+                obstacle.Speed = 0;
+                Run.Play(Drop, -4, 0.8f);
+                return;
+            case AirlockPhase.Falling:
+                obstacle.Speed += AirlockFall * dt;
+                obstacle.Bottom = MathF.Min(FloorY - AirlockGap, obstacle.Bottom + obstacle.Speed * dt);
+                if (obstacle.Bottom < FloorY - AirlockGap)
+                    return;
+
+                obstacle.Phase = AirlockPhase.Jammed;
+                Impact(obstacle, x, 1.2f);
+                return;
+            case AirlockPhase.Jammed:
+                // stuck, grinding against something in the track
+                if (Run.Fx() < dt * 6)
+                    Sparks(obstacle, x, 3);
+
+                // only once the larva's whole body is through
+                if (x + AirlockWidth >= PlayerX - HalfWidth - 6)
+                    return;
+
+                obstacle.Phase = AirlockPhase.Shut;
+                obstacle.Speed = 600;
+                return;
+            case AirlockPhase.Shut:
+                if (obstacle.Bottom >= FloorY)
+                    return;
+
+                obstacle.Speed += AirlockFall * dt;
+                obstacle.Bottom = MathF.Min(FloorY, obstacle.Bottom + obstacle.Speed * dt);
+                if (obstacle.Bottom >= FloorY)
+                    Impact(obstacle, x, 1.6f);
+                return;
+        }
+    }
+
+    private void Impact(Obstacle obstacle, float x, float strength)
+    {
+        Run.PlayAny(Thuds, -1 + strength * 2, 0.9f);
+        Run.Play(Clang, -6, 0.8f);
+        Run.Shake(1.5f * strength, 0.2f);
+        Sparks(obstacle, x, 10);
+        Run.Emit(World(x + AirlockWidth / 2, FloorY - 2), 6, CMUHuggerRun.Dust.WithAlpha(0.5f), 60, 0.6f, 3, -MathF.PI / 2, MathF.PI, -10,
+            kind: CMUHuggerRun.Smoke);
+    }
+
+    private void Sparks(Obstacle obstacle, float x, int count)
+    {
+        for (var side = 0; side < 2; side++)
+        {
+            var sx = side == 0 ? x + 1 : x + AirlockWidth - 1;
+            Run.Emit(World(sx, obstacle.Bottom - 2), count, CMUHuggerRun.Amber, 170, 0.35f, 1, -MathF.PI / 2, 2.4f, 600, floor: FloorY + 2,
+                kind: CMUHuggerRun.Spark);
         }
 
-        var state = closing <= 0 ? "open" : closing < 1 ? "closing" : "closed";
-        var shutter = Run.Frame(Shutter, state, RsiDirection.South, (int) (closing * 5.99f));
-        Run.DrawSprite(handle, shutter, new Vector2(centre, top + ShutterSize / 2), new Vector2(AirlockWidth, ShutterSize), 0,
-            CMUHuggerCorridorStage.PropTint);
-        Run.Fill(handle, x - 3, CeilingY, 3, FloorY - CeilingY, Color.Black.WithAlpha(0.6f));
-        Run.Fill(handle, x + AirlockWidth, CeilingY, 3, FloorY - CeilingY, Color.Black.WithAlpha(0.6f));
-        var blink = Run.Clock % 0.8f < 0.45f;
-        Run.Circle(handle, new Vector2(centre, top - 8), 2.5f, CMUHuggerRun.Alarm.WithAlpha(blink ? 1 : 0.25f));
+        if (count > 4)
+            Run.PlayAny(SparkSounds, -8);
+    }
 
-        // a hint for the gap while it is coming
-        if (x > PlayerX + 10 && x < CMUHuggerRun.ScreenWidth - 20 && blink && obstacle.Slam < 0)
-            Run.CentreText(handle, Run.SmallFont, Loc.GetString("cmu-game-hugger-larva-duck"), centre, top - 30, CMUHuggerRun.Amber);
+    private void DrawAirlock(DrawingHandleScreen handle, Obstacle obstacle, float x)
+    {
+        var jitter = obstacle.Phase == AirlockPhase.Jammed ? MathF.Sin(Run.Clock * 70) * 0.6f : 0;
+        var bottom = obstacle.Bottom + jitter;
+        const float lintel = CeilingY + 6;
+
+        // the slab: the blast door sprite stacked up from its bottom edge, the top one cut off at the lintel
+        if (bottom > lintel)
+        {
+            var slab = Run.Frame(BlastDoor, "closed");
+            for (var y = bottom; y > lintel; y -= AirlockWidth)
+            {
+                var visible = MathF.Min(AirlockWidth, y - lintel);
+                var cut = 32 * visible / AirlockWidth;
+                Run.DrawRegion(handle, slab, x, y - visible, AirlockWidth, visible, new UIBox2(0, 32 - cut, 32, 32), CMUHuggerCorridorStage.PropTint);
+            }
+
+            Run.Fill(handle, x, bottom - 2, AirlockWidth, 2, MetalOutline);
+            Run.Fill(handle, x, lintel, 1, bottom - lintel, MetalHigh);
+        }
+
+        // the frame: two posts striped at the foot and a lintel carrying the beacon
+        for (var side = 0; side < 2; side++)
+        {
+            var px = side == 0 ? x - 8 : x + AirlockWidth;
+            Run.Fill(handle, px, CeilingY - 6, 8, FloorY - CeilingY + 6, MetalMid);
+            Run.Fill(handle, px, CeilingY - 6, 1, FloorY - CeilingY + 6, MetalHigh);
+            Run.Fill(handle, px + 7, CeilingY - 6, 1, FloorY - CeilingY + 6, MetalOutline);
+            for (var k = 0; k < 6; k++)
+            {
+                var sy = FloorY - 8 - k * 8;
+                Run.Quad(handle, new Vector2(px + 1, sy), new Vector2(px + 7, sy - 4), new Vector2(px + 7, sy), new Vector2(px + 1, sy + 4),
+                    CMUHuggerRun.Amber.WithAlpha(0.55f));
+            }
+        }
+
+        Run.Fill(handle, x - 12, CeilingY - 10, AirlockWidth + 24, 16, MetalDark);
+        Run.Fill(handle, x - 12, CeilingY - 10, AirlockWidth + 24, 1, MetalHigh);
+        Run.Fill(handle, x - 12, CeilingY + 5, AirlockWidth + 24, 1, MetalOutline);
+        var alarm = obstacle.Phase is AirlockPhase.Warning or AirlockPhase.Falling or AirlockPhase.Jammed;
+        var on = alarm && MathF.Sin(Run.Clock * 22) > 0;
+        Run.Circle(handle, new Vector2(x + AirlockWidth / 2, CeilingY - 2), 3.5f, on ? CMUHuggerRun.Alarm : DarkAlarm);
+        if (on)
+        {
+            Run.Ellipse(handle, new Vector2(x + AirlockWidth / 2, CeilingY + 2), 40, 14, CMUHuggerRun.Alarm.WithAlpha(0.12f));
+            Run.Quad(handle, new Vector2(x - 6, CeilingY + 6), new Vector2(x + AirlockWidth + 6, CeilingY + 6), new Vector2(x + AirlockWidth + 30, FloorY),
+                new Vector2(x - 30, FloorY), CMUHuggerRun.Alarm.WithAlpha(0.04f));
+        }
+
+        // say what to do, big the first time
+        if (obstacle.Phase != AirlockPhase.Jammed || x <= PlayerX + 10 || Run.Clock % 0.8f >= 0.55f)
+            return;
+
+        var centre = x + AirlockWidth / 2;
+        Run.CentreText(handle, obstacle.First ? Run.TextFont : Run.SmallFont, Loc.GetString("cmu-game-hugger-larva-duck"), centre,
+            bottom - (obstacle.First ? 34 : 24), CMUHuggerRun.Amber);
+        if (obstacle.First)
+        {
+            Run.Quad(handle, new Vector2(centre - 6, bottom - 18), new Vector2(centre + 6, bottom - 18), new Vector2(centre, bottom - 9),
+                new Vector2(centre, bottom - 9), CMUHuggerRun.Amber);
+        }
     }
 
     protected override void DrawPlayer(DrawingHandleScreen handle)

@@ -38,8 +38,6 @@ public sealed class CMUHuggerVent : CMUHuggerStage
         "/Audio/_RMC14/Xeno/alien_roar4.ogg", "/Audio/_RMC14/Xeno/alien_roar5.ogg", "/Audio/_RMC14/Xeno/alien_roar6.ogg",
     };
 
-    private static readonly Color DuctBack = Color.FromHex("#030E06");
-    private static readonly Color BackTint = Color.FromHex("#3A5A42");
 
     private float _time;
     private float _scroll;
@@ -150,68 +148,98 @@ public sealed class CMUHuggerVent : CMUHuggerStage
         Run.Play(EvolveReady);
     }
 
+    /// <summary>
+    /// The duct as one side-view piece in the corridor's metal palette: a corrugated far wall with the odd fan behind,
+    /// a riveted roof and floor joined by flanged rings, and grates in the roof letting light fall to the floor.
+    /// </summary>
     public override void DrawBack(DrawingHandleScreen handle)
     {
-        Run.Fill(handle, 0, CMUHuggerRun.HudHeight, CMUHuggerRun.ScreenWidth, CMUHuggerRun.ScreenHeight - CMUHuggerRun.HudHeight, Color.Black);
-        Run.Fill(handle, 0, DuctTop, CMUHuggerRun.ScreenWidth, DuctBottom - DuctTop, DuctBack);
+        const float w = CMUHuggerRun.ScreenWidth;
+        Run.Fill(handle, 0, CMUHuggerRun.HudHeight, w, CMUHuggerRun.ScreenHeight - CMUHuggerRun.HudHeight, Color.Black);
 
-        // the far side of the duct: dark wall blocks, now and then a fan or a vent scrubber breathing
+        // the far wall: corrugated sheet, darker into its corners
         var back = _scroll * 0.6f;
-        var wall = Run.Frame(CMUHuggerCorridorStage.MetalWall, "full");
-        var scrubber = Run.Frame(CMUHuggerCorridorStage.Scrubber, "on", RsiDirection.South, (int) (Run.Clock / 0.12f));
-        for (var c = (int) MathF.Floor(back / 52); c * 52 - back < CMUHuggerRun.ScreenWidth; c++)
+        Run.Fill(handle, 0, DuctTop, w, DuctBottom - DuctTop, CMUHuggerCorridorStage.MetalMid);
+        for (var c = (int) MathF.Floor(back / 10); c * 10 - back < w; c++)
         {
-            var x = c * 52 - back;
-            Run.DrawSprite(handle, wall, new Vector2(x + 26, DuctTop + 26), new Vector2(52, 52), 0, BackTint);
-            Run.DrawSprite(handle, wall, new Vector2(x + 26, DuctTop + 78), new Vector2(52, 52), 0, BackTint);
-            var kind = CMUHuggerRun.Hash(c) % 5;
-            if (kind == 2)
-            {
-                Run.DrawSprite(handle, scrubber, new Vector2(x + 26, (DuctTop + DuctBottom) / 2), new Vector2(48, 48), 0, CMUHuggerCorridorStage.PropTint);
-                continue;
-            }
+            var x = c * 10 - back;
+            Run.Fill(handle, x, DuctTop, 4, DuctBottom - DuctTop, CMUHuggerCorridorStage.MetalDark);
+            Run.Fill(handle, x + 4, DuctTop, 1, DuctBottom - DuctTop, CMUHuggerCorridorStage.MetalMain);
+        }
 
-            if (kind != 0)
+        for (var c = (int) MathF.Floor(back / 52); c * 52 - back < w; c++)
+        {
+            if (CMUHuggerRun.Hash(c) % 5 != 0)
                 continue;
 
-            var centre = new Vector2(x + 26, (DuctTop + DuctBottom) / 2);
+            var centre = new Vector2(c * 52 - back + 26, (DuctTop + DuctBottom) / 2);
+            Run.Circle(handle, centre, 30, CMUHuggerCorridorStage.MetalOutline);
+            Run.Circle(handle, centre, 29, CMUHuggerCorridorStage.MetalHigh, false);
             Run.Circle(handle, centre, 26, Color.Black);
-            Run.Circle(handle, centre, 26, CMUHuggerRun.PhosphorDim.WithAlpha(0.7f), false);
             var spin = Run.Clock * 5 + c;
             for (var blade = 0; blade < 4; blade++)
             {
                 var angle = spin + blade * MathF.PI / 2;
-                Run.Beam(handle, centre, centre + new Vector2(MathF.Cos(angle), MathF.Sin(angle)) * 23, 6, CMUHuggerRun.PhosphorDim.WithAlpha(0.5f));
+                Run.Beam(handle, centre, centre + new Vector2(MathF.Cos(angle), MathF.Sin(angle)) * 23, 7, CMUHuggerCorridorStage.MetalLight);
             }
 
-            Run.Circle(handle, centre, 4, CMUHuggerRun.PhosphorDim);
+            Run.Circle(handle, centre, 4, CMUHuggerCorridorStage.MetalHigh);
         }
 
-        // a pipe run along the top of the duct
-        var pipe = Run.Frame(CMUHuggerCorridorStage.Pipes, "intact", RsiDirection.East);
-        for (var c = (int) MathF.Floor(_scroll / 48); c * 48 - _scroll < CMUHuggerRun.ScreenWidth; c++)
+        Run.Fill(handle, 0, DuctTop, w, 12, CMUHuggerCorridorStage.MetalOutline.WithAlpha(0.55f));
+        Run.Fill(handle, 0, DuctBottom - 10, w, 10, CMUHuggerCorridorStage.MetalOutline.WithAlpha(0.45f));
+
+        // the roof and floor plates, riveted, with a flanged ring at every joint and grates in the roof
+        Plate(handle, DuctTop - 16, 16);
+        Plate(handle, DuctBottom, 20);
+        for (var c = (int) MathF.Floor(_scroll / 24); c * 24 - _scroll < w; c++)
         {
-            Run.DrawSprite(handle, pipe, new Vector2(c * 48 - _scroll + 24, DuctTop + 4), new Vector2(48, 48), 0, CMUHuggerCorridorStage.WallTint);
+            var x = c * 24 - _scroll;
+            Run.Fill(handle, x, DuctTop - 9, 1, 1, CMUHuggerCorridorStage.MetalHigh);
+            Run.Fill(handle, x, DuctBottom + 9, 1, 1, CMUHuggerCorridorStage.MetalHigh);
         }
 
-        // roof and floor of deck plating, with grates in the roof where the light falls through
-        var plate = Run.Image(CMUHuggerCorridorStage.Plating);
-        var grate = Run.Frame(CMUHuggerCorridorStage.Grate, "grate");
-        for (var c = (int) MathF.Floor(_scroll / 40) - 1; c * 40 - _scroll < CMUHuggerRun.ScreenWidth + 40; c++)
+        for (var c = (int) MathF.Floor(_scroll / 120) - 1; c * 120 - _scroll < w + 40; c++)
         {
-            var x = c * 40 - _scroll;
-            var open = CMUHuggerRun.Hash(c + 7) % 4 == 0;
-            Run.DrawSprite(handle, open ? grate : plate, new Vector2(x + 20, DuctTop - 7), new Vector2(40, 14), 0, CMUHuggerCorridorStage.WallTint);
-            Run.DrawSprite(handle, plate, new Vector2(x + 20, DuctBottom + 9), new Vector2(40, 18), 0, CMUHuggerCorridorStage.FloorNear);
-            if (open)
+            var x = c * 120 - _scroll;
+
+            // a joint ring: a flange on the roof and floor, and the seam down the far wall
+            Run.Fill(handle, x, DuctTop - 18, 8, 20, CMUHuggerCorridorStage.MetalLight);
+            Run.Fill(handle, x, DuctTop - 18, 8, 1, CMUHuggerCorridorStage.MetalRim);
+            Run.Fill(handle, x, DuctBottom - 2, 8, 24, CMUHuggerCorridorStage.MetalLight);
+            Run.Fill(handle, x, DuctBottom - 2, 8, 1, CMUHuggerCorridorStage.MetalRim);
+            Run.Fill(handle, x + 2, DuctTop + 2, 4, DuctBottom - DuctTop - 4, CMUHuggerCorridorStage.MetalDark.WithAlpha(0.6f));
+            if (CMUHuggerRun.Hash(c + 7) % 3 != 0)
+                continue;
+
+            // a grate in the roof, and the light falling through it
+            var gx = x + 50;
+            Run.Fill(handle, gx, DuctTop - 14, 30, 13, Color.Black);
+            for (var k = 0; k < 6; k++)
             {
-                Run.Quad(handle, new Vector2(x + 8, DuctTop), new Vector2(x + 32, DuctTop), new Vector2(x + 52, DuctBottom), new Vector2(x - 12, DuctBottom),
-                    CMUHuggerRun.PhosphorGreen.WithAlpha(0.05f));
+                Run.Fill(handle, gx + 2 + k * 5, DuctTop - 13, 2, 11, CMUHuggerCorridorStage.MetalLight);
             }
+
+            Run.Quad(handle, new Vector2(gx, DuctTop), new Vector2(gx + 30, DuctTop), new Vector2(gx + 52, DuctBottom), new Vector2(gx - 22, DuctBottom),
+                CMUHuggerRun.PhosphorGreen.WithAlpha(0.06f));
+            Run.Ellipse(handle, new Vector2(gx + 15, DuctBottom + 3), 40, 5, CMUHuggerRun.PhosphorGreen.WithAlpha(0.1f));
         }
 
-        Run.Fill(handle, 0, DuctTop - 1, CMUHuggerRun.ScreenWidth, 1, CMUHuggerRun.PhosphorGreen.WithAlpha(0.6f));
-        Run.Fill(handle, 0, DuctBottom, CMUHuggerRun.ScreenWidth, 1.5f, CMUHuggerRun.PhosphorGreen.WithAlpha(0.7f));
+        // standing water on the floor here and there
+        for (var c = (int) MathF.Floor(_scroll / 90); c * 90 - _scroll < w + 30; c++)
+        {
+            if (CMUHuggerRun.Hash(c + 31) % 4 == 0)
+                Run.Ellipse(handle, new Vector2(c * 90 - _scroll + 30, DuctBottom + 4), 22, 2.5f, CMUHuggerRun.Bright.WithAlpha(0.12f));
+        }
+
+        Run.Fill(handle, 0, DuctBottom, w, 1.5f, CMUHuggerRun.PhosphorGreen.WithAlpha(0.6f));
+    }
+
+    private void Plate(DrawingHandleScreen handle, float top, float height)
+    {
+        Run.Fill(handle, 0, top, CMUHuggerRun.ScreenWidth, height, CMUHuggerCorridorStage.MetalMain);
+        Run.Fill(handle, 0, top, CMUHuggerRun.ScreenWidth, 1, CMUHuggerCorridorStage.MetalHigh);
+        Run.Fill(handle, 0, top + height - 1, CMUHuggerRun.ScreenWidth, 1, CMUHuggerCorridorStage.MetalOutline);
     }
 
     public override void DrawFront(DrawingHandleScreen handle)

@@ -19,6 +19,8 @@ public enum CMUHuggerHumanState : byte
     Latched,
     Shot,
     Down,
+    Brace,
+    Pump,
 }
 
 /// <summary>A colonist or marine on the corridor floor.</summary>
@@ -38,6 +40,9 @@ public sealed class CMUHuggerHuman
     public bool Whistled;
     public bool Shouted;
     public bool Infected;
+
+    /// <summary>A shotgunner's next blast goes high (duck it) rather than low (jump it).</summary>
+    public bool High;
     public float Walk;
     public float Step;
     public float Timer;
@@ -50,6 +55,14 @@ public sealed class CMUHuggerHuman
     public bool Marine => Person.Outfit != CMUHuggerOutfit.Colonist;
     public bool Rifleman => Person.Outfit == CMUHuggerOutfit.Rifleman;
     public bool Knifeman => Person.Outfit == CMUHuggerOutfit.Knifeman;
+}
+
+/// <summary>What a locker trap in the corridor holds.</summary>
+public enum CMUHuggerLockerContent : byte
+{
+    Empty,
+    Marine,
+    Colonist,
 }
 
 /// <summary>
@@ -66,7 +79,8 @@ public abstract class CMUHuggerCorridorStage : CMUHuggerStage
     public const float FloorY = 186;
     public const float PlayerX = 64;
 
-    protected const float WallDepth = 0.85f;
+    // the wall scrolls with the deck, so hazards on the deck can be lined up with bare wall; the windows give depth
+    protected const float WallDepth = 1;
     protected const float OutsideDepth = 0.12f;
     protected const float HillDepth = 0.22f;
     protected const float PanelWidth = 64;
@@ -186,24 +200,19 @@ public abstract class CMUHuggerCorridorStage : CMUHuggerStage
         "/Audio/Voice/Human/whistle_4.ogg",
     };
 
-    // Scenery from the game's own sprites, multiplied down into the phosphor so the characters stay in front.
+    // The corridor is drawn as one side-view composition rather than tiled sprites: from the top, a ceiling girder
+    // with strip lights, a service band of pipes, the main wall of bevelled riveted plates, a handrail, a ribbed lower
+    // wall, the skirting and the deck, with foreground railings at the bottom edge. Its palette is the six greys of
+    // the game's metal wall sprite (Walls/metal.rsi), pulled into the phosphor. Doors, lockers, consoles, crates,
+    // signs and vents are the game's own sprites, placed sparingly at sensible heights.
     public const string Structures = "/Textures/_RMC14/Structures/";
-    public const string MetalWall = Structures + "Walls/metal.rsi";
-    public const string ReinforcedWall = Structures + "Walls/rwall.rsi";
-    public const string Pipes = Structures + "overhead_pipes.rsi";
-    public const string Grate = Structures + "grate.rsi";
     public const string Scrubber = Structures + "Piping/Atmospherics/vent_scrubber.rsi";
-    public const string Plating = "/Textures/_RMC14/Tiles/almayer/plating.png";
     private const string FloorTile = "/Textures/_RMC14/Tiles/almayer/floor.png";
     private const string CatwalkTile = "/Textures/_RMC14/Tiles/almayer/catwalk_tile.png";
-    private const string Tube = Structures + "Wallmounts/Lighting/light_tube.rsi";
     private const string Posters = Structures + "Wallmounts/posters.rsi";
     private const string Signs = Structures + "Wallmounts/semiotics.rsi";
     private const string Display = Structures + "Machines/status_display.rsi";
     private const string Computer = Structures + "Machines/computer.rsi";
-    private const string Intercom = Structures + "Wallmounts/intercom.rsi";
-    private const string Extinguisher = Structures + "Wallmounts/extinguisher_cabinet.rsi";
-    private const string CameraRsi = Structures + "Wallmounts/camera.rsi";
 
     /// <summary>Doors are 32 px sprites at 3.4: a little taller than a person.</summary>
     private const float DoorSize = 109;
@@ -232,15 +241,55 @@ public abstract class CMUHuggerCorridorStage : CMUHuggerStage
 
     private static readonly string[] SignStates = { "biohazard", "airlock", "hazard", "highvoltage", "firehaz", "escapepod", "galley", "cryo" };
 
-    /// <summary>The scenery tints: the wall darkest, the floor rows, and what hangs on the wall a little brighter.</summary>
-    public static readonly Color WallTint = Color.FromHex("#6A8A70");
-    public static readonly Color FloorFar = Color.FromHex("#607A66");
-    public static readonly Color FloorNear = Color.FromHex("#7C9A82");
-    public static readonly Color PropTint = Color.FromHex("#AAC8B0");
+    /// <summary>The metal wall sprite's greys, pulled into the phosphor: outline, dark, mid, main, light, highlight, and a rim for trims.</summary>
+    public static readonly Color MetalOutline = Color.FromHex("#0E160F");
+    public static readonly Color MetalDark = Color.FromHex("#152018");
+    public static readonly Color MetalMid = Color.FromHex("#1B2A1F");
+    public static readonly Color MetalMain = Color.FromHex("#223427");
+    private static readonly Color MetalShade = Color.FromHex("#1F3024");
+    public static readonly Color MetalLight = Color.FromHex("#283C2C");
+    public static readonly Color MetalHigh = Color.FromHex("#33503A");
+    public static readonly Color MetalRim = Color.FromHex("#4C7A56");
+    private static readonly Color TubeLit = Color.FromHex("#DFFFE6");
 
-    private static readonly Color WallColour = Color.FromHex("#04140A");
-    protected static readonly Color CeilingColour = Color.FromHex("#020D05");
-    protected static readonly Color FloorColour = Color.FromHex("#041309");
+    /// <summary>Furniture is multiplied by this: dimmer than the characters, so they stay in front.</summary>
+    public static readonly Color PropTint = Color.FromHex("#8EAE94");
+
+    public static readonly Color FloorFar = Color.FromHex("#4E6654");
+    public static readonly Color FloorNear = Color.FromHex("#647E6A");
+
+    // the wall's bands, top to bottom
+    private const float ServiceTop = 40;
+    private const float WallTop = 62;
+    private const float PlateTop = 66;
+    private const float RailY = 148;
+    private const float LowerTop = 156;
+    private const float SkirtTop = 172;
+    private const float ForegroundDepth = 1.35f;
+
+    // locker traps: the tell starts this many seconds before the player gets there and lasts this long before the door goes
+    private const int MaxLockers = 2;
+    private const float LockerTellEta = 1.6f;
+    private const float LockerTell = 0.55f;
+
+    // a shotgunner braces, then blasts a spread of short-range pellets into one band: low is jumped, high is ducked
+    private const float ShotgunBrace = 0.4f;
+    private const float ShotgunPumpTime = 0.65f;
+    private const float ShotgunRange = 230;
+    private const int ShotgunPellets = 6;
+    private const float ShotgunSpeed = 420;
+    private static readonly Vector2 ShotgunLow = new(2, 14);
+    private static readonly Vector2 ShotgunHigh = new(17, 52);
+
+    private const string Shotgun = "/Audio/_RMC14/Weapons/Guns/Gunshots/gun_shotgun.ogg";
+    private const string ShotgunPump = "/Audio/_RMC14/Weapons/Guns/Pump/shotgunpump1.ogg";
+    private const string LockerOpen = "/Audio/Effects/closetopen.ogg";
+
+    private static readonly string[] Rattles =
+    {
+        "/Audio/Effects/fence_rattle1.ogg", "/Audio/Effects/fence_rattle2.ogg", "/Audio/Effects/fence_rattle3.ogg",
+    };
+
     protected static readonly Color Sky = Color.FromHex("#010502");
     private static readonly Color Hills = Color.FromHex("#0A2A12");
     protected static readonly Color Green = CMUHuggerRun.PhosphorGreen;
@@ -254,6 +303,25 @@ public abstract class CMUHuggerCorridorStage : CMUHuggerStage
     {
         public Vector2 At;
         public Vector2 Velocity;
+
+        /// <summary>Seconds left in flight: shotgun pellets are short range, tracers fly until they leave.</summary>
+        public float Life;
+    }
+
+    private enum LockerState : byte
+    {
+        Shut,
+        Tell,
+        Open,
+    }
+
+    private struct Locker
+    {
+        public float X;
+        public CMUHuggerLockerContent Content;
+        public int Closet;
+        public LockerState State;
+        public float Timer;
     }
 
     private struct QueuedShot
@@ -274,6 +342,8 @@ public abstract class CMUHuggerCorridorStage : CMUHuggerStage
     private int _shotCount;
     private readonly MuzzleFlash[] _flashes = new MuzzleFlash[MaxFlashes];
     private int _flashCount;
+    private readonly Locker[] _lockers = new Locker[MaxLockers];
+    private int _lockerCount;
     protected readonly CMUHuggerHuman[] Humans = new CMUHuggerHuman[MaxHumans];
 
     /// <summary>World units the floor has moved, and how fast it is moving now.</summary>
@@ -341,6 +411,7 @@ public abstract class CMUHuggerCorridorStage : CMUHuggerStage
         _bulletCount = 0;
         _shotCount = 0;
         _flashCount = 0;
+        _lockerCount = 0;
         _ambient = 5;
         foreach (var human in Humans)
         {
@@ -388,6 +459,7 @@ public abstract class CMUHuggerCorridorStage : CMUHuggerStage
 
         MoveBullets(dt);
         MoveHumans(dt);
+        MoveLockers(dt);
         MoveCorpse(dt);
         UpdateStage(dt);
         if (Playing)
@@ -616,10 +688,10 @@ public abstract class CMUHuggerCorridorStage : CMUHuggerStage
         }
     }
 
-    private void AddBullet(Vector2 at, Vector2 velocity)
+    private void AddBullet(Vector2 at, Vector2 velocity, float life = float.PositiveInfinity)
     {
         if (_bulletCount < MaxBullets)
-            _bullets[_bulletCount++] = new Bullet { At = at, Velocity = velocity };
+            _bullets[_bulletCount++] = new Bullet { At = at, Velocity = velocity, Life = life };
     }
 
     private void AddFlash(Vector2 at)
@@ -646,7 +718,13 @@ public abstract class CMUHuggerCorridorStage : CMUHuggerStage
         {
             ref var bullet = ref _bullets[i];
             bullet.At += bullet.Velocity * dt;
-            if (bullet.At.Y >= FloorY + 2)
+            bullet.Life -= dt;
+            if (bullet.Life <= 0)
+            {
+                // a pellet at the end of its range
+                Run.Emit(World(bullet.At.X, bullet.At.Y), 2, CMUHuggerRun.Dust.WithAlpha(0.4f), 10, 0.3f, 1.5f, 0, MathF.Tau, -10, kind: CMUHuggerRun.Smoke);
+            }
+            else if (bullet.At.Y >= FloorY + 2)
             {
                 // an aimed shot that missed sparks off the deck plating
                 var world = World(bullet.At.X, FloorY + 2);
@@ -668,6 +746,206 @@ public abstract class CMUHuggerCorridorStage : CMUHuggerStage
             _flashes[i].Age += dt;
             if (_flashes[i].Age >= 0.07f)
                 _flashes[i] = _flashes[--_flashCount];
+        }
+    }
+
+    #endregion
+
+    #region Locker traps
+
+    /// <summary>
+    /// A wall locker on the deck ahead that may hold somebody: as the player nears it rattles, the door shifts and,
+    /// if someone is inside, eyes glint in its slats; then it bursts open. The odds of a marine or a colonist inside
+    /// are given; the rest are empty fake-outs.
+    /// </summary>
+    protected void SpawnLocker(float marine, float colonist)
+    {
+        if (_lockerCount >= MaxLockers)
+            return;
+
+        var roll = Run.Fx();
+        var content = roll < marine ? CMUHuggerLockerContent.Marine : roll < marine + colonist ? CMUHuggerLockerContent.Colonist : CMUHuggerLockerContent.Empty;
+        _lockers[_lockerCount++] = new Locker
+        {
+            X = BareSlot(Scroll + CMUHuggerRun.ScreenWidth + 50),
+            Content = content,
+            Closet = Run.Rng.Next(Closets.Length),
+            State = LockerState.Shut,
+        };
+    }
+
+    /// <summary>Whether a locker that has not burst yet is ahead of the player.</summary>
+    protected bool LockerAhead()
+    {
+        for (var i = 0; i < _lockerCount; i++)
+        {
+            if (_lockers[i].State != LockerState.Open && _lockers[i].X - Scroll > PlayerX - 30)
+                return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// The world x of the middle of the first bare stretch of wall at or after <paramref name="x"/>: a panel with no
+    /// furniture on it or on the two either side, so hazards never land near a door, a locker or a sign.
+    /// </summary>
+    protected static float BareSlot(float x)
+    {
+        var panel = (int) MathF.Floor(x / PanelWidth);
+        while (Furniture(panel - 2) >= 0 || Furniture(panel - 1) >= 0 || Furniture(panel) >= 0 || Furniture(panel + 1) >= 0 || Furniture(panel + 2) >= 0)
+        {
+            panel++;
+        }
+
+        return panel * PanelWidth + PanelWidth / 2;
+    }
+
+    private void MoveLockers(float dt)
+    {
+        for (var i = _lockerCount - 1; i >= 0; i--)
+        {
+            ref var locker = ref _lockers[i];
+            locker.Timer += dt;
+            var x = locker.X - Scroll;
+            if (x < -90)
+            {
+                _lockers[i] = _lockers[--_lockerCount];
+                continue;
+            }
+
+            if (locker.State == LockerState.Shut && Playing && (x - PlayerX) / MathF.Max(1, Speed) < LockerTellEta)
+            {
+                locker.State = LockerState.Tell;
+                locker.Timer = 0;
+                Run.PlayAny(Rattles, locker.Content == CMUHuggerLockerContent.Empty ? -8 : -3);
+            }
+            else if (locker.State == LockerState.Tell && locker.Timer >= LockerTell)
+            {
+                OpenLocker(ref locker, x);
+            }
+        }
+    }
+
+    /// <summary>The locker door bangs open on whatever was inside.</summary>
+    private void OpenLocker(ref Locker locker, float x)
+    {
+        locker.State = LockerState.Open;
+        locker.Timer = 0;
+        var empty = locker.Content == CMUHuggerLockerContent.Empty;
+        Run.Play(LockerOpen, empty ? -6 : 2, empty ? 0.8f : 1);
+        if (empty)
+            return;
+
+        Run.Shake(1.5f, 0.2f);
+        Run.Emit(World(x + 14, FloorY - 50), 8, CMUHuggerRun.Dust.WithAlpha(0.5f), 50, 0.6f, 3, 0, 1.6f, -10, kind: CMUHuggerRun.Smoke);
+        var marine = locker.Content == CMUHuggerLockerContent.Marine;
+        if (SpawnHuman(marine ? CMUHuggerOutfit.Shotgunner : CMUHuggerOutfit.Colonist, true) is not { } human)
+            return;
+
+        human.X = locker.X + 6;
+        human.Timer = 0;
+        human.Shouted = true;
+        human.Whistled = true;
+        if (marine)
+        {
+            // out he steps, shotgun up
+            human.State = CMUHuggerHumanState.Brace;
+            human.High = Run.Fx() < 0.5f;
+            Run.Pop("!", World(x, FloorY - 116), CMUHuggerRun.Alarm, 0.6f);
+            return;
+        }
+
+        human.State = CMUHuggerHumanState.Flee;
+        human.East = true;
+        human.Flees = true;
+        Run.Scream(human.Person.Female);
+    }
+
+    /// <summary>A shotgunner braces, shows where the blast will go, then fires a spread of pellets and pumps another round.</summary>
+    private void Brace(CMUHuggerHuman human, float x)
+    {
+        if (!Playing || x < PlayerX + 24)
+        {
+            human.State = CMUHuggerHumanState.Stand;
+            human.Timer = 0;
+            return;
+        }
+
+        if (human.Timer < ShotgunBrace || x - PlayerX > ShotgunRange)
+            return;
+
+        var muzzle = new Vector2(x - 46, FloorY - 51);
+        var band = human.High ? ShotgunHigh : ShotgunLow;
+        for (var k = 0; k < ShotgunPellets; k++)
+        {
+            var target = new Vector2(PlayerX, FloorY - (band.X + (band.Y - band.X) * (k + Run.Fx() * 0.6f) / ShotgunPellets));
+            var dir = Vector2.Normalize(target - muzzle);
+            AddBullet(muzzle, dir * ShotgunSpeed * (0.92f + Run.Fx() * 0.16f), (muzzle.X - PlayerX + 40) / ShotgunSpeed);
+        }
+
+        AddFlash(muzzle);
+        AddFlash(muzzle - new Vector2(8, 0));
+        Run.Emit(World(muzzle.X, muzzle.Y), 10, CMUHuggerRun.TracerGlow, 200, 0.2f, 1, MathF.PI, 0.7f, kind: CMUHuggerRun.Spark);
+        Run.Emit(World(muzzle.X, muzzle.Y), 5, CMUHuggerRun.Dust.WithAlpha(0.5f), 30, 0.7f, 4, MathF.PI, 1, -15, kind: CMUHuggerRun.Smoke);
+        Run.Play(Shotgun, 0, 0.95f + Run.Fx() * 0.1f);
+        Run.Shake(2, 0.15f);
+        Run.Pend(0.3f, ShotgunPump, -2);
+        human.State = CMUHuggerHumanState.Pump;
+        human.Timer = 0;
+    }
+
+    private void DrawLockers(DrawingHandleScreen handle)
+    {
+        for (var i = 0; i < _lockerCount; i++)
+        {
+            var locker = _lockers[i];
+            var x = locker.X - Scroll;
+            if (x < -80 || x > CMUHuggerRun.ScreenWidth + 80)
+                continue;
+
+            // a rattle that builds before the door goes
+            var shake = locker.State == LockerState.Tell ? MathF.Sin(locker.Timer * 60) * (0.6f + 1.4f * locker.Timer / LockerTell) : 0;
+            var closet = Closets[locker.Closet];
+            var size = new Vector2(96, 96);
+            const float y = FloorY - 14 * 3;
+            Run.DrawSprite(handle, Run.Frame(closet, "base"), new Vector2(x + shake, y), size, 0, PropTint);
+            if (locker.State == LockerState.Open)
+            {
+                Run.DrawSprite(handle, Run.Frame(closet, "open"), new Vector2(x, y), size, 0, PropTint);
+                continue;
+            }
+
+            Run.DrawSprite(handle, Run.Frame(closet, "closed"), new Vector2(x + shake * 1.6f, y), size, 0, PropTint);
+
+            // eyes in the slats when somebody is in there
+            if (locker.State != LockerState.Tell || locker.Content == CMUHuggerLockerContent.Empty || Run.Clock % 0.5f >= 0.35f)
+                continue;
+
+            Run.Fill(handle, x - 5 + shake * 1.6f, FloorY - 58, 2, 1.5f, Color.White.WithAlpha(0.9f));
+            Run.Fill(handle, x + 2 + shake * 1.6f, FloorY - 58, 2, 1.5f, Color.White.WithAlpha(0.9f));
+        }
+    }
+
+    /// <summary>The red zone a braced shotgunner is about to fill, at the player, so it can be jumped or ducked.</summary>
+    private void DrawBlastWarnings(DrawingHandleScreen handle)
+    {
+        foreach (var human in Humans)
+        {
+            if (!human.Active || human.State != CMUHuggerHumanState.Brace || !Playing)
+                continue;
+
+            var x = human.X - Scroll;
+            if (x - PlayerX > ShotgunRange)
+                continue;
+
+            var band = human.High ? ShotgunHigh : ShotgunLow;
+            var k = MathF.Min(1, human.Timer / ShotgunBrace);
+            var flicker = 0.7f + 0.3f * MathF.Sin(Run.Clock * 40);
+            Run.Fill(handle, PlayerX - 22, FloorY - band.Y, 44, band.Y - band.X, CMUHuggerRun.Laser.WithAlpha((0.1f + 0.22f * k) * flicker));
+            Run.Outline(handle, PlayerX - 22, FloorY - band.Y, 44, band.Y - band.X, CMUHuggerRun.Laser.WithAlpha(0.5f * k * flicker));
+            Run.Line(handle, new Vector2(x - 46, FloorY - 51), new Vector2(PlayerX + 22, FloorY - (band.X + band.Y) / 2),
+                CMUHuggerRun.Laser.WithAlpha(0.3f * k * flicker));
         }
     }
 
@@ -771,6 +1049,17 @@ public abstract class CMUHuggerCorridorStage : CMUHuggerStage
                 case CMUHuggerHumanState.Aim:
                     Backpedal(human, dt);
                     Aim(human, x);
+                    break;
+                case CMUHuggerHumanState.Brace:
+                    Brace(human, x);
+                    break;
+                case CMUHuggerHumanState.Pump:
+                    if (human.Timer < ShotgunPumpTime)
+                        break;
+
+                    human.State = CMUHuggerHumanState.Brace;
+                    human.Timer = 0;
+                    human.High = Run.Fx() < 0.5f;
                     break;
                 case CMUHuggerHumanState.WindUp:
                     if (human.Timer < WindUpTime)
@@ -1139,16 +1428,19 @@ public abstract class CMUHuggerCorridorStage : CMUHuggerStage
     public override void DrawFront(DrawingHandleScreen handle)
     {
         DrawShadows(handle);
+        DrawLockers(handle);
         foreach (var human in Humans)
         {
             if (human.Active)
                 DrawHuman(handle, human);
         }
 
+        DrawBlastWarnings(handle);
         DrawCorpse(handle);
         if (!Corpse)
             DrawPlayer(handle);
 
+        DrawForeground(handle);
         DrawFire(handle);
         DrawStreaks(handle);
     }
@@ -1168,24 +1460,52 @@ public abstract class CMUHuggerCorridorStage : CMUHuggerStage
         return null;
     }
 
+    /// <summary>What stands at a panel, from its hash: most panels are bare, with at least two bare panels between any two pieces.</summary>
+    private static int Furniture(int panel)
+    {
+        var kind = (int) (CMUHuggerRun.Hash(panel) % 100);
+        if (kind >= 59 || CMUHuggerRun.Hash(panel - 1) % 100 < 59 || CMUHuggerRun.Hash(panel - 2) % 100 < 59)
+            return -1;
+
+        return kind;
+    }
+
+    /// <summary>The ceiling girder and the service band of pipes under it, both one continuous strip.</summary>
     private void DrawCeiling(DrawingHandleScreen handle)
     {
-        Run.Fill(handle, 0, CMUHuggerRun.HudHeight, CMUHuggerRun.ScreenWidth, CeilingY - CMUHuggerRun.HudHeight, CeilingColour);
+        const float w = CMUHuggerRun.ScreenWidth;
         var u = Scroll * WallDepth;
-        var pipe = Run.Frame(Pipes, "intact", RsiDirection.East);
-        for (var c = (int) MathF.Floor(u / 48); c * 48 - u < CMUHuggerRun.ScreenWidth; c++)
+        Run.Fill(handle, 0, CMUHuggerRun.HudHeight, w, ServiceTop - CMUHuggerRun.HudHeight, MetalOutline);
+
+        // the girder: a web with a flange under it, and stiffeners with rivets
+        Run.Fill(handle, 0, 19, w, 4, MetalDark);
+        Run.Fill(handle, 0, 31, w, 5, MetalMid);
+        Run.Fill(handle, 0, 31, w, 1, MetalHigh);
+        Run.Fill(handle, 0, 36, w, 1, MetalOutline);
+        for (var c = (int) MathF.Floor(u / 48); c * 48 - u < w; c++)
         {
-            Run.DrawSprite(handle, pipe, new Vector2(c * 48 - u + 24, 28), new Vector2(48, 48), 0, PropTint);
+            var x = c * 48 - u;
+            Run.Fill(handle, x, 23, 3, 8, MetalDark);
+            Run.Fill(handle, x + 1, 33, 1, 1, MetalRim);
         }
 
-        Run.Fill(handle, 0, CeilingY - 2, CMUHuggerRun.ScreenWidth, 2, Dim.WithAlpha(0.8f));
-        for (var c = (int) MathF.Floor((u - 30) / 96); c * 96 + 30 - u < CMUHuggerRun.ScreenWidth; c++)
+        // the service band: a big pipe with flanged joints, a small one, and the brackets holding them
+        Run.Fill(handle, 0, ServiceTop - 4, w, WallTop - ServiceTop + 4, MetalOutline);
+        Run.Fill(handle, 0, 43, w, 7, MetalMid);
+        Run.Fill(handle, 0, 43, w, 1, MetalHigh);
+        Run.Fill(handle, 0, 49, w, 1, MetalDark);
+        Run.Fill(handle, 0, 53, w, 3, MetalDark);
+        Run.Fill(handle, 0, 53, w, 1, MetalLight);
+        for (var c = (int) MathF.Floor(u / 80); c * 80 - u < w; c++)
         {
-            // a strip light on the ceiling: the tube sits in the bottom rows of its sprite
-            var x = c * 96 + 30 - u;
-            var on = LampOn(c);
-            Run.DrawSprite(handle, Run.Frame(Tube, on ? "tube1" : "tube0"), new Vector2(x + 13, CeilingY - 30), new Vector2(64, 64), 0,
-                on ? Color.White : PropTint);
+            var x = c * 80 - u + 20;
+            Run.Fill(handle, x, 41, 4, 11, MetalLight);
+            Run.Fill(handle, x, 41, 4, 1, MetalHigh);
+        }
+
+        for (var c = (int) MathF.Floor(u / 48); c * 48 - u < w; c++)
+        {
+            Run.Fill(handle, c * 48 - u + 30, 40, 2, 22, MetalDark);
         }
     }
 
@@ -1198,137 +1518,198 @@ public abstract class CMUHuggerCorridorStage : CMUHuggerStage
         return MathF.Sin(Run.Clock * 13 + lamp) + MathF.Sin(Run.Clock * 7.3f + lamp * 2) > -0.6f;
     }
 
-    private static int PanelKind(int panel)
-    {
-        return (int) (CMUHuggerRun.Hash(panel) % 16);
-    }
-
     private void DrawWall(DrawingHandleScreen handle)
     {
-        Run.Fill(handle, 0, CeilingY, CMUHuggerRun.ScreenWidth, FloorY - CeilingY, WallColour);
+        const float w = CMUHuggerRun.ScreenWidth;
         var u = Scroll * WallDepth;
         var first = (int) MathF.Floor(u / PanelWidth) - 1;
 
-        // the wall first and then what is on it, so a door wider than its panel is not covered by the next one
-        for (var p = first; p * PanelWidth - u < CMUHuggerRun.ScreenWidth; p++)
+        // the bands run the whole width, then the plates, then what stands in front, so a door can spill over its panel
+        Run.Fill(handle, 0, WallTop, w, FloorY - WallTop, MetalDark);
+        Run.Fill(handle, 0, WallTop, w, 1, MetalHigh);
+        Run.Fill(handle, 0, WallTop + 1, w, 2, MetalMain);
+        Run.Fill(handle, 0, WallTop + 3, w, 1, MetalOutline);
+        for (var p = first; p * PanelWidth - u < w; p++)
         {
-            DrawWallTiles(handle, p, p * PanelWidth - u);
+            DrawPlate(handle, p, p * PanelWidth - u);
         }
 
-        for (var p = first; p * PanelWidth - u < CMUHuggerRun.ScreenWidth + PanelWidth; p++)
+        DrawLowerWall(handle, u);
+        for (var p = first; p * PanelWidth - u < w + PanelWidth; p++)
         {
-            DrawPanel(handle, p, p * PanelWidth - u);
+            DrawFurniture(handle, p, p * PanelWidth - u);
         }
     }
 
-    /// <summary>Two colony wall blocks stacked up to a strip of deck plating at the foot of the wall.</summary>
-    private void DrawWallTiles(DrawingHandleScreen handle, int panel, float x)
+    /// <summary>One bevelled wall plate with rivets at its corners, and now and then a groove, a grille, a split or some grime.</summary>
+    private void DrawPlate(DrawingHandleScreen handle, int panel, float x)
     {
-        var tile = Run.Frame(CMUHuggerRun.Hash01(panel, 11) < 0.3f ? ReinforcedWall : MetalWall, "full");
-        Run.DrawSprite(handle, tile, new Vector2(x + 32, CeilingY + 32), new Vector2(64, 64), 0, WallTint);
-        Run.DrawSprite(handle, tile, new Vector2(x + 32, CeilingY + 96), new Vector2(64, 64), 0, WallTint);
-        var plate = Run.Image(Plating);
-        Run.DrawSprite(handle, plate, new Vector2(x + 16, FloorY - 9), new Vector2(32, 18), 0, WallTint);
-        Run.DrawSprite(handle, plate, new Vector2(x + 48, FloorY - 9), new Vector2(32, 18), 0, WallTint);
-        Run.Fill(handle, x, FloorY - 18, PanelWidth, 1, Dim.WithAlpha(0.6f));
+        const float top = PlateTop;
+        const float bottom = RailY - 2;
+        Run.Fill(handle, x + 2, top, PanelWidth - 4, bottom - top, CMUHuggerRun.Hash01(panel, 24) < 0.3f ? MetalShade : MetalMain);
+        Run.Fill(handle, x + 2, top, PanelWidth - 4, 1, MetalHigh);
+        Run.Fill(handle, x + 2, top, 1, bottom - top, MetalLight);
+        Run.Fill(handle, x + 2, bottom - 1, PanelWidth - 4, 1, MetalOutline);
+        Run.Fill(handle, x + PanelWidth - 3, top, 1, bottom - top, MetalOutline);
+        var v = CMUHuggerRun.Hash01(panel, 21);
+        if (v < 0.45f)
+        {
+            Run.Fill(handle, x + 3, 104, PanelWidth - 6, 1, MetalOutline);
+            Run.Fill(handle, x + 3, 105, PanelWidth - 6, 1, MetalLight);
+        }
+        else if (v < 0.65f)
+        {
+            Run.Fill(handle, x + 14, 116, 36, 22, MetalDark);
+            for (var k = 0; k < 5; k++)
+            {
+                Run.Fill(handle, x + 16, 118 + k * 4, 32, 2, MetalOutline);
+            }
+        }
+        else if (v < 0.82f)
+        {
+            Run.Fill(handle, x + 31, top + 1, 1, bottom - top - 2, MetalOutline);
+            Run.Fill(handle, x + 32, top + 1, 1, bottom - top - 2, MetalLight);
+        }
+        else
+        {
+            Run.Fill(handle, x + 3, 118, PanelWidth - 6, bottom - 119, MetalOutline.WithAlpha(0.35f));
+            Run.Fill(handle, x + 12 + CMUHuggerRun.Hash01(panel, 22) * 36, 100, 1, 30, MetalOutline.WithAlpha(0.5f));
+        }
+
+        Rivet(handle, x + 5, top + 3);
+        Rivet(handle, x + PanelWidth - 7, top + 3);
+        Rivet(handle, x + 5, bottom - 5);
+        Rivet(handle, x + PanelWidth - 7, bottom - 5);
     }
 
-    /// <summary>What hangs on or stands against one panel of wall, picked by its hash, all the game's own sprites.</summary>
-    private void DrawPanel(DrawingHandleScreen handle, int panel, float x)
+    private void Rivet(DrawingHandleScreen handle, float x, float y)
     {
-        var hash = CMUHuggerRun.Hash(panel);
-        var kind = PanelKind(panel);
+        Run.Fill(handle, x, y, 1, 1, MetalHigh);
+        Run.Fill(handle, x + 1, y + 1, 1, 1, MetalOutline);
+    }
 
-        // a door spills onto the panels either side, so they stay bare
-        if (kind != 9 && (PanelKind(panel - 1) == 9 || PanelKind(panel + 1) == 9) || kind == 9 && PanelKind(panel - 1) == 9)
+    /// <summary>The handrail, the ribbed lower wall and the skirting, continuous along the corridor.</summary>
+    private void DrawLowerWall(DrawingHandleScreen handle, float u)
+    {
+        const float w = CMUHuggerRun.ScreenWidth;
+        Run.Fill(handle, 0, RailY, w, LowerTop - RailY, MetalOutline);
+        Run.Fill(handle, 0, RailY + 2, w, 2, MetalRim);
+        Run.Fill(handle, 0, RailY + 2, w, 1, Green.WithAlpha(0.25f));
+        Run.Fill(handle, 0, LowerTop, w, SkirtTop - LowerTop, MetalMid);
+        Run.Fill(handle, 0, LowerTop, w, 1, MetalOutline);
+        for (var c = (int) MathF.Floor(u / 8); c * 8 - u < w; c++)
+        {
+            Run.Fill(handle, c * 8 - u, LowerTop + 1, 1, SkirtTop - LowerTop - 1, MetalDark);
+        }
+
+        Run.Fill(handle, 0, SkirtTop, w, FloorY - SkirtTop, MetalDark);
+        Run.Fill(handle, 0, SkirtTop, w, 1, MetalHigh);
+        for (var c = (int) MathF.Floor(u / PanelWidth); c * PanelWidth - u < w; c++)
+        {
+            var x = c * PanelWidth - u;
+            Run.Fill(handle, x + 31, RailY + 4, 2, 4, MetalLight);
+            Run.Fill(handle, x + 8, 178, 2, 2, MetalLight);
+            Run.Fill(handle, x + 40, 178, 2, 2, MetalLight);
+            if (CMUHuggerRun.Hash01(c, 23) >= 0.15f)
+                continue;
+
+            for (var k = 0; k < 8; k++)
+            {
+                var sx = x + k * 8 + 4;
+                Run.Quad(handle, new Vector2(sx, SkirtTop + 2), new Vector2(sx + 4, SkirtTop + 2), new Vector2(sx, FloorY - 1),
+                    new Vector2(sx - 4, FloorY - 1), CMUHuggerRun.Amber.WithAlpha(0.3f));
+            }
+        }
+    }
+
+    /// <summary>What stands at a panel: doors and lockers on the deck, signs at eye level, vents and displays up high.</summary>
+    private void DrawFurniture(DrawingHandleScreen handle, int panel, float x)
+    {
+        var kind = Furniture(panel);
+        if (kind < 0)
             return;
 
+        var hash = CMUHuggerRun.Hash(panel);
+        var centre = x + 32;
         var frame = (int) (Run.Clock / 0.12f);
-        switch (kind)
+        if (kind < 9)
         {
-            case 0:
-                Run.DrawSprite(handle, Run.Frame(Posters, PosterStates[(hash >> 8) % (uint) PosterStates.Length]), new Vector2(x + 32, 84),
-                    new Vector2(52, 52), 0, PropTint);
-                break;
-            case 1:
-                Run.DrawSprite(handle, Run.Frame(Extinguisher, "extinguisher_closed"), new Vector2(x + 32, 122), new Vector2(48, 48), 0, PropTint);
-                break;
-            case 2:
-                Run.DrawSprite(handle, Run.Frame(Intercom, "intercom", RsiDirection.South, frame), new Vector2(x + 24, 104), new Vector2(44, 44), 0, PropTint);
-                Run.DrawSprite(handle, Run.Frame(CameraRsi, "camera", RsiDirection.South, frame / 2), new Vector2(x + 44, 60), new Vector2(44, 44), 0, PropTint);
-                break;
-            case 3:
-                // a crate stood against the wall; its sprite's bottom edge is 26 px down
-                Run.DrawSprite(handle, Run.Frame(Crates[(hash >> 8) % (uint) Crates.Length], "closed"), new Vector2(x + 32, FloorY - 1 - 10 * 2.2f),
-                    new Vector2(70, 70), 0, PropTint);
-                break;
-            case 4:
-                Run.DrawSprite(handle, Run.Frame(Signs, SignStates[(hash >> 8) % (uint) SignStates.Length]), new Vector2(x + 36, 80), new Vector2(48, 48), 0, PropTint);
-                break;
-            case 5:
-            case 6:
-                Run.DrawSprite(handle, Run.Frame(Scrubber, "on", RsiDirection.South, frame), new Vector2(x + 32, 130), new Vector2(52, 52), 0, PropTint);
-                break;
-            case 7:
-            case 8:
-                // window onto the colony outside
-                Run.Fill(handle, x + 8, 52, 48, 56, Color.Black);
-                DrawOutside(handle, x + 10, 54, 44, 52);
-                Run.Fill(handle, x + 31.5f, 54, 1, 52, Dim.WithAlpha(0.6f));
-                Run.Outline(handle, x + 8, 52, 48, 56, Dim);
-                Run.Quad(handle, new Vector2(x + 14, 54), new Vector2(x + 20, 54), new Vector2(x + 12, 70), new Vector2(x + 10, 70), Green.WithAlpha(0.06f));
-                break;
-            case 9:
-                // an airlock door, a little taller than a person
-                Run.DrawSprite(handle, Run.Frame(Doors[(hash >> 10) % (uint) Doors.Length], "closed"), new Vector2(x + 32, FloorY - DoorSize / 2),
-                    new Vector2(DoorSize, DoorSize), 0, PropTint);
-                break;
-            case 10:
-                Run.DrawSprite(handle, Run.Frame(Display, (hash >> 8) % 2 == 0 ? "redalert_framed" : "default", RsiDirection.South, frame),
-                    new Vector2(x + 32, 76), new Vector2(56, 56), 0, PropTint);
-                break;
-            case 11:
-                // a console against the wall
-                Run.DrawSprite(handle, Run.Frame(Computer, "computer_generic", RsiDirection.South, frame / 4), new Vector2(x + 32, FloorY - 1 - 38.5f),
-                    new Vector2(77, 77), 0, PropTint);
-                break;
-            case 12:
-                // pipes down the wall, and a valve
-                var riser = Run.Frame(Pipes, "intact-supply", RsiDirection.South);
-                for (var y = CeilingY; y < FloorY - 18; y += 48)
-                {
-                    Run.DrawSprite(handle, riser, new Vector2(x + 24, y + 24), new Vector2(48, 48), 0, PropTint);
-                }
-
-                Run.Circle(handle, new Vector2(x + 24, 98), 7, CMUHuggerRun.Amber.WithAlpha(0.8f), false);
-                Run.Line(handle, new Vector2(x + 17, 98), new Vector2(x + 31, 98), CMUHuggerRun.Amber.WithAlpha(0.7f));
-                Run.Line(handle, new Vector2(x + 24, 91), new Vector2(x + 24, 105), CMUHuggerRun.Amber.WithAlpha(0.7f));
-                break;
-            case 13:
-                // a locker: its body, then its closed door; the body's bottom edge is 30 px down
-                var closet = Closets[(hash >> 8) % (uint) Closets.Length];
-                var at = new Vector2(x + 32, FloorY - 1 - 14 * 3.2f);
-                Run.DrawSprite(handle, Run.Frame(closet, "base"), at, new Vector2(102, 102), 0, PropTint);
-                Run.DrawSprite(handle, Run.Frame(closet, "closed"), at, new Vector2(102, 102), 0, PropTint);
-                break;
-            case 14:
-                // somebody already died here
-                Run.DrawSprite(handle, Run.SplatterFrame((int) ((hash >> 9) % 6)), new Vector2(x + 32, 138), new Vector2(30, 30),
-                    (hash >> 12) % 628 / 100f, CMUHuggerRun.DarkBlood.WithAlpha(0.65f));
-                Run.Fill(handle, x + 30, 148, 1.5f, 14, CMUHuggerRun.DarkBlood.WithAlpha(0.5f));
-                Run.Fill(handle, x + 36, 146, 1, 9, CMUHuggerRun.DarkBlood.WithAlpha(0.45f));
-                break;
-            case 15:
-                // a department sign
+            // an airlock door set into a recess in the wall, a little taller than a person
+            Run.Fill(handle, centre - 58, FloorY - 115, 116, 115, MetalOutline);
+            Run.Fill(handle, centre - 58, FloorY - 115, 116, 1, MetalHigh);
+            Run.DrawSprite(handle, Run.Frame(Doors[(hash >> 10) % (uint) Doors.Length], "closed"), new Vector2(centre, FloorY - DoorSize / 2),
+                new Vector2(DoorSize, DoorSize), 0, PropTint);
+            var light = (hash >> 8) % 3 == 0 ? CMUHuggerRun.Alarm : Green;
+            Run.Circle(handle, new Vector2(centre + 46, FloorY - 104), 1.6f, light.WithAlpha(Run.Clock % 1.2f < 0.8f ? 1 : 0.3f));
+        }
+        else if (kind < 18)
+        {
+            // a viewport onto the colony outside
+            Run.Fill(handle, x + 4, 72, 56, 54, MetalOutline);
+            DrawOutside(handle, x + 7, 75, 50, 48);
+            Run.Fill(handle, x + 31.5f, 75, 1, 48, MetalMid);
+            Run.Outline(handle, x + 6, 74, 52, 50, MetalHigh);
+            Run.Quad(handle, new Vector2(x + 12, 75), new Vector2(x + 18, 75), new Vector2(x + 10, 92), new Vector2(x + 8, 92), Green.WithAlpha(0.07f));
+        }
+        else if (kind < 24)
+        {
+            // a locker stood on the deck: its body, then its door; the body ends 30 px down its sprite
+            var closet = Closets[(hash >> 8) % (uint) Closets.Length];
+            var at = new Vector2(centre, FloorY - 14 * 3);
+            Run.DrawSprite(handle, Run.Frame(closet, "base"), at, new Vector2(96, 96), 0, PropTint);
+            Run.DrawSprite(handle, Run.Frame(closet, "closed"), at, new Vector2(96, 96), 0, PropTint);
+        }
+        else if (kind < 29)
+        {
+            Run.DrawSprite(handle, Run.Frame(Computer, "computer_generic", RsiDirection.South, frame / 4), new Vector2(centre, FloorY - 38.5f),
+                new Vector2(77, 77), 0, PropTint);
+        }
+        else if (kind < 35)
+        {
+            // a crate on the deck; its sprite ends 26 px down
+            Run.DrawSprite(handle, Run.Frame(Crates[(hash >> 8) % (uint) Crates.Length], "closed"), new Vector2(centre, FloorY - 10 * 2.2f),
+                new Vector2(70, 70), 0, PropTint);
+        }
+        else if (kind < 43)
+        {
+            if ((hash >> 8) % 2 == 0)
+            {
+                Run.DrawSprite(handle, Run.Frame(Signs, SignStates[(hash >> 9) % (uint) SignStates.Length]), new Vector2(centre + 4, 96),
+                    new Vector2(44, 44), 0, PropTint);
+            }
+            else
+            {
                 _signs ??= new[]
                 {
                     Loc.GetString("cmu-game-hugger-sign-0"), Loc.GetString("cmu-game-hugger-sign-1"), Loc.GetString("cmu-game-hugger-sign-2"),
                     Loc.GetString("cmu-game-hugger-sign-3"), Loc.GetString("cmu-game-hugger-sign-4"), Loc.GetString("cmu-game-hugger-sign-5"),
                 };
-                Run.Fill(handle, x + 12, 66, 40, 14, Color.Black);
-                Run.Outline(handle, x + 12, 66, 40, 14, Green.WithAlpha(0.8f));
-                Run.CentreText(handle, Run.SignFont, _signs[(hash >> 8) % (uint) _signs.Length], x + 32, 69, Green);
-                break;
+                Run.Fill(handle, x + 12, 88, 40, 14, Color.Black);
+                Run.Outline(handle, x + 12, 88, 40, 14, Green.WithAlpha(0.8f));
+                Run.CentreText(handle, Run.SignFont, _signs[(hash >> 9) % (uint) _signs.Length], centre, 91, Green);
+            }
+        }
+        else if (kind < 49)
+        {
+            Run.DrawSprite(handle, Run.Frame(Scrubber, "on", RsiDirection.South, frame), new Vector2(centre, 84), new Vector2(44, 44), 0, PropTint);
+        }
+        else if (kind < 53)
+        {
+            Run.DrawSprite(handle, Run.Frame(Posters, PosterStates[(hash >> 8) % (uint) PosterStates.Length]), new Vector2(centre, 100),
+                new Vector2(48, 48), 0, PropTint);
+        }
+        else if (kind < 56)
+        {
+            Run.DrawSprite(handle, Run.Frame(Display, (hash >> 8) % 2 == 0 ? "redalert_framed" : "default", RsiDirection.South, frame),
+                new Vector2(centre, 88), new Vector2(52, 52), 0, PropTint);
+        }
+        else
+        {
+            // somebody already died here
+            Run.DrawSprite(handle, Run.SplatterFrame((int) ((hash >> 9) % 6)), new Vector2(centre, 126), new Vector2(30, 30),
+                (hash >> 12) % 628 / 100f, CMUHuggerRun.DarkBlood.WithAlpha(0.65f));
+            Run.Fill(handle, centre - 2, 136, 1.5f, 14, CMUHuggerRun.DarkBlood.WithAlpha(0.5f));
+            Run.Fill(handle, centre + 4, 134, 1, 9, CMUHuggerRun.DarkBlood.WithAlpha(0.45f));
         }
     }
 
@@ -1379,7 +1760,7 @@ public abstract class CMUHuggerCorridorStage : CMUHuggerStage
 
     private void DrawFloor(DrawingHandleScreen handle)
     {
-        Run.Fill(handle, 0, FloorY, CMUHuggerRun.ScreenWidth, CMUHuggerRun.ScreenHeight - FloorY, FloorColour);
+        Run.Fill(handle, 0, FloorY, CMUHuggerRun.ScreenWidth, CMUHuggerRun.ScreenHeight - FloorY, MetalOutline);
         var floor = Run.Image(FloorTile);
         var catwalk = Run.Image(CatwalkTile);
 
@@ -1387,7 +1768,7 @@ public abstract class CMUHuggerCorridorStage : CMUHuggerStage
         for (var row = 0; row < 2; row++)
         {
             var offset = row * 20;
-            var y = FloorY + 1 + row * 19;
+            var y = FloorY + 2 + row * 19;
             for (var c = (int) MathF.Floor((Scroll + offset) / 40) - 1; c * 40 - Scroll - offset < CMUHuggerRun.ScreenWidth; c++)
             {
                 var x = c * 40 - Scroll - offset;
@@ -1396,22 +1777,66 @@ public abstract class CMUHuggerCorridorStage : CMUHuggerStage
             }
         }
 
-        Run.Fill(handle, 0, FloorY, CMUHuggerRun.ScreenWidth, 1.5f, Green.WithAlpha(0.65f));
-        Run.Fill(handle, 0, FloorY + 1.5f, CMUHuggerRun.ScreenWidth, 3, Color.Black.WithAlpha(0.35f));
+        // the deck's edge against the wall, and the wall's shadow on the deck
+        Run.Fill(handle, 0, FloorY, CMUHuggerRun.ScreenWidth, 2, MetalRim);
+        Run.Fill(handle, 0, FloorY, CMUHuggerRun.ScreenWidth, 1, Green.WithAlpha(0.5f));
+        Run.Fill(handle, 0, FloorY + 2, CMUHuggerRun.ScreenWidth, 4, Color.Black.WithAlpha(0.4f));
     }
 
+    /// <summary>Each strip light: its fitting, a halo on the wall, a cone of light, and a pool of it on the deck.</summary>
     private void DrawLights(DrawingHandleScreen handle)
     {
         var u = Scroll * WallDepth;
-        for (var c = (int) MathF.Floor((u - 30) / 96) - 1; c * 96 + 30 - u < CMUHuggerRun.ScreenWidth + 40; c++)
+        for (var c = (int) MathF.Floor((u - 30) / 96) - 1; c * 96 + 30 - u < CMUHuggerRun.ScreenWidth + 60; c++)
         {
-            if (!LampOn(c))
+            var x = c * 96 + 30 - u;
+            var centre = x + 13;
+            var on = LampOn(c);
+            Run.Fill(handle, x - 1, 35, 28, 5, MetalDark);
+            Run.Fill(handle, x - 1, 35, 28, 1, MetalHigh);
+            Run.Fill(handle, x + 1, 38, 24, 2, on ? TubeLit : MetalMid);
+            if (!on)
                 continue;
 
-            var x = c * 96 + 30 - u;
-            Run.Quad(handle, new Vector2(x + 2, CeilingY - 3), new Vector2(x + 24, CeilingY - 3), new Vector2(x + 62, FloorY + 14),
-                new Vector2(x - 36, FloorY + 14), Green.WithAlpha(0.035f));
-            Run.Ellipse(handle, new Vector2(x + 13, FloorY + 9), 40, 6, Green.WithAlpha(0.05f));
+            Run.Ellipse(handle, new Vector2(centre, 42), 30, 9, Green.WithAlpha(0.05f));
+            Run.Ellipse(handle, new Vector2(centre, 41), 16, 4, Green.WithAlpha(0.07f));
+            Run.Quad(handle, new Vector2(x + 1, 40), new Vector2(x + 25, 40), new Vector2(x + 66, FloorY), new Vector2(x - 40, FloorY), Green.WithAlpha(0.035f));
+            Run.Ellipse(handle, new Vector2(centre, FloorY + 9), 54, 8, Green.WithAlpha(0.07f));
+            Run.Ellipse(handle, new Vector2(centre, FloorY + 8), 26, 4, Green.WithAlpha(0.07f));
+        }
+    }
+
+    /// <summary>Railings and cable runs nearer than the deck, at its bottom edge, moving past faster.</summary>
+    private void DrawForeground(DrawingHandleScreen handle)
+    {
+        var u = Scroll * ForegroundDepth;
+        for (var c = (int) MathF.Floor(u / 150) - 1; c * 150 - u < CMUHuggerRun.ScreenWidth + 40; c++)
+        {
+            var kind = CMUHuggerRun.Hash(c + 101) % 4;
+            var x = c * 150 - u + CMUHuggerRun.Hash01(c, 41) * 60;
+            if (kind == 0)
+            {
+                // a railing: two posts and a bar
+                Run.Fill(handle, x, 209, 70, 3, MetalOutline);
+                Run.Fill(handle, x, 209, 70, 1, MetalMid);
+                for (var post = 0; post < 2; post++)
+                {
+                    var px = x + post * 66;
+                    Run.Fill(handle, px, 206, 5, CMUHuggerRun.ScreenHeight - 206, MetalOutline);
+                    Run.Fill(handle, px, 206, 5, 1, MetalMid);
+                }
+            }
+            else if (kind == 1)
+            {
+                // a cable bundle along the deck edge
+                for (var k = 0; k < 3; k++)
+                {
+                    for (var sx = 0; sx < 90; sx += 3)
+                    {
+                        Run.Fill(handle, x + sx, 218 + k * 2 + MathF.Sin((sx + c * 7) / 14f + k) * 1.5f, 3, 2, k == 1 ? MetalMid : MetalOutline);
+                    }
+                }
+            }
         }
     }
 
