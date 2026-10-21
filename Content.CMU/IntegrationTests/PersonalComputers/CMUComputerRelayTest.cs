@@ -194,6 +194,47 @@ public sealed class CMUComputerRelayTest : GameTest
     }
 
     [Test]
+    [Description("Planting through a relay drops an incriminating file into the bugged terminal's files, framed on whoever is logged in there, with a lead for the Marshals; a format wipes it.")]
+    public async Task PlantingFramesTheColonist()
+    {
+        var map = await Pair.CreateTestMap();
+        await Server.WaitAssertion(() =>
+        {
+            var cmb = SEntMan.System<CMUCmbSystem>();
+
+            var victim = Terminal(map.GridCoords, "Dana Voss");
+            var victimPc = SEntMan.GetComponent<CMUPersonalComputerComponent>(victim);
+            var clf = Terminal(map.GridCoords);
+            SEntMan.EnsureComponent<CMUDeepWebAccessComponent>(clf);
+            var insurgent = Insurgent(map.GridCoords);
+
+            PlantBug(victim, insurgent, map.GridCoords);
+            Assert.That(SEntMan.HasComponent<CMUComputerRelayComponent>(victim), "The bug did not install a relay.");
+
+            var alertsBefore = cmb.Alerts.Count;
+            Send(clf, insurgent, new CMURelayPlantMessage(SEntMan.GetNetEntity(victim)), CMUPersonalComputerUiKey.Key);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(victimPc.Notes, Has.Count.EqualTo(1), "No file was planted in the terminal's files.");
+                Assert.That(victimPc.Notes[0].Author, Is.EqualTo("Dana Voss"), "The planted file was not framed on the logged-in colonist.");
+                Assert.That(victimPc.Log.Any(l => l.Text.Contains(victimPc.Notes[0].Name)), "The planted file left no trail in the log.");
+                Assert.That(cmb.Alerts, Has.Count.GreaterThan(alertsBefore), "Planting raised no lead for the Marshals.");
+                Assert.That(cmb.Alerts[0].TerminalId, Is.EqualTo(victimPc.TerminalId), "The lead pointed at the wrong terminal.");
+            });
+
+            // Formatting the terminal wipes the planted evidence along with the bug.
+            var engineer = Engineer(map.GridCoords);
+            Format(victim, engineer, map.GridCoords);
+            Assert.Multiple(() =>
+            {
+                Assert.That(SEntMan.HasComponent<CMUComputerRelayComponent>(victim), Is.False, "Format did not clear the bug.");
+                Assert.That(victimPc.Notes, Is.Empty, "Format did not wipe the planted evidence.");
+            });
+        });
+    }
+
+    [Test]
     public void CorruptionKeepsTagsAndIsStable()
     {
         const string text = "[color=red]Weyland-Yutani[/color] bulletin board";

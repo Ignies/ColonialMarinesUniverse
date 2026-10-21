@@ -554,6 +554,10 @@ public sealed class CMUPersonalComputerPreview
         {
         }
 
+        public void Plant(NetEntity terminal)
+        {
+        }
+
         public void Scan()
         {
         }

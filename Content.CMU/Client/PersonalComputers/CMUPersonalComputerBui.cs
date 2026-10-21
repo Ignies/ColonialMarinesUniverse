@@ -194,6 +194,11 @@ public sealed partial class CMUPersonalComputerBui : BoundUserInterface, ICMUNet
         SendMessage(new CMURelayRouteMessage(terminal));
     }
 
+    public void Plant(NetEntity terminal)
+    {
+        SendMessage(new CMURelayPlantMessage(terminal));
+    }
+
     public string? Platoon => Computer?.Platoon;
 
     public bool On => Computer?.On ?? false;

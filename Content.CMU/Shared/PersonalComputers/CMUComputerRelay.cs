@@ -24,6 +24,10 @@ public sealed partial class CMUComputerRelayComponent : Component
     /// <summary>The insurgent faction that planted it, for the relay list. Server only; flavour for the admin log.</summary>
     [ViewVariables]
     public string? Faction;
+
+    /// <summary>When evidence can next be planted through this relay. Server only; keeps a plant from spamming files.</summary>
+    [ViewVariables]
+    public TimeSpan NextPlant;
 }
 
 /// <summary>Asks a hacked terminal for the insurgents' live relays, to route the deep traffic through one.</summary>
@@ -59,6 +63,13 @@ public sealed class CMURelayListMessage(List<CMURelayInfo> relays) : BoundUserIn
 public sealed class CMURelayRouteMessage(NetEntity? terminal) : BoundUserInterfaceMessage
 {
     public readonly NetEntity? Terminal = terminal;
+}
+
+/// <summary>Plants an incriminating file on a bugged terminal, framing whoever uses it, through the relay.</summary>
+[Serializable, NetSerializable]
+public sealed class CMURelayPlantMessage(NetEntity terminal) : BoundUserInterfaceMessage
+{
+    public readonly NetEntity Terminal = terminal;
 }
 
 /// <summary>

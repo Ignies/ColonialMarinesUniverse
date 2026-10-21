@@ -10,6 +10,7 @@ using Content.Shared.Popups;
 using Robust.Server.GameObjects;
 using Robust.Shared.Configuration;
 using Robust.Shared.Prototypes;
+using Robust.Shared.Random;
 using Robust.Shared.Timing;
 
 namespace Content.Server.CMU14.PersonalComputers;
@@ -38,9 +39,21 @@ public sealed class CMUComputerRelaySystem : EntitySystem
     [Dependency] private CMUExtraNetSystem _net = default!;
     [Dependency] private CMUSecurityNetSystem _security = default!;
     [Dependency] private InsurgencyFactionApplySystem _factions = default!;
+    [Dependency] private IRobustRandom _random = default!;
     [Dependency] private SharedPopupSystem _popup = default!;
     [Dependency] private SkillsSystem _skills = default!;
     [Dependency] private UserInterfaceSystem _ui = default!;
+
+    /// <summary>The incriminating files a plant can leave, as (name, body) locale ids; one is picked at random.</summary>
+    private static readonly (string Name, string Body)[] PlantFiles =
+    {
+        ("cmu-relay-plant-manifesto-name", "cmu-relay-plant-manifesto-body"),
+        ("cmu-relay-plant-order-name", "cmu-relay-plant-order-body"),
+        ("cmu-relay-plant-contacts-name", "cmu-relay-plant-contacts-body"),
+        ("cmu-relay-plant-plan-name", "cmu-relay-plant-plan-body"),
+    };
+
+    private static readonly TimeSpan PlantCooldown = TimeSpan.FromSeconds(45);
 
     public override void Initialize()
     {
@@ -49,6 +62,7 @@ public sealed class CMUComputerRelaySystem : EntitySystem
         {
             subs.Event<CMURelayListRequestMessage>(OnRelayListRequest);
             subs.Event<CMURelayRouteMessage>(OnRelayRoute);
+            subs.Event<CMURelayPlantMessage>(OnRelayPlant);
         });
     }
 
@@ -155,6 +169,51 @@ public sealed class CMUComputerRelaySystem : EntitySystem
         deep.Relay = route;
         Dirty(ent.Owner, deep);
         SendRelayList(ent, deep, args.Actor);
+    }
+
+    /// <summary>
+    /// Plants an incriminating file on a bugged terminal through the relay: it lands in the terminal's Files as
+    /// whoever is logged in there, with a log line and one lead to the Marshals and security, so investigating that
+    /// colonist turns up contraband they never put there. A format clears it, as does deleting the file.
+    /// </summary>
+    private void OnRelayPlant(Entity<CMUPersonalComputerComponent> ent, ref CMURelayPlantMessage args)
+    {
+        if (!CanRoute(ent, args.Actor, out _)
+            || !TryGetEntity(args.Terminal, out var relayUid)
+            || !TryComp(relayUid, out CMUPersonalComputerComponent? relay)
+            || !TryComp(relayUid, out CMUComputerRelayComponent? bug))
+            return;
+
+        var relayEnt = new Entity<CMUPersonalComputerComponent>(relayUid.Value, relay);
+        if (!IsOnline(relayEnt) || _timing.CurTime < bug.NextPlant)
+            return;
+
+        bug.NextPlant = _timing.CurTime + PlantCooldown;
+
+        var (nameKey, bodyKey) = _random.Pick(PlantFiles);
+        var name = Loc.GetString(nameKey);
+
+        // The file lands in the terminal's Files, authored as whoever is logged in there, so it frames them.
+        var notes = relay.Notes;
+        if (notes.Count >= CMUNoteLimits.Count)
+            notes.RemoveAt(0);
+
+        notes.Add(new CMUComputerNote
+        {
+            Name = name,
+            Author = relay.SessionUser ?? Loc.GetString("cmu-relay-plant-author"),
+            Text = Loc.GetString(bodyKey),
+        });
+        Dirty(relayUid.Value, relay);
+
+        // A log line backs it up, and the Marshals and security get one lead pointing at the relay.
+        _sessions.AddLog(relayEnt, Loc.GetString("cmu-relay-plant-log", ("file", name)));
+        _cmb.Alert(relayEnt, name, _security.Location(relayUid.Value));
+        _security.Report(relayUid.Value, CMUSecurityEvent.DeepLookup, detail: name);
+
+        _popup.PopupEntity(Loc.GetString("cmu-relay-plant-done", ("id", relay.TerminalId)), ent, args.Actor, PopupType.Medium);
+        _adminLog.Add(LogType.Action, LogImpact.Medium,
+            $"{ToPrettyString(args.Actor):player} planted evidence file \"{name}\" on terminal #{relay.TerminalId} through an insurgent relay");
     }
 
     /// <summary>Only an insurgent at a hacked terminal picks a relay to route through.</summary>

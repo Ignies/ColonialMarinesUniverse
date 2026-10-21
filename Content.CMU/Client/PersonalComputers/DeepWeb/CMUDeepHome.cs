@@ -60,6 +60,9 @@ public interface ICMUDeepHost
 
     /// <summary>Routes this terminal's deep traffic through the given relay, or stops routing when null.</summary>
     void Route(NetEntity? terminal);
+
+    /// <summary>Plants an incriminating file on the given relay, framing whoever uses it.</summary>
+    void Plant(NetEntity terminal);
 }
 
 /// <summary>
@@ -187,6 +190,15 @@ public sealed partial class CMUDeepHome : BoxContainer
                 _host.RequestRelays();
             };
 
+            var plant = _theme.Button(Loc.GetString("cmu-relay-plant"), Loc.GetString("cmu-relay-plant-tooltip"));
+            plant.Disabled = !relay.Online;
+            plant.OnPressed += _ =>
+            {
+                OnClicked?.Invoke();
+                _host.Plant(info.Terminal);
+                _host.RequestRelays();
+            };
+
             _relayList.AddChild(new BoxContainer
             {
                 Orientation = LayoutOrientation.Horizontal,
@@ -195,6 +207,7 @@ public sealed partial class CMUDeepHome : BoxContainer
                 {
                     new Label { Text = title, HorizontalExpand = true, ClipText = true },
                     route,
+                    plant,
                 },
             });
         }
