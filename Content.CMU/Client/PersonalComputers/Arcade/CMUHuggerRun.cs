@@ -424,6 +424,10 @@ public sealed class CMUHuggerRun : CMUArcadeScreen
         _flashLife = 0;
         _card = CardTime;
         Camera = Vector2.Zero;
+        // a demo's bot starts each stage with its hands off the keys
+        if (Demo)
+            Array.Clear(_held);
+
         _stages[stage].Enter();
     }
 
@@ -446,6 +450,27 @@ public sealed class CMUHuggerRun : CMUArcadeScreen
             _stages[_stage].OnKey(input);
     }
 
+    /// <summary>A demo plays itself: the stage on screen gets to think and press keys while it is in play.</summary>
+    protected override void DemoThink(float frameTime)
+    {
+        if (_flow == Flow.Playing && !_paused)
+            _stages[_stage].DemoThink(MathF.Min(frameTime, 0.05f));
+    }
+
+    /// <summary>For a stage's demo bot: holds or lets go of a key, pressing it through the normal key handling like a player.</summary>
+    public void Bot(CMUArcadeKey key, bool down)
+    {
+        if (Held(key) != down)
+            DemoKey(key, down);
+    }
+
+    /// <summary>For a stage's demo bot: taps a key down and up.</summary>
+    public void BotTap(CMUArcadeKey key)
+    {
+        DemoKey(key, true);
+        DemoKey(key, false);
+    }
+
     protected override void OnFocusLost()
     {
         Array.Clear(_held);
@@ -459,7 +484,7 @@ public sealed class CMUHuggerRun : CMUArcadeScreen
         Clock += real;
 
         // a run without the keys waits for them instead of running into the next bullet
-        _paused = _flow is Flow.Playing or Flow.FadeIn or Flow.FadeOut && !HasKeyboardFocus();
+        _paused = _flow is Flow.Playing or Flow.FadeIn or Flow.FadeOut && !Playing;
         if (_paused)
             return;
 
@@ -1198,6 +1223,15 @@ public abstract class CMUHuggerStage
     }
 
     /// <summary>The keys went elsewhere: let go of anything held.</summary>
+    /// <summary>
+    /// Plays the stage in a demo (a "Let's Play" tape): called every frame the stage is in play, before it updates. Look
+    /// at the stage and press keys with <see cref="CMUHuggerRun.Bot"/> or <see cref="CMUHuggerRun.BotTap"/>, like a
+    /// decent human: react a beat late, sometimes fumble. The default does nothing, so the stage just runs.
+    /// </summary>
+    public virtual void DemoThink(float dt)
+    {
+    }
+
     public virtual void OnRelease()
     {
     }

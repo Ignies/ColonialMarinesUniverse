@@ -150,8 +150,12 @@ public abstract class CMUSportsArena : LayoutContainer
     /// <summary>Whether a replay is on rather than the live match.</summary>
     public bool Replaying => _replay;
 
-    /// <summary>Shows a match, live from its kickoff, or from now when <paramref name="replay"/> is set.</summary>
-    public void Show(CMUBetMatch match, bool replay = false)
+    /// <summary>
+    /// Shows a match, live from its kickoff, or from now when <paramref name="replay"/> is set. A replay can start
+    /// <paramref name="from"/> seconds in, for highlights: what happened before that leaves its marks on the floor
+    /// but plays no sound, as when a late viewer tunes in.
+    /// </summary>
+    public void Show(CMUBetMatch match, bool replay = false, float from = 0)
     {
         var known = _match != null && _match.Id == match.Id && _match.Winner == match.Winner;
         _match = match;
@@ -160,7 +164,8 @@ public abstract class CMUSportsArena : LayoutContainer
 
         _replay = replay;
         _play = match.Winner >= 0 ? CMUSports.Play(match.Sport, match.Seed, match.Entrants.Count, match.Winner) : null;
-        _start = replay ? Timing.CurTime : match.Kickoff;
+        var skip = replay ? TimeSpan.FromSeconds(Math.Clamp(from, 0, CMUSports.Length(match.Sport))) : TimeSpan.Zero;
+        _start = replay ? Timing.CurTime - skip : match.Kickoff;
         Rebuild();
     }
 

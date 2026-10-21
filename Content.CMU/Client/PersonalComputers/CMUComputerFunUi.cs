@@ -244,19 +244,79 @@ public abstract class CMUArcadeScreen : Control
 
     public override float UIScale => base.UIScale * Zoom;
 
+    /// <summary>How long a demo waits on its game over screen before it plays again.</summary>
+    private static readonly TimeSpan DemoRestart = TimeSpan.FromSeconds(3);
+
+    private bool _demo;
+    private TimeSpan _over;
+
+    /// <summary>
+    /// Plays the game by itself, for a "Let's Play" tape or an attract screen: each game's bot presses its keys
+    /// through <see cref="DemoKey"/>, the game starts again a moment after it ends, it never takes the keyboard and
+    /// never sends a score. Sounds follow the same rules as everywhere else, so they play only while it is on show.
+    /// </summary>
+    public bool Demo
+    {
+        get => _demo;
+        set
+        {
+            _demo = value;
+            CanKeyboardFocus = !value;
+            KeyboardFocusOnClick = !value;
+            MouseFilter = value ? MouseFilterMode.Ignore : MouseFilterMode.Stop;
+            if (value)
+                ReleaseKeyboardFocus();
+        }
+    }
+
+    /// <summary>Whether the game should run rather than pause: it has the keys, or it plays itself.</summary>
+    protected bool Playing => _demo || HasKeyboardFocus();
+
     public virtual void Start()
     {
         Score = 0;
         Running = true;
         _status = string.Empty;
-        GrabKeyboardFocus();
+        if (!_demo)
+            GrabKeyboardFocus();
     }
 
     protected void GameOver()
     {
         Running = false;
         _status = Loc.GetString("cmu-arcade-over", ("score", Score));
-        OnGameOver?.Invoke(Score);
+        _over = Timing.RealTime;
+        if (!_demo)
+            OnGameOver?.Invoke(Score);
+    }
+
+    /// <summary>Called every frame while a demo plays, before the game's own update: the bot looks and presses keys here.</summary>
+    protected virtual void DemoThink(float frameTime)
+    {
+    }
+
+    /// <summary>The demo's bot presses or lets go of a key, exactly as a player would.</summary>
+    protected void DemoKey(CMUArcadeKey key, bool down, int pad = 0)
+    {
+        if (_demo && Running)
+            OnKey(new CMUArcadeInput(key, pad, down, false));
+    }
+
+    protected override void FrameUpdate(FrameEventArgs args)
+    {
+        base.FrameUpdate(args);
+        if (!_demo)
+            return;
+
+        if (!Running)
+        {
+            if (Timing.RealTime - _over > DemoRestart)
+                Start();
+
+            return;
+        }
+
+        DemoThink(args.DeltaSeconds);
     }
 
     protected void SetStatus(string status)
@@ -354,7 +414,7 @@ public abstract class CMUArcadeScreen : Control
         handle.DrawRect(PixelSizeBox, Green, false);
         var font = UserInterfaceManager.ThemeDefaults.DefaultFont;
         handle.DrawString(font, new Vector2(6, 4) * UIScale, _status.Length > 0 ? _status : Loc.GetString("cmu-arcade-score", ("score", Score)), UIScale, Green);
-        if (HasKeyboardFocus())
+        if (_demo || HasKeyboardFocus())
             return;
 
         // without the keys the game cannot hear you, so say how to give them back

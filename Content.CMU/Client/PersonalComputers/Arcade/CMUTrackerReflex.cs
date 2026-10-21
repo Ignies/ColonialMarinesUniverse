@@ -172,6 +172,7 @@ public sealed class CMUTrackerReflex : CMUArcadeScreen
 
     private struct Xeno
     {
+        public int Id;
         public Kind Kind;
         public float Angle;
         public float Distance;
@@ -184,6 +185,11 @@ public sealed class CMUTrackerReflex : CMUArcadeScreen
 
         public float ShownAge;
         public bool Pinged;
+
+        /// <summary>How many times the display has shown it, and the last showing the demo's bot acted on.</summary>
+        public int Reveal;
+
+        public int Handled;
         public bool Lunging;
         public float Hurt;
 
@@ -300,6 +306,7 @@ public sealed class CMUTrackerReflex : CMUArcadeScreen
     private bool _female;
 
     private int _wave;
+    private int _lastId;
     private int _toSpawn;
     private float _spawnTimer;
     private float _lastSpawnAngle;
@@ -419,7 +426,7 @@ public sealed class CMUTrackerReflex : CMUArcadeScreen
     public override string Help => Loc.GetString("cmu-game-tracker-help");
 
     /// <summary>Xenos can reach you and you can shoot.</summary>
-    private bool Playing => _phase is Phase.Intro or Phase.Wave or Phase.Clear;
+    private bool InPlay => _phase is Phase.Intro or Phase.Wave or Phase.Clear;
 
     private int Multiplier => Math.Min(MaxMultiplier, 1 + _streak / StreakStep);
 
@@ -453,6 +460,7 @@ public sealed class CMUTrackerReflex : CMUArcadeScreen
         _pingPeriod = PingIdle;
         _range = -1;
 
+        ResetBot();
         Sound(PowerOn, -2);
         Sound(Load);
         NextWave();
@@ -465,7 +473,7 @@ public sealed class CMUTrackerReflex : CMUArcadeScreen
         base.FrameUpdate(args);
 
         // a game left without the keys waits for them
-        _paused = Running && !HasKeyboardFocus();
+        _paused = Running && !Playing;
         if (_paused)
             return;
 
@@ -476,6 +484,10 @@ public sealed class CMUTrackerReflex : CMUArcadeScreen
             _freeze -= dt;
             return;
         }
+
+        // a demo plays from its very first frame, not from the title screen
+        if (Demo && _phase == Phase.Attract)
+            Start();
 
         _time += dt;
         UpdatePhase(dt);
@@ -610,6 +622,7 @@ public sealed class CMUTrackerReflex : CMUArcadeScreen
 
         _xenos.Add(new Xeno
         {
+            Id = ++_lastId,
             Kind = kind,
             Angle = angle,
             Distance = SpawnRadius,
@@ -637,16 +650,16 @@ public sealed class CMUTrackerReflex : CMUArcadeScreen
 
             // the lunge: once in the middle cell it is coming for you, and only 5 can stop it
             var lunging = InSector(xeno.At, 5, 0);
-            if (lunging && !xeno.Lunging && Playing)
+            if (lunging && !xeno.Lunging && InPlay)
                 CMUGameAudio.PlayAny(this, Charges, -4);
 
             xeno.Lunging = lunging;
 
-            _danger |= xeno.Lunging && Playing;
+            _danger |= xeno.Lunging && InPlay;
             if (xeno.Distance <= MaulRadius)
             {
                 xeno.Distance = MaulRadius;
-                if (!Playing)
+                if (!InPlay)
                 {
                     _xenos.RemoveAt(i);
                     continue;
@@ -680,6 +693,7 @@ public sealed class CMUTrackerReflex : CMUArcadeScreen
             xeno.Pinged = true;
             xeno.Shown = xeno.At;
             xeno.ShownAge = 0;
+            xeno.Reveal++;
             _xenos[i] = xeno;
         }
 
@@ -705,7 +719,7 @@ public sealed class CMUTrackerReflex : CMUArcadeScreen
         {
             _pingPeriod = PingIdle;
             _range = -1;
-            if (Playing)
+            if (InPlay)
                 Sound(PingEmpty, -7);
 
             return;
@@ -716,7 +730,7 @@ public sealed class CMUTrackerReflex : CMUArcadeScreen
         _range = (int) MathF.Round(closest * RangeMetres);
 
         // fast pings overlap their tails, so they come down a little to stay under the gunfire
-        if (Playing)
+        if (InPlay)
             Sound(PingContact, -5 + 3 * near - (near > 0.6f ? 2 : 0), 1 + 0.3f * near);
     }
 
@@ -897,7 +911,7 @@ public sealed class CMUTrackerReflex : CMUArcadeScreen
 
     private void StartReload()
     {
-        if (!Playing || _reload > 0 || _ammo == Magazine)
+        if (!InPlay || _reload > 0 || _ammo == Magazine)
             return;
 
         _reload = ReloadTime;
@@ -906,7 +920,7 @@ public sealed class CMUTrackerReflex : CMUArcadeScreen
 
     private void Fire(int sector)
     {
-        if (!Playing || _cooldown > 0)
+        if (!InPlay || _cooldown > 0)
             return;
 
         if (_reload > 0 || _ammo == 0)
@@ -935,6 +949,7 @@ public sealed class CMUTrackerReflex : CMUArcadeScreen
 
             xeno.Shown = xeno.At;
             xeno.ShownAge = 0;
+            xeno.Reveal++;
             _xenos[i] = xeno;
             if (target < 0 || xeno.Distance < _xenos[target].Distance)
                 target = i;
@@ -978,6 +993,7 @@ public sealed class CMUTrackerReflex : CMUArcadeScreen
             xeno.Distance = MathF.Min(1, xeno.Distance + 0.08f);
             xeno.Shown = xeno.At;
             xeno.ShownAge = 0;
+            xeno.Reveal++;
             _xenos[index] = xeno;
             Spray(at, outward, 0.9f, 8, 30, 70, Acid, false, 0.4f);
             AddDecal(_acid, at, 18 + Next() * 8, AcidStain, MaxDecals);
@@ -1068,6 +1084,139 @@ public sealed class CMUTrackerReflex : CMUArcadeScreen
         _freeze = 0.2f;
         _reload = 0;
         _banner = null;
+    }
+
+    #endregion
+
+    #region Demo
+
+    // The demo's bot: a decent player, not a perfect one. It only sees what the display shows, reacts after a human
+    // delay, sometimes hits the key next to the right one, sometimes reloads late, and now and then looks away (at the
+    // stream chat) for a moment. The waves outpace it after a few.
+    private const float BotLookAway = 0.5f;
+    private float _botWait;
+    private int _botPad;
+    private float _botLapse;
+    private float _botNextLapse;
+    private float _botReaction;
+    private float _botWrong;
+    private float _botLate;
+    private float _botEngage;
+
+    /// <summary>A new run is a new mood: how quick, how sloppy and how patient the bot is this time.</summary>
+    private void ResetBot()
+    {
+        _botWait = 0;
+        _botLapse = 0;
+        _botNextLapse = 5 + Next() * 10;
+        _botReaction = 0.26f + Next() * 0.12f;
+        _botWrong = 0.06f + Next() * 0.06f;
+        _botLate = 0.25f + Next() * 0.2f;
+        _botEngage = 0.7f + Next() * 0.2f;
+    }
+
+    protected override void DemoThink(float frameTime)
+    {
+        if (!InPlay || _freeze > 0)
+            return;
+
+        var dt = MathF.Min(frameTime, 0.1f);
+        _botLapse -= dt;
+        _botNextLapse -= dt;
+        if (_botNextLapse <= 0)
+        {
+            _botLapse = BotLookAway + Next();
+            _botNextLapse = 7 + Next() * 12;
+        }
+
+        // a key it has decided on goes down once its reaction time is up
+        if (_botWait > 0)
+        {
+            _botWait -= dt;
+            if (_botWait <= 0)
+                BotPress();
+
+            return;
+        }
+
+        if (_botLapse > 0 || _reload > 0)
+            return;
+
+        var visible = 0;
+        var threat = false;
+        var best = -1;
+        var bestScore = float.MaxValue;
+        for (var i = 0; i < _xenos.Count; i++)
+        {
+            var xeno = _xenos[i];
+            if (xeno.ShownAge >= BlipFade * 0.9f || xeno.Reveal == 0)
+                continue;
+
+            visible++;
+            var distance = xeno.Shown.Length();
+            threat |= distance < 0.85f;
+            if (xeno.Reveal <= xeno.Handled || distance > _botEngage)
+                continue;
+
+            // whatever is in the middle comes first
+            var score = InSector(xeno.Shown, 5, 0) ? distance - 1 : distance;
+            if (score >= bestScore)
+                continue;
+
+            best = i;
+            bestScore = score;
+        }
+
+        if (_ammo == 0 || (_ammo <= 3 && !threat) || (_phase == Phase.Clear && _ammo < Magazine * 6 / 10))
+        {
+            _botPad = 0;
+            _botWait = _ammo == 0 && Next() < _botLate ? 0.9f + Next() * 0.8f : 0.25f + Next() * 0.35f;
+            return;
+        }
+
+        if (best < 0)
+            return;
+
+        var target = _xenos[best];
+        target.Handled = target.Reveal;
+        _xenos[best] = target;
+
+        // the more there are on the display, the slower and sloppier it gets
+        var sector = SectorOf(target.Shown);
+        if (Next() < _botWrong + 0.03f * visible)
+            sector = Neighbour(sector);
+
+        _botPad = sector;
+        _botWait = (_botReaction * (0.75f + 0.5f * Next()) + 0.05f * visible) * (sector == 5 ? 0.75f : 1f);
+    }
+
+    private void BotPress()
+    {
+        var key = _botPad == 0 ? CMUArcadeKey.Action : CMUArcadeKey.None;
+        DemoKey(key, true, _botPad);
+        DemoKey(key, false, _botPad);
+    }
+
+    private static int SectorOf(Vector2 at)
+    {
+        var column = at.X < -Third ? 0 : at.X > Third ? 2 : 1;
+        var row = at.Y < -Third ? 0 : at.Y > Third ? 2 : 1;
+        return (2 - row) * 3 + column + 1;
+    }
+
+    /// <summary>A key next to this one on the keypad, for a fumbled press.</summary>
+    private int Neighbour(int sector)
+    {
+        var column = (sector - 1) % 3;
+        var row = (sector - 1) / 3;
+        while (true)
+        {
+            var c = Math.Clamp(column + _random.Next(-1, 2), 0, 2);
+            var r = Math.Clamp(row + _random.Next(-1, 2), 0, 2);
+            var other = r * 3 + c + 1;
+            if (other != sector)
+                return other;
+        }
     }
 
     #endregion
@@ -1574,7 +1723,7 @@ public sealed class CMUTrackerReflex : CMUArcadeScreen
         var alpha = 0f;
         if (_danger)
             alpha = 0.18f + 0.14f * MathF.Sin(_time * 18);
-        else if (_health == 1 && Playing)
+        else if (_health == 1 && InPlay)
             alpha = 0.08f * MathF.Max(0, MathF.Sin(_time * 5));
 
         if (alpha <= 0)

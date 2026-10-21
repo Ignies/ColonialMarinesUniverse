@@ -43,6 +43,11 @@ public sealed class CMUHuggerHuman
 
     /// <summary>A shotgunner's next blast goes high (duck it) rather than low (jump it).</summary>
     public bool High;
+
+    /// <summary>The demo bot's random draw for this human, and whether it has dealt with them.</summary>
+    public float BotSeed;
+
+    public bool BotDone;
     public float Walk;
     public float Step;
     public float Timer;
@@ -276,6 +281,7 @@ public abstract class CMUHuggerCorridorStage : CMUHuggerStage
     private const float ShotgunBrace = 0.4f;
     private const float ShotgunPumpTime = 0.65f;
     private const float ShotgunRange = 230;
+    private const float ShotgunClosest = 70;
     private const int ShotgunPellets = 6;
     private const float ShotgunSpeed = 420;
     private static readonly Vector2 ShotgunLow = new(2, 14);
@@ -306,6 +312,11 @@ public abstract class CMUHuggerCorridorStage : CMUHuggerStage
 
         /// <summary>Seconds left in flight: shotgun pellets are short range, tracers fly until they leave.</summary>
         public float Life;
+
+        /// <summary>Seconds since it was fired, and a random draw, both for the demo bot's reactions.</summary>
+        public float Age;
+
+        public float Seed;
     }
 
     private enum LockerState : byte
@@ -691,7 +702,7 @@ public abstract class CMUHuggerCorridorStage : CMUHuggerStage
     private void AddBullet(Vector2 at, Vector2 velocity, float life = float.PositiveInfinity)
     {
         if (_bulletCount < MaxBullets)
-            _bullets[_bulletCount++] = new Bullet { At = at, Velocity = velocity, Life = life };
+            _bullets[_bulletCount++] = new Bullet { At = at, Velocity = velocity, Life = life, Seed = Run.Fx() };
     }
 
     private void AddFlash(Vector2 at)
@@ -719,6 +730,7 @@ public abstract class CMUHuggerCorridorStage : CMUHuggerStage
             ref var bullet = ref _bullets[i];
             bullet.At += bullet.Velocity * dt;
             bullet.Life -= dt;
+            bullet.Age += dt;
             if (bullet.Life <= 0)
             {
                 // a pellet at the end of its range
@@ -865,7 +877,8 @@ public abstract class CMUHuggerCorridorStage : CMUHuggerStage
     /// <summary>A shotgunner braces, shows where the blast will go, then fires a spread of pellets and pumps another round.</summary>
     private void Brace(CMUHuggerHuman human, float x)
     {
-        if (!Playing || x < PlayerX + 24)
+        // too close to level the gun at something underfoot
+        if (!Playing || x < PlayerX + ShotgunClosest)
         {
             human.State = CMUHuggerHumanState.Stand;
             human.Timer = 0;
@@ -879,7 +892,8 @@ public abstract class CMUHuggerCorridorStage : CMUHuggerStage
         var band = human.High ? ShotgunHigh : ShotgunLow;
         for (var k = 0; k < ShotgunPellets; k++)
         {
-            var target = new Vector2(PlayerX, FloorY - (band.X + (band.Y - band.X) * (k + Run.Fx() * 0.6f) / ShotgunPellets));
+            // aimed through the back of the player, so a band clears (or fills) the whole of its box
+            var target = new Vector2(PlayerX - HalfWidth - 4, FloorY - (band.X + (band.Y - band.X) * (k + Run.Fx() * 0.6f) / ShotgunPellets));
             var dir = Vector2.Normalize(target - muzzle);
             AddBullet(muzzle, dir * ShotgunSpeed * (0.92f + Run.Fx() * 0.16f), (muzzle.X - PlayerX + 40) / ShotgunSpeed);
         }
@@ -951,6 +965,155 @@ public abstract class CMUHuggerCorridorStage : CMUHuggerStage
 
     #endregion
 
+    #region Demo bot
+
+    // The demo's player: it reads each threat a human beat after it shows (a reaction time drawn per threat), jumps
+    // low fire, ducks mid fire and high shotgun blasts, and leaves the rest to the stage. Now and then it fumbles a
+    // threat by reacting late, so runs end.
+    private const float BotReactMin = 0.14f;
+    private const float BotReactSpread = 0.16f;
+    private const float BotFumble = 0.05f;
+    private const float BotFumbleLate = 0.2f;
+    private const float BotLead = 0.17f;
+    private const float BotTap = 0.07f;
+    private const float BotLongHold = 0.24f;
+
+    private float _botHold;
+
+    public override void DemoThink(float dt)
+    {
+        if (!Playing)
+        {
+            Run.Bot(CMUArcadeKey.Up, false);
+            Run.Bot(CMUArcadeKey.Down, false);
+            _botHold = 0;
+            return;
+        }
+
+        var jump = false;
+        var hold = BotTap;
+        var duck = false;
+        BotBullets(ref jump, ref hold, ref duck);
+        BotBrace(ref jump, ref hold, ref duck);
+        BotStage(ref jump, ref hold, ref duck);
+        if (_botHold > 0)
+        {
+            _botHold -= dt;
+            if (_botHold <= 0)
+                Run.Bot(CMUArcadeKey.Up, false);
+        }
+
+        if (jump && Grounded && _botHold <= 0)
+        {
+            Run.Bot(CMUArcadeKey.Down, false);
+            Run.Bot(CMUArcadeKey.Up, true);
+            _botHold = hold;
+            return;
+        }
+
+        // ducking in the air is a fast fall, into whatever it was jumping
+        Run.Bot(CMUArcadeKey.Down, duck && Grounded);
+    }
+
+    /// <summary>The stage's own reads for its bot: faces to leap at, knives, airlocks, vents.</summary>
+    protected virtual void BotStage(ref bool jump, ref float hold, ref bool duck)
+    {
+    }
+
+    /// <summary>A threat's reaction time, from its own random draw: a human beat, and now and then a fumble.</summary>
+    protected static float BotReaction(float seed)
+    {
+        return BotReactMin + seed * BotReactSpread + (seed < BotFumble ? BotFumbleLate : 0);
+    }
+
+    private void BotBullets(ref bool jump, ref float hold, ref bool duck)
+    {
+        for (var i = 0; i < _bulletCount; i++)
+        {
+            var bullet = _bullets[i];
+            if (bullet.Velocity.X >= 0 || bullet.Age < BotReaction(bullet.Seed))
+                continue;
+
+            var eta = (bullet.At.X - PlayerX) / -bullet.Velocity.X;
+            if (eta < -0.12f || eta > 1)
+                continue;
+
+            // how high it will be when it reaches the player
+            var height = FloorY - (bullet.At.Y + bullet.Velocity.Y * MathF.Max(0, eta));
+            if (height > Height + 3)
+                continue;
+
+            if (height > DuckHeight + 2)
+            {
+                if (eta < 0.32f)
+                    duck = true;
+
+                continue;
+            }
+
+            var lead = BotLead + (bullet.Seed - 0.5f) * 0.08f;
+            if (eta <= 0 || eta > lead)
+                continue;
+
+            jump = true;
+            if (LowFireAfter(eta))
+                hold = MathF.Max(hold, BotLongHold);
+        }
+    }
+
+    /// <summary>Whether more low fire follows close behind, so the jump wants holding (a burst).</summary>
+    private bool LowFireAfter(float eta)
+    {
+        for (var i = 0; i < _bulletCount; i++)
+        {
+            var bullet = _bullets[i];
+            if (bullet.Velocity.X >= 0)
+                continue;
+
+            var next = (bullet.At.X - PlayerX) / -bullet.Velocity.X;
+            if (next > eta + 0.02f && next < eta + 0.45f && FloorY - bullet.At.Y <= DuckHeight + 2)
+                return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// A braced shotgunner: get down under a high blast and stay down while the pellets go over, or time a held jump
+    /// over a low one from when it will reach the player. The red zone is read a beat after he braces, later on a fumble.
+    /// </summary>
+    private void BotBrace(ref bool jump, ref float hold, ref bool duck)
+    {
+        foreach (var human in Humans)
+        {
+            var bracing = human.State == CMUHuggerHumanState.Brace;
+            if (!human.Active || !(bracing || human.State == CMUHuggerHumanState.Pump && human.Timer < 0.3f))
+                continue;
+
+            var x = human.X - Scroll;
+            if (x - PlayerX > ShotgunRange)
+                continue;
+
+            if (bracing && human.Timer < 0.1f + human.BotSeed * 0.15f + (human.BotSeed < BotFumble ? BotFumbleLate : 0))
+                continue;
+
+            if (human.High)
+            {
+                duck = true;
+                continue;
+            }
+
+            var arrival = (bracing ? ShotgunBrace - human.Timer : -human.Timer) + (x - 46 - PlayerX) / ShotgunSpeed;
+            if (arrival < -0.05f || arrival > BotLead + (human.BotSeed - 0.5f) * 0.06f)
+                continue;
+
+            jump = true;
+            hold = MathF.Max(hold, BotLongHold);
+        }
+    }
+
+    #endregion
+
     #region Humans
 
     /// <summary>A human walks (or stands) in from the right. Null when all are in use.</summary>
@@ -981,6 +1144,8 @@ public abstract class CMUHuggerCorridorStage : CMUHuggerStage
         human.Fall = 1;
         human.Cooldown = 0;
         human.Shots = 0;
+        human.BotSeed = Run.Fx();
+        human.BotDone = false;
         human.X = Scroll + CMUHuggerRun.ScreenWidth + 60;
         human.State = standing || human.Rifleman ? CMUHuggerHumanState.Stand : CMUHuggerHumanState.Walk;
         human.Walk = human.State == CMUHuggerHumanState.Walk ? 10 + Run.Fx() * 24 : 0;

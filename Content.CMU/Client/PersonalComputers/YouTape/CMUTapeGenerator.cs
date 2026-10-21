@@ -21,7 +21,13 @@ public sealed class CMUTapeActor
 
     /// <summary>Bobs while it talks.</summary>
     public bool Talking;
+
+    /// <summary>Who this is in the tape's cast, numbered as the tape casts them; their look is drawn from it.</summary>
+    public int Character;
 }
+
+/// <summary>Someone cast in a tape: the starting gear they are dressed for, and their place in the cast.</summary>
+public readonly record struct CMUTapeCast(string Outfit, int Character);
 
 /// <summary>A weather symbol on the map, with what it says beside it.</summary>
 public readonly record struct CMUTapeWeather(string Icon, string Label, Vector2 At);
@@ -105,7 +111,7 @@ public static class CMUTapeGenerator
 
     private static void News(CMUTape tape, Teller teller)
     {
-        var anchor = teller.Outfit("anchor");
+        var anchor = teller.Cast("anchor");
         var headline = teller.Say("#news.headline#");
         var ticker = string.Join("   ///   ", Enumerable.Range(0, 4).Select(_ => teller.Say("#news.crawl#")));
 
@@ -114,18 +120,18 @@ public static class CMUTapeGenerator
         open.Ticker = ticker;
         open.Lines.Add(teller.Say("#news.open#"));
         open.Lines.Add(teller.Say("#news.story#"));
-        open.Actors.Add(new CMUTapeActor { Outfit = anchor, At = new Vector2(0.5f, 0.86f), Talking = true });
+        open.Actors.Add(Person(anchor, new Vector2(0.5f, 0.86f)));
         tape.Scenes.Add(open);
 
-        var reporter = teller.Outfit("reporter");
+        var reporter = teller.Cast("reporter");
         var field = teller.Scene("field", 10);
         field.Strap = teller.Say("#news.reporter#");
         field.Lines.Add(teller.Say("#news.field#"));
         field.Lines.Add(teller.Say("#news.field#"));
         field.Lines.Add(teller.Say("#news.witness#"));
-        field.Actors.Add(new CMUTapeActor { Outfit = reporter, At = new Vector2(0.3f, 0.9f), Talking = true });
+        field.Actors.Add(Person(reporter, new Vector2(0.3f, 0.9f)));
         if (teller.Chance(0.7))
-            field.Actors.Add(new CMUTapeActor { Outfit = teller.Outfit("guest"), At = new Vector2(0.62f, 0.9f) });
+            field.Actors.Add(Person(teller.Cast("guest"), new Vector2(0.62f, 0.9f), false));
         teller.Props(field, "field", 1);
         tape.Scenes.Add(field);
 
@@ -134,7 +140,7 @@ public static class CMUTapeGenerator
         back.Ticker = ticker;
         back.Lines.Add(teller.Say("#news.followup#"));
         back.Lines.Add(teller.Say("#news.toss#"));
-        back.Actors.Add(new CMUTapeActor { Outfit = anchor, At = new Vector2(0.5f, 0.86f), Talking = true });
+        back.Actors.Add(Person(anchor, new Vector2(0.5f, 0.86f)));
         tape.Scenes.Add(back);
 
         tape.Scenes.Add(Ad(teller));
@@ -143,14 +149,14 @@ public static class CMUTapeGenerator
         var close = teller.Scene("studio", 7);
         close.Ticker = ticker;
         close.Lines.Add(teller.Say("#news.close#"));
-        close.Actors.Add(new CMUTapeActor { Outfit = anchor, At = new Vector2(0.5f, 0.86f), Talking = true });
+        close.Actors.Add(Person(anchor, new Vector2(0.5f, 0.86f)));
         tape.Scenes.Add(close);
     }
 
     /// <summary>A weather report: the presenter, the map with its symbols, and on a full show an outlook after an ad.</summary>
     private static void Forecast(CMUTape tape, Teller teller, bool full)
     {
-        var presenter = teller.Outfit("presenter");
+        var presenter = teller.Cast("presenter");
         var map = teller.Scene("weather", 10);
         map.Strap = teller.Say("#weather.strap#");
         map.Lines.Add(teller.Say("#weather.open#"));
@@ -166,7 +172,7 @@ public static class CMUTapeGenerator
                 map.Lines.Add(teller.Say($"#weather.{condition}#").Replace("{place}", place).Replace("{temp}", temperature.ToString()));
         }
 
-        map.Actors.Add(new CMUTapeActor { Outfit = presenter, At = new Vector2(0.18f, 0.9f), Talking = true });
+        map.Actors.Add(Person(presenter, new Vector2(0.18f, 0.9f)));
         tape.Scenes.Add(map);
 
         if (!full)
@@ -183,7 +189,7 @@ public static class CMUTapeGenerator
         }
 
         outlook.Lines.Add(teller.Say("#weather.close#"));
-        outlook.Actors.Add(new CMUTapeActor { Outfit = presenter, At = new Vector2(0.18f, 0.9f), Talking = true });
+        outlook.Actors.Add(Person(presenter, new Vector2(0.18f, 0.9f)));
         tape.Scenes.Add(outlook);
         if (teller.Chance(0.5))
             tape.Scenes.Add(Ad(teller));
@@ -192,7 +198,7 @@ public static class CMUTapeGenerator
     /// <summary>A home tape: a host in their own place telling it, with props, and an ad dubbed in halfway.</summary>
     private static void Show(CMUTape tape, Teller teller, string genre)
     {
-        var host = teller.Outfit("host");
+        var host = teller.Cast("host");
         var place = genre switch
         {
             "food" => "food",
@@ -214,13 +220,18 @@ public static class CMUTapeGenerator
 
             // The documentary has a narrator, not a host in shot.
             if (genre != "doc")
-                scene.Actors.Add(new CMUTapeActor { Outfit = host, At = new Vector2(teller.Chance(0.5) ? 0.32f : 0.66f, 0.9f), Talking = true });
+                scene.Actors.Add(Person(host, new Vector2(teller.Chance(0.5) ? 0.32f : 0.66f, 0.9f)));
             teller.Props(scene, genre, genre == "doc" ? 2 : 1);
             tape.Scenes.Add(scene);
 
             if (i == segments / 2 && segments > 2)
                 tape.Scenes.Add(Ad(teller));
         }
+    }
+
+    private static CMUTapeActor Person(CMUTapeCast cast, Vector2 at, bool talking = true)
+    {
+        return new CMUTapeActor { Outfit = cast.Outfit, Character = cast.Character, At = at, Talking = talking };
     }
 
     private static CMUTapeScene Ad(Teller teller)
@@ -258,9 +269,17 @@ public static class CMUTapeGenerator
             return list[random.Next(list.Count)];
         }
 
+        private int _cast;
+
         public string Outfit(string role)
         {
             return grammar.Outfits.TryGetValue(role, out var outfits) && outfits.Count > 0 ? Pick(outfits) : string.Empty;
+        }
+
+        /// <summary>Casts someone for a role: an outfit, and the next place in the cast.</summary>
+        public CMUTapeCast Cast(string role)
+        {
+            return new CMUTapeCast(Outfit(role), _cast++);
         }
 
         public string? Ad()

@@ -83,6 +83,9 @@ public sealed class CMUHuggerLarva : CMUHuggerCorridorStage
 
         /// <summary>The stage's first airlock, which says what to do in big letters.</summary>
         public bool First;
+
+        /// <summary>The demo bot's random draw for this obstacle.</summary>
+        public float Seed;
     }
 
     private readonly Obstacle[] _obstacles = new Obstacle[3];
@@ -153,6 +156,7 @@ public sealed class CMUHuggerLarva : CMUHuggerCorridorStage
                 Phase = AirlockPhase.Raised,
                 Bottom = CeilingY + 6,
                 First = !vent && _airlocks++ == 0,
+                Seed = Run.Fx(),
             };
             return;
         }
@@ -204,6 +208,48 @@ public sealed class CMUHuggerLarva : CMUHuggerCorridorStage
 
         FirePattern();
         _nextShot = FireGap(FireRate);
+    }
+
+    /// <summary>
+    /// The demo bot jumps a knifeman's stab once it sees the wind-up, ducks under a dropping airlock, and dives into
+    /// most vents (it lets one go by now and then, and once in a while it forgets to duck).
+    /// </summary>
+    protected override void BotStage(ref bool jump, ref float hold, ref bool duck)
+    {
+        foreach (var human in Humans)
+        {
+            if (!human.Active || !human.Knifeman || human.BotDone || human.State != CMUHuggerHumanState.WindUp)
+                continue;
+
+            if (human.Timer < 0.08f + human.BotSeed * 0.1f || human.X - Scroll - PlayerX > StabReachFar + 40 || !Grounded)
+                continue;
+
+            human.BotDone = true;
+            if (human.BotSeed < 0.05f)
+                continue;
+
+            jump = true;
+            hold = 0.3f;
+        }
+
+        foreach (var obstacle in _obstacles)
+        {
+            if (!obstacle.Active)
+                continue;
+
+            var x = obstacle.X - Scroll;
+            if (obstacle.Vent)
+            {
+                if (obstacle.Seed >= 0.2f && MathF.Abs(x - PlayerX) < 16)
+                    duck = true;
+
+                continue;
+            }
+
+            if (obstacle.Phase >= AirlockPhase.Falling && obstacle.Seed >= 0.03f && x - PlayerX <= 30 + Speed * 0.2f
+                && x + AirlockWidth > PlayerX - HalfWidth - 4)
+                duck = true;
+        }
     }
 
     /// <summary>Something this small goes between the legs.</summary>

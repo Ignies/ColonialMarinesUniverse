@@ -772,6 +772,262 @@ public sealed class CMUHuggerStealth : CMUHuggerStage
 
     #endregion
 
+    #region Demo bot
+
+    // The demo's runner: a planner over the tiles that finds a way to the exit keeping out of every marine's view,
+    // waits in cover when there is none (until it loses patience and makes a dash), and pounces any marine it can
+    // reach from behind or who has not noticed it. Once a marine is on to it, it runs for the exit.
+    private const float BotReplan = 0.3f;
+    private const float BotPatience = 5;
+    private const float BotPounceReach = 46;
+    private const float BotConeMargin = 0.25f;
+    private const float BotRangeMargin = 14;
+
+    private readonly int[] _botPath = new int[MaxPath];
+    private readonly int[] _botMark = new int[MaxW * MaxH];
+    private readonly bool[] _botDanger = new bool[MaxW * MaxH];
+    private int _botStamp;
+    private int _botLength;
+    private int _botStep;
+    private float _botThink;
+    private float _botWait;
+    private float _botPause;
+    private int _botRoom = -1;
+
+    public override void DemoThink(float dt)
+    {
+        if (_dead || _clearing >= 0 || Run.Over || _maul > 0)
+        {
+            BotSteer(Vector2.Zero);
+            return;
+        }
+
+        if (_botRoom != _room)
+        {
+            // a look round the new room before moving
+            _botRoom = _room;
+            _botLength = 0;
+            _botWait = 0;
+            _botThink = 0.6f + Run.Fx() * 0.5f;
+            _botPause = _botThink;
+        }
+
+        if (_botPause > 0)
+        {
+            _botPause -= dt;
+            BotSteer(Vector2.Zero);
+            return;
+        }
+
+        if (_pounce <= 0 && _pounceCool <= 0 && _stun <= 0 && BotPrey() is { } prey)
+        {
+            var to = prey.At - _player;
+            BotSteer(to);
+            var along = Vector2.Dot(to, new Vector2(MathF.Cos(_facing), MathF.Sin(_facing)));
+            var across = MathF.Abs(to.X * MathF.Sin(_facing) - to.Y * MathF.Cos(_facing));
+            if (along > 4 && along < PounceSpeed * PounceTime && across < Contact - 3)
+                Run.BotTap(CMUArcadeKey.Action);
+            return;
+        }
+
+        _botThink -= dt;
+        if (_botThink <= 0)
+        {
+            _botThink = BotReplan + Run.Fx() * 0.15f;
+            var alerted = AnyCombat();
+            if (!BotPlan(!alerted && _botWait < BotPatience))
+            {
+                _botWait += BotReplan;
+                if (Run.Fx() < 0.06f)
+                    _botPause = 0.3f + Run.Fx() * 0.5f;
+            }
+            else
+            {
+                _botWait = 0;
+            }
+        }
+
+        if (_botStep >= _botLength)
+        {
+            BotSteer(Vector2.Zero);
+            return;
+        }
+
+        var target = Centre(_botPath[_botStep]);
+        if (Vector2.Distance(target, _player) < 5)
+        {
+            _botStep++;
+            return;
+        }
+
+        BotSteer(target - _player);
+    }
+
+    /// <summary>Holds the arrow keys that head the runner along a direction, or lets them all go.</summary>
+    private void BotSteer(Vector2 dir)
+    {
+        Run.Bot(CMUArcadeKey.Right, dir.X > 3);
+        Run.Bot(CMUArcadeKey.Left, dir.X < -3);
+        Run.Bot(CMUArcadeKey.Down, dir.Y > 3);
+        Run.Bot(CMUArcadeKey.Up, dir.Y < -3);
+    }
+
+    /// <summary>A marine close enough to pounce who is turned away or has not noticed the runner.</summary>
+    private Marine? BotPrey()
+    {
+        for (var i = 0; i < _marineCount; i++)
+        {
+            var m = _marines[i];
+            if (m.State == State.Dead || m.Tower || Vector2.Distance(m.At, _player) > BotPounceReach)
+                continue;
+
+            var approach = MathF.Atan2(_player.Y - m.At.Y, _player.X - m.At.X);
+            var behind = MathF.Abs(Wrap(approach - m.Facing)) > FaceAngle + 0.15f;
+            var unaware = m.State is State.Patrol or State.Return && m.Meter < Unaware * 0.6f && !m.Sees;
+            if (behind || unaware)
+                return m;
+        }
+
+        return null;
+    }
+
+    /// <summary>Whether a tile's middle is in, or about to be in, a living marine's view.</summary>
+    private bool BotDangerous(int tile)
+    {
+        if (_botMark[tile] == _botStamp)
+            return _botDanger[tile];
+
+        _botMark[tile] = _botStamp;
+        var at = Centre(tile);
+        var danger = false;
+        for (var i = 0; i < _marineCount && !danger; i++)
+        {
+            var m = _marines[i];
+            if (m.State == State.Dead)
+                continue;
+
+            var delta = at - m.At;
+            var dist = delta.Length();
+            if (dist < 20 && !m.Tower)
+            {
+                danger = true;
+                break;
+            }
+
+            if (dist > RangeOf(m) + BotRangeMargin)
+                continue;
+
+            var angle = MathF.Atan2(delta.Y, delta.X);
+            if (MathF.Abs(Wrap(angle - m.Facing)) > (m.Tower ? TowerHalf : ConeHalf) + BotConeMargin)
+                continue;
+
+            danger = Cast(m.At, angle, dist, m.Tower) >= dist - 2;
+        }
+
+        _botDanger[tile] = danger;
+        return danger;
+    }
+
+    /// <summary>
+    /// Plans the shortest way over the tiles to the exit (breadth first, eight ways), keeping out of view when
+    /// <paramref name="careful"/>. With no safe way it heads for the nearest tile out of view instead. False when it
+    /// had to settle for that or for nothing.
+    /// </summary>
+    private bool BotPlan(bool careful)
+    {
+        _botStamp++;
+        _botLength = 0;
+        _botStep = 0;
+        var sx = (int) MathF.Floor((_player.X - _ox) / Tile);
+        var sy = (int) MathF.Floor(_player.Y / Tile);
+        if (sx < 0 || sy < 0 || sx >= _w || sy >= _h)
+            return false;
+
+        var start = sy * MaxW + sx;
+        var exit = BotSearch(start, careful, false);
+        if (exit >= 0)
+        {
+            BotTrace(start, exit);
+            return true;
+        }
+
+        // nowhere safe to go: get out of view and wait
+        if (careful && BotDangerous(start))
+        {
+            var cover = BotSearch(start, false, true);
+            if (cover >= 0)
+                BotTrace(start, cover);
+        }
+
+        return false;
+    }
+
+    /// <summary>Breadth first from a tile to the exit (or, with <paramref name="cover"/>, to the nearest tile out of view).</summary>
+    private int BotSearch(int start, bool careful, bool cover)
+    {
+        Array.Fill(_prev, -1);
+        _prev[start] = start;
+        var head = 0;
+        var tail = 0;
+        _queue[tail++] = start;
+        while (head < tail)
+        {
+            var at = _queue[head++];
+            var x = at % MaxW;
+            var y = at / MaxW;
+            if (cover ? at != start && !BotDangerous(at) : TileKind(x, y) == Exit)
+                return at;
+
+            for (var k = 0; k < 8; k++)
+            {
+                var nx = x + (k is 0 or 4 or 5 ? 1 : k is 1 or 6 or 7 ? -1 : 0);
+                var ny = y + (k is 2 or 4 or 6 ? 1 : k is 3 or 5 or 7 ? -1 : 0);
+                if (nx < 0 || ny < 0 || nx >= _w || ny >= _h)
+                    continue;
+
+                var next = ny * MaxW + nx;
+                if (_prev[next] >= 0 || Solid(_grid[next], false))
+                    continue;
+
+                // no cutting corners round a solid tile
+                if (nx != x && ny != y && (Solid(TileKind(nx, y), false) || Solid(TileKind(x, ny), false)))
+                    continue;
+
+                if (careful && BotDangerous(next))
+                    continue;
+
+                _prev[next] = at;
+                _queue[tail++] = next;
+            }
+        }
+
+        return -1;
+    }
+
+    private void BotTrace(int start, int end)
+    {
+        var count = 0;
+        for (var at = end; at != start && count < MaxPath; at = _prev[at])
+        {
+            count++;
+        }
+
+        if (count >= MaxPath)
+            return;
+
+        var step = end;
+        for (var i = count - 1; i >= 0; i--)
+        {
+            _botPath[i] = step;
+            step = _prev[step];
+        }
+
+        _botLength = count;
+        _botStep = 0;
+    }
+
+    #endregion
+
     #region Tiles
 
     private static byte KindOf(char ch)

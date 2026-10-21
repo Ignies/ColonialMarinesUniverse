@@ -749,6 +749,154 @@ public sealed class CMUHuggerRavager : CMUHuggerStage
 
     #endregion
 
+    #region Demo bot
+
+    // The demo's ravager: it wades into the nearest marine, lines up on his lane and claws in chains, charges down a
+    // lane with two or more marines in it when the meter is full, steps out of a gunman's lane when a round is coming,
+    // goes round the front of a raised riot shield, and walks on up the street between waves.
+    private float _botSlash;
+    private float _botDodge;
+    private float _botDodgeDir;
+    private float _botCharge;
+
+    public override void DemoThink(float dt)
+    {
+        _botSlash -= dt;
+        _botDodge -= dt;
+        _botCharge -= dt;
+        if (!Hostile || _pose is Pose.Windup or Pose.Charge or Pose.Skid or Pose.Roar)
+        {
+            BotHold(0, 0);
+            return;
+        }
+
+        var target = BotTarget();
+        if (target == null && _apc is 1 or 2)
+        {
+            // the APC: get alongside and claw it
+            var gap = _apcX - _x;
+            if (MathF.Abs(gap) < ApcHalf + SlashReach * 0.4f && _y - ApcY < 26 && MathF.Sign(gap) == MathF.Sign(_facing))
+            {
+                BotHold(0, 0);
+                if (_botSlash <= 0)
+                {
+                    Run.BotTap(CMUArcadeKey.Action);
+                    _botSlash = 0.2f + Run.Fx() * 0.12f;
+                }
+
+                return;
+            }
+
+            BotHold(MathF.Abs(gap) > ApcHalf + 10 ? MathF.Sign(gap) : MathF.Sign(gap) * (MathF.Sign(gap) == MathF.Sign(_facing) ? 0 : 1),
+                _y - ApcY > 20 ? -1 : 0);
+            return;
+        }
+
+        if (target == null)
+        {
+            BotHold(_waveState == WaveState.Advance ? 1 : MathF.Sign(_cam + CMUHuggerRun.ScreenWidth / 2 - _x) * (MathF.Abs(_cam + 160 - _x) > 30 ? 1 : 0), 0);
+            return;
+        }
+
+        if (_botDodge <= 0 && BotIncoming())
+        {
+            _botDodge = 0.4f + Run.Fx() * 0.2f;
+            _botDodgeDir = _y > (StreetTop + StreetBottom) / 2 ? -1 : 1;
+        }
+
+        var dx = target.X - _x;
+        var dy = target.Y - _y;
+
+        // a lane with a crowd in it and a full meter: charge it
+        if ((_chargeMeter >= 100 || _frenzy > 0) && _botCharge <= 0 && MathF.Abs(dy) < 12 && MathF.Abs(dx) is > 50 and < 220 && BotLane(target) >= 2)
+        {
+            _botCharge = 1.5f;
+            BotHold(MathF.Sign(dx), 0);
+            Run.BotTap(CMUArcadeKey.Action);
+            return;
+        }
+
+        // stand just short of him on our side, or round the back of a raised shield
+        var stand = target.X - MathF.Sign(dx == 0 ? _facing : dx) * 34;
+        if (target.Kind == Riot && target.Armed && target.Facing * (_x - target.X) > 0 && _chargeMeter < 100)
+            stand = target.X - target.Facing * 34;
+
+        var ahead = (target.X - _x) * _facing;
+        if (ahead is > -6 and < SlashReach - 10 && MathF.Abs(dy) < SlashDepth - 4 && _botSlash <= 0)
+        {
+            // keys off so the claw does not turn into a charge
+            BotHold(0, 0);
+            Run.BotTap(CMUArcadeKey.Action);
+            _botSlash = (_frenzy > 0 ? 0.1f : 0.17f) + Run.Fx() * 0.14f;
+            return;
+        }
+
+        var mx = MathF.Abs(stand - _x) > 6 ? MathF.Sign(stand - _x) : MathF.Abs(ahead) < 1 || ahead < 0 ? MathF.Sign(dx) : 0;
+        var my = _botDodge > 0 ? _botDodgeDir : MathF.Abs(dy) > 4 ? MathF.Sign(dy) : 0;
+        BotHold(mx, my);
+    }
+
+    private void BotHold(float x, float y)
+    {
+        Run.Bot(CMUArcadeKey.Right, x > 0);
+        Run.Bot(CMUArcadeKey.Left, x < 0);
+        Run.Bot(CMUArcadeKey.Down, y > 0);
+        Run.Bot(CMUArcadeKey.Up, y < 0);
+    }
+
+    /// <summary>The nearest marine still standing on this stretch of street.</summary>
+    private Trooper? BotTarget()
+    {
+        Trooper? best = null;
+        var bestDistance = float.MaxValue;
+        foreach (var t in _troopers)
+        {
+            if (!Alive(t) || t.X < _cam - 20 || t.X > _cam + CMUHuggerRun.ScreenWidth + 20)
+                continue;
+
+            var distance = MathF.Abs(t.X - _x) + MathF.Abs(t.Y - _y) * 2;
+            if (distance >= bestDistance)
+                continue;
+
+            best = t;
+            bestDistance = distance;
+        }
+
+        return best;
+    }
+
+    /// <summary>How many marines stand in a target's lane, for deciding whether a charge is worth it.</summary>
+    private int BotLane(Trooper target)
+    {
+        var count = 0;
+        foreach (var t in _troopers)
+        {
+            if (Alive(t) && MathF.Abs(t.Y - target.Y) < 14 && MathF.Sign(t.X - _x) == MathF.Sign(target.X - _x))
+                count++;
+        }
+
+        return count;
+    }
+
+    /// <summary>Whether a marine's round is coming down the ravager's lane.</summary>
+    private bool BotIncoming()
+    {
+        for (var i = 0; i < _bulletCount; i++)
+        {
+            var b = _bullets[i];
+            if (b.Passed || MathF.Abs(b.Y - _y) > 9 || b.Vx == 0)
+                continue;
+
+            var eta = (_x - b.X) / b.Vx;
+            if (eta is > 0 and < 0.45f && Run.Fx() < 0.9f)
+                return true;
+        }
+
+        return false;
+    }
+
+    #endregion
+
     #region Update
 
     public override void Update(float dt)

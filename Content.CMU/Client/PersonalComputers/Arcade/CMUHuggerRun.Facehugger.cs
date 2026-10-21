@@ -158,6 +158,47 @@ public sealed class CMUHuggerFacehugger : CMUHuggerCorridorStage
             Loc.GetString("cmu-game-hugger-kicked"), 16);
     }
 
+    /// <summary>
+    /// The demo bot goes for faces: it times a held leap from how fast the human is closing, so it comes down on the
+    /// head, and now and then misjudges it and is kicked flat or sails past.
+    /// </summary>
+    protected override void BotStage(ref bool jump, ref float hold, ref bool duck)
+    {
+        // getting under fire comes first
+        if (duck)
+            return;
+
+        foreach (var human in Humans)
+        {
+            if (!Hittable(human))
+                continue;
+
+            var d = human.X - Scroll - PlayerX;
+            if (d <= 0 || d > 170)
+                continue;
+
+            var closing = Speed + human.State switch
+            {
+                CMUHuggerHumanState.Walk => human.Walk,
+                CMUHuggerHumanState.Flee => -48,
+                CMUHuggerHumanState.Stand or CMUHuggerHumanState.Aim when human.Rifleman => -MarineBackpedal,
+                _ => 0,
+            };
+
+            var leap = 27 + closing * 0.27f + (human.BotSeed - 0.5f) * 18;
+            if (human.BotSeed < 0.1f)
+                leap += human.BotSeed < 0.05f ? -38 : 42;
+
+            if (d > leap)
+                continue;
+
+            jump = true;
+            hold = 0.34f;
+            duck = false;
+            return;
+        }
+    }
+
     protected override void OnShot(Vector2 hit, Vector2 dir)
     {
         ShotDown(hit, dir, Dies, _shotText ??= Loc.GetString("cmu-game-hugger-shot"));

@@ -47,6 +47,7 @@ public sealed class CMUHuggerVent : CMUHuggerStage
     private bool _shed;
     private bool _rewarded;
     private float _larvaX;
+    private float _botSkip = -1;
 
     public override string Title => Loc.GetString("cmu-game-hugger-vent-title");
     public override string Hint => Loc.GetString("cmu-game-hugger-vent-hint");
@@ -61,6 +62,7 @@ public sealed class CMUHuggerVent : CMUHuggerStage
         _shed = false;
         _rewarded = false;
         _larvaX = 90;
+        _botSkip = -1;
     }
 
     public override void OnKey(CMUArcadeInput input)
@@ -69,6 +71,19 @@ public sealed class CMUHuggerVent : CMUHuggerStage
             return;
 
         Finish();
+    }
+
+    /// <summary>The demo bot mostly lets the evolution play, and now and then skips it like an impatient player.</summary>
+    public override void DemoThink(float dt)
+    {
+        if (_botSkip < 0)
+            _botSkip = Run.Fx() < 0.3f ? 1.8f + Run.Fx() * 3 : float.PositiveInfinity;
+
+        if (_time >= _botSkip)
+        {
+            _botSkip = float.PositiveInfinity;
+            Run.BotTap(CMUArcadeKey.Action);
+        }
     }
 
     /// <summary>Done or skipped: the runner gets its bonus and the run goes on.</summary>

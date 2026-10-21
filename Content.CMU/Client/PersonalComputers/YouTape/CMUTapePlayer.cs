@@ -1,6 +1,6 @@
+using System.Linq;
 using System.Numerics;
 using Content.Client.Resources;
-using Content.Client.Station;
 using Content.Shared.Preferences;
 using Robust.Client.GameObjects;
 using Robust.Client.Graphics;
@@ -29,7 +29,7 @@ public sealed class CMUTapePlayer : LayoutContainer
     public const float ScreenWidth = 480;
     public const float ScreenHeight = 270;
 
-    private readonly Dictionary<string, (EntityUid Dummy, SpriteView View)> _dolls = new();
+    private readonly Dictionary<(string Outfit, int Look), (EntityUid Dummy, SpriteView View)> _dolls = new();
     private readonly List<(Control View, CMUTapeActor Actor)> _onScreen = new();
     private readonly CMUTapeOverlay _overlay;
     private readonly Random _noise = new();
@@ -60,6 +60,7 @@ public sealed class CMUTapePlayer : LayoutContainer
     public void Load(CMUTape tape)
     {
         _tape = tape;
+        ForgetOtherCasts(tape);
         _time = 0;
         _scene = -1;
         Playing = true;
@@ -193,22 +194,24 @@ public sealed class CMUTapePlayer : LayoutContainer
             };
         }
 
-        if (string.IsNullOrEmpty(actor.Outfit))
+        if (string.IsNullOrEmpty(actor.Outfit) || _tape == null)
             return null;
 
-        return Doll(actor.Outfit, actor.Scale);
+        return Doll(actor.Outfit, CMUTapeLook.LookSeed(_tape.Seed, actor.Character), actor.Scale);
     }
 
-    /// <summary>A doll in the outfit, one per outfit for as long as the player is open.</summary>
-    private SpriteView Doll(string outfit, float scale)
+    /// <summary>
+    /// A character's doll: their look, dressed for their job and outfit. One per character, reused across the
+    /// tape's scenes, for as long as the tape is loaded.
+    /// </summary>
+    private SpriteView Doll(string outfit, int look, float scale)
     {
-        if (_dolls.TryGetValue(outfit, out var existing))
+        if (_dolls.TryGetValue((outfit, look), out var existing))
             return existing.View;
 
         var species = _prototypes.Index(HumanoidCharacterProfile.DefaultSpecies).DollPrototype;
         var dummy = _entities.SpawnEntity(species, MapCoordinates.Nullspace);
-        if (_prototypes.HasIndex<Content.Shared.Roles.StartingGearPrototype>(outfit))
-            _entities.System<StationSpawningSystem>().EquipStartingGear(dummy, outfit);
+        CMUTapeLook.Dress(dummy, outfit, look, _entities, _prototypes);
 
         var view = new SpriteView(_entities)
         {
@@ -218,8 +221,41 @@ public sealed class CMUTapePlayer : LayoutContainer
             Stretch = SpriteView.StretchMode.None,
         };
         view.SetEntity(dummy);
-        _dolls[outfit] = (dummy, view);
+        _dolls[(outfit, look)] = (dummy, view);
         return view;
+    }
+
+    /// <summary>Deletes the dolls of characters the new tape does not have.</summary>
+    private void ForgetOtherCasts(CMUTape tape)
+    {
+        var cast = new HashSet<(string, int)>();
+        foreach (var scene in tape.Scenes)
+        {
+            foreach (var actor in scene.Actors)
+            {
+                if (!string.IsNullOrEmpty(actor.Outfit))
+                    cast.Add((actor.Outfit, CMUTapeLook.LookSeed(tape.Seed, actor.Character)));
+            }
+        }
+
+        foreach (var key in _dolls.Keys.ToList())
+        {
+            if (cast.Contains(key))
+                continue;
+
+            var (dummy, view) = _dolls[key];
+            view.Orphan();
+            view.SetEntity(null);
+            _entities.QueueDeleteEntity(dummy);
+            _dolls.Remove(key);
+        }
+
+        // take down what was on screen; the next frame puts the new tape's scene up
+        foreach (var (view, _) in _onScreen)
+            view.Orphan();
+
+        _onScreen.Clear();
+        _scene = -1;
     }
 
     protected override void ExitedTree()
