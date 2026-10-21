@@ -252,4 +252,7 @@ public enum CMUComputerCasing : byte
 
     /// <summary>LaSalle Bionational corporate teal.</summary>
     Lasalle,
+
+    /// <summary>A portable laptop: a dark-grey lid over a keyboard deck, coloured after the laptop item.</summary>
+    Laptop,
 }

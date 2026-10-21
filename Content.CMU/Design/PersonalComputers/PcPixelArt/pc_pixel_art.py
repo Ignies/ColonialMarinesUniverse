@@ -10,7 +10,9 @@ temp folder, outside the repo.
 Everything is drawn with the colony ATM generator's own primitives (Design/ColonyEconomy/AtmPixelArt): its Layer,
 bevels, dithered gradients, specks, screws, pins, stamped lettering, 3x5 font, Weyland-Yutani mark, card reader,
 status light sockets and key caps, in its beige palette. The other casings are the same drawing recoloured by
-lightness onto their own ramps, then given their own trim, so the three machines are one design.
+lightness onto their own ramps, then given their own trim, so the three machines are one design. The laptop is the
+one casing drawn differently, a lid and a keyboard deck in the colours of the game's own laptop sprite
+(Resources/Textures/CMU14/Items/laptop.rsi), cut to the same slices so the window builds it like the rest.
 
 The window stretches the art, so the pieces are slices rather than pictures:
 
@@ -21,7 +23,7 @@ The window stretches the art, so the pieces are slices rather than pictures:
   plate_<casing>.png   the brand plate, centred on the frame's top band at PLATE_Y.
   fascia_<casing>.png  the slim front panel under the screen, a three-slice: FASCIA_LEFT pixels of fixed left end
                        (the data drive), TILE pixels of vent that repeat, FASCIA_RIGHT pixels of fixed right end
-                       (the reader's label, the power light and the power key's well). Shown at FASCIA_ZOOM, the
+                       (a short vent, the power light and the power key's well). Shown at FASCIA_ZOOM, the
                        ATM window's 3x, where the bezel is shown at FRAME_ZOOM.
   housing_<casing>.png the ATM's card reader housing, standing up out of the panel's right end over the bezel's
                        bottom edge (LAYOUT["housing"]), so the reader is the ATM's size without a tall panel.
@@ -74,9 +76,10 @@ text_width = atm.text_width
 # Sector Policing Authority. Each faction's colours are its uniform's (see the job prototypes in
 # Content.CMU/Resources/Prototypes/CMU14/Roles/Colony/LawEnforcement/). Then the powers and companies with operating
 # systems of their own: the Union of Progressive Peoples, the Colonial Marines, the Three World Empire and its space
-# force the IASF, Hyperdyne Systems, Prodigy, Kelland Mining and LaSalle Bionational.
+# force the IASF, Hyperdyne Systems, Prodigy, Kelland Mining and LaSalle Bionational. Last, the laptop: the same
+# machine folded into a rugged portable, opened from the hand rather than a desk.
 CASINGS = ("seegson", "weyland", "cmb", "security", "rangers", "nspa",
-           "upp", "uscm", "twe", "iasf", "hyperdyne", "prodigy", "kelland", "lasalle")
+           "upp", "uscm", "twe", "iasf", "hyperdyne", "prodigy", "kelland", "lasalle", "laptop")
 
 # ── Geometry, in art pixels. Mirrored by CMUComputerMachine and CMUComputerPanel. ──────────────────────────────────
 TILE = 32
@@ -91,14 +94,13 @@ GLASS_OFF = 22
 FASCIA_ZOOM, FRAME_ZOOM = 3, 2
 FASCIA_H = 22
 FASCIA_LEFT, FASCIA_RIGHT = 45, 160
-# The ATM reader's housing (the ATM's grid rows 110-139, under its label strip) and the label strip (rows 100-109).
+# The ATM reader's housing: the ATM's grid rows 110-139, under its label strip, which the panel leaves out.
 HOUSING_SRC = (143, 110, 55, 30)
-LABEL_SRC = (143, 100, 55, 10)
 LAYOUT = {
     # In the fascia's left end.
     "led_disk": (36, 6, 5, 5),
-    # In the fascia's right end. The label strip sits beside the reader rather than over it.
-    "label": (3, 6, 55, 10),
+    # In the fascia's right end. A short run of vent beside the reader, on the plain face.
+    "vent": (3, 6, 55, 10),
     "housing": (60, -8, 55, 30),
     # The ATM's own reader rectangles, at the same offsets from the housing as on the ATM: the lights and slot
     # shadow are drawn over ReaderRect, and the card comes in from 14 pixels above it.
@@ -180,6 +182,43 @@ RAMPS = {
     "lasalle": ((0, "#020706"), (30, "#071714"), (60, "#0e2a25"), (95, "#174039"), (120, "#1d4f46"),
                 (150, "#29665b"), (180, "#3f8476"), (215, "#7fb8aa"), (255, "#d0ece4")),
 }
+# The laptop is the game's own laptop sprite opened up: its colours are read straight from it, by the pixel each one
+# is on there, so the casing and the item in the hand are the same machine.
+LAPTOP_RSI = REPO / "Content.CMU/Resources/Textures/CMU14/Items/laptop.rsi"
+LAPTOP_PICKS = {
+    "outline": (7, 3),       # the black outline
+    "shell": (7, 4),         # the lid's magnesium
+    "latch": (21, 4),        # the pale latches by the lid's top right corner
+    "ring": (9, 6),          # the ring round the screen
+    "screen": (10, 6),       # the dark screen, and the keyboard's well
+    "lamp": (9, 12),         # the red lamp at the lid's bottom left
+    "deck_lo": (7, 14),      # the deck's shaded side
+    "deck": (8, 14),         # the deck's lit back edge
+    "latch_hi": (21, 14),    # the latches' catch, where the light hits it
+    "trim": (24, 15),        # the deck's lit right side
+    "key": (10, 16),         # a key
+    "foot": (9, 16),         # between the keys, and the deck's foot
+}
+
+
+def laptop_palette():
+    sprite = Image.open(LAPTOP_RSI / "laptop_off.png").convert("RGBA")
+    return {name: "#%02x%02x%02x" % sprite.getpixel(xy)[:3] for name, xy in LAPTOP_PICKS.items()}
+
+
+def mix(a, b, t=0.5):
+    a, b = rgba(a), rgba(b)
+    return "#" + "".join("%02x" % round(a[i] + (b[i] - a[i]) * t) for i in range(3))
+
+
+LAP = laptop_palette()
+# The parts the laptop shares with the other casings - the card reader's housing, the status lights' sockets, the
+# power key - are still drawn in the ATM's beige; this ramp puts them into the sprite's greys, the reader's face
+# landing on the deck's own grey.
+RAMPS["laptop"] = ((0, LAP["outline"]), (35, LAP["screen"]), (60, LAP["foot"]), (75, LAP["ring"]),
+                   (90, LAP["deck_lo"]), (100, LAP["shell"]), (120, LAP["deck"]), (145, LAP["trim"]),
+                   (170, LAP["key"]), (215, LAP["latch"]), (255, LAP["latch_hi"]))
+
 # The ring round the glass: the moulding's lit and shaded lip.
 RIM = {
     "seegson": ("#4d3e37", "#1a1513"),
@@ -307,7 +346,10 @@ def draw_frame(casing):
     The bezel, outside in: an outline; the casing, a band across the top and bottom with a screwed block at each end
     and a pillar down each side; a lip; the dark moulding sloping down to the tube, mitred at the corners; then the
     glass's dark edge over the screen, its corners rounded. Drawn round a TILE x TILE hole, so each edge is one tile.
+    The laptop's lid is drawn by draw_laptop_frame.
     """
+    if casing == "laptop":
+        return draw_laptop_frame()
     w, h = FRAME_W, FRAME_H
     x1, y1 = w - 1, h - 1
     L = Canvas("frame")
@@ -341,8 +383,20 @@ def draw_frame(casing):
     for x, y in frame_screws():
         screw(L, x, y)
 
-    # The glass's edge, darkest against the moulding, its corners rounded off by it.
-    gx0, gy0, gx1, gy1 = cx0 + CHAMFER_W, cy0 + CHAMFER_W, cx1 - CHAMFER_W, cy1 - CHAMFER_W
+    def corner(side):
+        edge = rgba(CHAMFER[side][-1])
+        return edge if casing == "seegson" else on_ramp(RAMPS[casing], lightness(edge))
+
+    glass_edge(L, (cx0 + CHAMFER_W, cy0 + CHAMFER_W, cx1 - CHAMFER_W, cy1 - CHAMFER_W), corner)
+    return L
+
+
+def glass_edge(L, box, corner):
+    """
+    The glass's edge round `box`, darkest against the moulding, and the hole inside it; its corners are rounded off
+    by the moulding, in `corner(side)`, the moulding's innermost colour on that side ("top" or "bottom").
+    """
+    gx0, gy0, gx1, gy1 = box
     for i, alpha in enumerate((0xc8, 0x80, 0x38)):
         L.outline(gx0 + i, gy0 + i, gx1 - i, gy1 - i, "#000000%02x" % alpha)
     for hole_x in range(gx0 + GLASS, gx1 - GLASS + 1):
@@ -350,15 +404,12 @@ def draw_frame(casing):
             L.unset(hole_x, hole_y)
     for cx, cy, sx, sy, side in ((gx0, gy0, 1, 1, "top"), (gx1, gy0, -1, 1, "top"),
                                  (gx0, gy1, 1, -1, "bottom"), (gx1, gy1, -1, -1, "bottom")):
-        edge = rgba(CHAMFER[side][-1])
-        if casing != "seegson":
-            edge = on_ramp(RAMPS[casing], lightness(edge))
+        edge = corner(side)
         for dx in range(GLASS):
             for dy in range(GLASS):
                 # Outside a quarter circle of radius GLASS centred GLASS pixels in from the corner.
                 if (GLASS - dx - 0.5) ** 2 + (GLASS - dy - 0.5) ** 2 > GLASS ** 2:
                     L.set(cx + sx * dx, cy + sy * dy, edge)
-    return L
 
 
 # ── Brand plates ──────────────────────────────────────────────────────────────────────────────────────────────────
@@ -388,7 +439,8 @@ def draw_plate(casing):
     The badge on the top band, nine pixels tall: a recessed label strip like the ATM's INSERT ID TAG for Seegson, a
     black plate with the gold mark for Weyland-Yutani, a raised silver plate with gold stars for the Marshals, a white
     plate with the police checker for colony security, a green one between two pines for the rangers, and the
-    constable's black with red chevrons for the NSPA. The operating systems' own machines are in faction_plate.
+    constable's black with red chevrons for the NSPA, and the laptop maker's small pale plate. The operating
+    systems' own machines are in faction_plate.
     """
     L = Canvas("plate")
     h = 9
@@ -465,6 +517,14 @@ def draw_plate(casing):
         L.glyphs(F3, 6 + 5 + 4, 3, text, "#5c1218", gap=2)
         L.glyphs(F3, 6 + 5 + 4, 2, text, "#f2f2f4", gap=2)
         pins = "#8d8d94"
+    elif casing == "laptop":
+        # The maker's small plate on the lid, in the sprite's pale metal, the name stamped into it.
+        text = "SEEGSON"
+        w = text_width(F3, text) + 12
+        gradient(L, 1, 1, w - 2, h - 2, (LAP["latch_hi"], LAP["latch"], mix(LAP["latch"], LAP["trim"], 0.35)))
+        bevel(L, 0, 0, w - 1, h - 1, LAP["latch_hi"], LAP["trim"])
+        stamp(L, F3, 6, 2, text, LAP["screen"], LAP["latch_hi"])
+        pins = LAP["trim"]
     else:
         w, pins = faction_plate(L, casing, h)
     L.set(2, 2, pins)
@@ -589,13 +649,26 @@ def socket(L, x, y):
     L.paste(moved(atm.led("led_power", None), x - atm.LAYOUT["led_power"][0], y - atm.LAYOUT["led_power"][1]))
 
 
+def side_vent(L, rx):
+    """The grille slots in the strip beside the reader, inside LAYOUT["vent"]; `rx` is the right end's left edge."""
+    vx, vy, vw, vh = LAYOUT["vent"]
+    n = (vw - 2) // 4 + 1
+    x0 = rx + vx + (vw - 4 * (n - 1) - 2) // 2
+    for gx in range(x0, x0 + 4 * n, 4):
+        L.rect(gx, vy, gx, vy + vh - 1, C["grille"])
+        L.rect(gx + 1, vy, gx + 1, vy + vh - 1, C["grille_hi"])
+
+
 def draw_fascia(casing):
     """
     The front panel: the casing's pillars carried down from the bezel and between them a recessed face, as the ATM's
     inner face sits back from its pillars. The left end holds the data drive with its activity light, the middle a
-    vent, the right end the reader's label, the power light and the power key in a well; the reader's housing is
-    a sprite of its own (draw_housing). Drawn at its narrowest, with one tile of vent between the ends.
+    vent, the right end a short vent of its own, the power light and the power key in a well; the reader's housing is
+    a sprite of its own (draw_housing). Drawn at its narrowest, with one tile of vent between the ends. The laptop's
+    keyboard deck is drawn by draw_laptop_fascia.
     """
+    if casing == "laptop":
+        return draw_laptop_fascia()
     w, h = FASCIA_W, FASCIA_H
     x1, y1 = w - 1, h - 1
     L = Canvas("fascia")
@@ -632,15 +705,9 @@ def draw_fascia(casing):
     atm.bone_slot(L, dx0 + 2, dy0 + 9, dx1 - 2, dy0 + 13, "#6e5c44")
     L.rect(dx0 + 5, dy0 + 10, dx1 - 5, dy0 + 10, "#000000")
 
-    # Right end: the ATM reader's label strip, beside where its housing stands.
+    # Right end: a second run of the grille slots, beside where the reader's housing stands, on the plain face.
     rx = FASCIA_LEFT + TILE
-    reader = Canvas()
-    atm.draw_reader(reader)
-    lx0, ly0 = LAYOUT["label"][:2]
-    sx, sy, sw, sh = LABEL_SRC
-    for (x, y), c in reader.px.items():
-        if sx <= x < sx + sw and sy <= y < sy + sh:
-            L.px[(rx + lx0 + x - sx, ly0 + y - sy)] = c
+    side_vent(L, rx)
     # The power light, then the power key standing in a well, a step down like the ATM's keypad.
     lx, ly, _, _ = LAYOUT["led_power"]
     socket(L, rx + lx, ly)
@@ -673,6 +740,220 @@ def draw_housing(casing):
     # A dark rim, so it reads as a module standing proud of the casing it is fixed over.
     L.outline(0, 0, sw - 1, sh - 1, "#1a140e")
     return recolour(L, casing)
+
+
+# ── Laptop ────────────────────────────────────────────────────────────────────────────────────────────────────────
+# A late-80s rugged portable, cast magnesium and black: the lid is a thin bezel round the screen with the sprite's
+# black ring sunk into it, and the deck under it is the keyboard. It keeps the other casings' slices, sizes and
+# LAYOUT, so the window builds it the same way, but its own parts are drawn straight in the sprite's greys; only what
+# it shares with them (the reader's housing, the light sockets, the power key) is drawn in beige and put on its ramp.
+
+# The sunk surround between the ring and the glass, by the way each side faces, outer pixel first: the top looks
+# down, away from the light, the bottom up into it.
+SURROUND = {
+    "top": ("#262626", "#232323", "#202020", "#1d1d1d"),
+    "left": ("#2a2a2a", "#272727", "#242424", "#212121"),
+    "right": ("#313131", "#2e2e2e", "#2b2b2b", "#282828"),
+    "bottom": ("#3a3a3a", "#353535", "#303030", "#2b2b2b"),
+}
+SURROUND_W = len(SURROUND["top"])
+HINGE = 3
+
+
+def beige(draw):
+    """Something drawn in the ATM's beige, on a layer of its own, put into the laptop's greys."""
+    L = Canvas()
+    draw(L)
+    return recolour(L, "laptop")
+
+
+def draw_laptop_frame():
+    """
+    The lid, outside in: an outline with rounded corners; the shell, lit along its top and left, with a fixing in
+    each corner, the sprite's two pale latches by its top right corner and its red lamp at the bottom left; the black
+    ring round the screen, a step down; the surround, mitred at the corners; then the glass's dark edge, as on the
+    other casings. Under the lid, across the bottom, the hinge: a barrel in segments with a knuckle at each end.
+    """
+    w, h = FRAME_W, FRAME_H
+    x1, y1 = w - 1, h - 1
+    lid = y1 - HINGE
+    L = Canvas("frame")
+    L.rect(1, 1, x1 - 1, lid - 1, LAP["shell"])
+    # The casting's grain, a pixel a shade either side of the shell here and there.
+    specks(L, 2, 2, x1 - 2, lid - 2, mix(LAP["shell"], LAP["deck"]), seed=41, density=0.025)
+    specks(L, 2, 2, x1 - 2, lid - 2, LAP["deck_lo"], seed=42, density=0.02)
+    bevel(L, 1, 1, x1 - 1, lid - 1, LAP["deck"], LAP["foot"])
+    L.rect(0, 0, x1, 0, LAP["outline"])
+    L.rect(0, 0, 0, y1, LAP["outline"])
+    L.rect(x1, 0, x1, y1, LAP["outline"])
+    L.rect(0, lid, x1, lid, LAP["outline"])
+    L.unset(0, 0)
+    L.unset(x1, 0)
+    L.set(1, 1, LAP["outline"])
+    L.set(x1 - 1, 1, LAP["outline"])
+
+    # The hinge: a barrel lit along its top, a dark joint every half tile so it repeats with the edge, and a knuckle
+    # of bright metal at each end, in the corners.
+    for i, c in enumerate((LAP["trim"], LAP["deck_lo"], LAP["foot"])):
+        L.rect(1, lid + 1 + i, x1 - 1, lid + 1 + i, c)
+    for x in range(FRAME["left"], w - FRAME["right"], TILE // 2):
+        L.rect(x, lid + 1, x, y1, LAP["outline"])
+    for k0 in (3, w - 15):
+        L.rect(k0, lid + 1, k0 + 11, lid + 1, LAP["key"])
+        L.rect(k0, lid + 2, k0 + 11, lid + 2, LAP["trim"])
+        L.rect(k0, lid + 3, k0 + 11, lid + 3, LAP["deck_lo"])
+        L.rect(k0 - 1, lid + 1, k0 - 1, y1, LAP["outline"])
+        L.rect(k0 + 12, lid + 1, k0 + 12, y1, LAP["outline"])
+
+    # The ring, sunk a step into the shell: black where it falls into shadow, catching a little light opposite.
+    cx0, cy0 = FRAME["left"] - GLASS - SURROUND_W - 1, FRAME["top"] - GLASS - SURROUND_W - 1
+    cx1, cy1 = w - 1 - (FRAME["right"] - GLASS - SURROUND_W - 1), h - 1 - (FRAME["bottom"] - GLASS - SURROUND_W - 1)
+    bevel(L, cx0, cy0, cx1, cy1, LAP["outline"], mix(LAP["outline"], LAP["foot"], 0.6))
+    L.rect(cx0, cy1 + 1, cx1, cy1 + 1, LAP["deck"])
+    L.rect(cx1 + 1, cy0, cx1 + 1, cy1 + 1, LAP["deck"])
+    for y in range(cy0 + 1, cy1):
+        for x in range(cx0 + 1, cx1):
+            depths = (("top", y - cy0 - 1), ("left", x - cx0 - 1), ("bottom", cy1 - 1 - y), ("right", cx1 - 1 - x))
+            side, d = min(depths, key=lambda s: s[1])
+            if d < SURROUND_W:
+                L.set(x, y, SURROUND[side][d])
+    glass_edge(L, (cx0 + 1 + SURROUND_W, cy0 + 1 + SURROUND_W, cx1 - 1 - SURROUND_W, cy1 - 1 - SURROUND_W),
+               lambda side: rgba(SURROUND[side][-1]))
+
+    # The corner screws, steel as on every casing.
+    for x, y in ((5, 6), (w - 6, 6), (5, lid - 5), (w - 6, lid - 5)):
+        screw(L, x, y)
+    # The sprite's two pale latches, by the top right corner: sliders standing over the lid's edge, ridged to grip,
+    # a shadow under each.
+    for x0 in (w - 18, w - 13):
+        L.rect(x0, 0, x0 + 3, 4, LAP["latch"])
+        L.rect(x0, 0, x0 + 3, 0, LAP["latch_hi"])
+        L.rect(x0 + 3, 1, x0 + 3, 4, LAP["trim"])
+        L.rect(x0, 4, x0 + 3, 4, LAP["trim"])
+        L.rect(x0 + 1, 1, x0 + 1, 3, LAP["trim"])
+        L.rect(x0, 5, x0 + 3, 5, LAP["outline"])
+    # Its red lamp, at the bottom left, in a black bezel, inside the corner so it is drawn once.
+    ly = h - FRAME["bottom"]
+    L.outline(2, ly, 6, ly + 3, LAP["outline"])
+    L.rect(3, ly + 1, 5, ly + 2, LAP["lamp"])
+    L.set(3, ly + 1, mix(LAP["lamp"], "#ffffff", 0.45))
+    L.set(5, ly + 2, mix(LAP["lamp"], LAP["outline"], 0.35))
+    return L
+
+
+# Legends on the keys, three pixels square, taken in turn so the rows read as different keys.
+LEGENDS = (("#.#", ".#.", "#.#"), ("##.", "#..", "##."), ("###", ".#.", ".#."), (".#.", "#.#", "###"),
+           ("#..", "#..", "###"), ("##.", "#.#", "##."), ("###", "..#", ".#."), ("#.#", "#.#", "###"))
+
+
+def keycap(L, x0, y0, x1, legend=None):
+    """A key, seven pixels tall, `x0` to `x1`: the ATM's key cap in miniature, its legend pressed in pale grey."""
+    y1 = y0 + 6
+    L.rect(x0, y0, x1, y1, LAP["deck"])
+    L.rect(x0, y0, x1, y0, LAP["key"])
+    L.rect(x0, y0 + 1, x0, y1 - 2, LAP["trim"])
+    L.rect(x0, y1 - 1, x1, y1 - 1, LAP["deck_lo"])
+    L.rect(x0, y1, x1, y1, LAP["ring"])
+    L.rect(x1, y0 + 1, x1, y1 - 2, LAP["deck_lo"])
+    for x, y in ((x0, y0), (x1, y0), (x0, y1), (x1, y1)):
+        L.set(x, y, LAP["screen"])
+    if legend:
+        for gy, row in enumerate(legend):
+            for gx, bit in enumerate(row):
+                if bit == "#":
+                    L.set(x0 + 2 + gx, y0 + 1 + gy, mix(LAP["trim"], LAP["latch"], 0.45))
+
+
+def draw_laptop_fascia():
+    """
+    The keyboard deck: the gap the hinge turns in, then the deck, lit along its back edge. In the left end, the
+    speaker's grille and the disk light; from there to the right end, the keyboard's well with two staggered rows of
+    keys, four to a tile so they repeat with the panel, ending in the right end on a wide key in each row; then the
+    trackpad and its two buttons, the reader's housing over the right end as on every casing, the power light and
+    the power key in its well.
+    """
+    w, h = FASCIA_W, FASCIA_H
+    x1, y1 = w - 1, h - 1
+    rx = FASCIA_LEFT + TILE
+    L = Canvas("fascia")
+    L.rect(1, 0, x1 - 1, 0, mix(LAP["outline"], LAP["foot"]))
+    L.rect(1, 1, x1 - 1, 1, LAP["trim"])
+    gradient(L, 1, 2, x1 - 1, y1 - 1, (mix(LAP["deck"], LAP["shell"]), LAP["shell"], mix(LAP["shell"], LAP["deck_lo"])))
+    specks(L, 2, 3, x1 - 2, y1 - 2, mix(LAP["shell"], LAP["deck"]), seed=43, density=0.02)
+    specks(L, 2, 3, x1 - 2, y1 - 2, LAP["deck_lo"], seed=44, density=0.015)
+    L.rect(1, 1, 1, y1 - 1, LAP["deck"])
+    L.rect(x1 - 1, 1, x1 - 1, y1 - 1, LAP["foot"])
+    L.rect(2, y1 - 1, x1 - 2, y1 - 1, LAP["deck_lo"])
+    L.outline(0, 0, x1, y1, LAP["outline"])
+    L.unset(0, y1)
+    L.unset(x1, y1)
+    L.set(1, y1 - 1, LAP["outline"])
+    L.set(x1 - 1, y1 - 1, LAP["outline"])
+
+    # Left end: the speaker, a field of holes in a shallow dish, and the disk light with its label.
+    sx0, sy0, sx1, sy1 = 6, 4, 31, 17
+    L.rect(sx0, sy0, sx1, sy1, LAP["deck_lo"])
+    bevel(L, sx0, sy0, sx1, sy1, LAP["foot"], LAP["trim"])
+    for y in range(sy0 + 2, sy1 - 1, 2):
+        for x in range(sx0 + 2 + (y // 2) % 2, sx1 - 1, 2):
+            L.set(x, y, LAP["outline"])
+    dx, dy = LAYOUT["led_disk"][:2]
+
+    def disk(B):
+        socket(B, dx, dy)
+        stamp(B, F3X, dx + 2 - text_width(F3X, "HD") // 2, dy + 7, "HD", "#3a3024", "#8f7c5f")
+
+    L.paste(beige(disk))
+
+    # The keyboard's well, from the left end across the tiles to the right end.
+    kx0, kx1 = FASCIA_LEFT - 2, rx + 29
+    L.rect(kx0, 3, kx1, 19, LAP["screen"])
+    bevel(L, kx0, 3, kx1, 19, LAP["outline"], LAP["trim"])
+    rows = (4, 12)
+    # The tile's keys, by their offsets in it: the lower row a half key along, its last key running round into the
+    # tile's start, so the tile repeats seamlessly.
+    keys = Canvas()
+    n = 0
+    for y0, first in zip(rows, (1, 5)):
+        for k in range(TILE // 8):
+            keycap(keys, FASCIA_LEFT + first + 8 * k, y0, FASCIA_LEFT + first + 8 * k + 6, LEGENDS[n % len(LEGENDS)])
+            n += 1
+    for (x, y), c in keys.px.items():
+        L.px[(FASCIA_LEFT + (x - FASCIA_LEFT) % TILE, y)] = c
+    # The right end carries straight on from a whole tile, then ends each row on a wide key.
+    tail = Canvas()
+    keycap(tail, rx - 3, rows[1], rx + 3, LEGENDS[(n - 1) % len(LEGENDS)])
+    for (x, y), c in tail.px.items():
+        if x >= rx:
+            L.px[(x, y)] = c
+    for kx, kw, y0 in ((1, 7, rows[0]), (9, 7, rows[0]), (17, 11, rows[0]), (5, 7, rows[1]), (13, 15, rows[1])):
+        keycap(L, rx + kx, y0, rx + kx + kw - 1, LEGENDS[(kx + y0) % len(LEGENDS)] if kw == 7 else None)
+
+    # The trackpad: a matt pad sunk into the deck, its two buttons under it.
+    px0, px1 = rx + 32, rx + 57
+    L.rect(px0, 3, px1, 19, LAP["outline"])
+    bevel(L, px0, 3, px1, 19, LAP["outline"], LAP["trim"])
+    gradient(L, px0 + 1, 4, px1 - 1, 13, (LAP["ring"], mix(LAP["ring"], LAP["deck_lo"]), LAP["deck_lo"]))
+    L.rect(px0 + 1, 4, px1 - 1, 4, LAP["screen"])
+    L.rect(px0 + 1, 4, px0 + 1, 13, LAP["screen"])
+    for b0, b1 in ((px0 + 1, px0 + 11), (px1 - 11, px1 - 1)):
+        L.rect(b0, 15, b1, 18, LAP["deck"])
+        L.rect(b0, 15, b1, 15, LAP["key"])
+        L.rect(b0, 18, b1, 18, LAP["deck_lo"])
+        L.rect(b1, 16, b1, 17, LAP["deck_lo"])
+
+    # The power light, then the power key in its well, as on every casing.
+    def power(B):
+        lx, ly, _, _ = LAYOUT["led_power"]
+        socket(B, rx + lx, ly)
+        stamp(B, F3X, rx + lx + 2 - text_width(F3X, "ON") // 2, ly - 8, "ON", "#3a3024", "#8f7c5f")
+        bx, by, bw, bh = LAYOUT["power"]
+        B.rect(rx + bx - 1, by - 1, rx + bx + bw, by + bh, "#5f4f39")
+        bevel(B, rx + bx - 1, by - 1, rx + bx + bw, by + bh, "#3a3024", "#86735a", raised=False)
+        B.rect(rx + bx + 1, by + bh, rx + bx + bw - 1, by + bh, "#3f3324")
+
+    L.paste(beige(power))
+    return L
 
 
 # ── Power button ──────────────────────────────────────────────────────────────────────────────────────────────────
@@ -768,12 +1049,12 @@ def save(layer, w, h, name):
     layer.image((0, 0, w, h)).save(TEXTURES / name)
 
 
-def write_rsi(name, size, states):
+def write_rsi(name, size, states, copyright=COPYRIGHT):
     path = TEXTURES / f"{name}.rsi"
     path.mkdir(parents=True, exist_ok=True)
     for old in path.glob("*.png"):
         old.unlink()
-    meta = {"version": 1, "license": LICENSE, "copyright": COPYRIGHT, "size": {"x": size[0], "y": size[1]}, "states": []}
+    meta = {"version": 1, "license": LICENSE, "copyright": copyright, "size": {"x": size[0], "y": size[1]}, "states": []}
     for state, layer in states:
         layer.image((0, 0) + size).save(path / f"{state}.png")
         meta["states"].append({"name": state})
@@ -800,16 +1081,30 @@ def export_assets():
     glass = draw_glass_off()
     n = 2 * GLASS_OFF + 4
     save(glass, n, n, "glass_off.png")
-    write_rsi("power", LAYOUT["power"][2:], power)
+    credit = laptop_credit()
+    write_rsi("power", LAYOUT["power"][2:], power, f"{COPYRIGHT}; {credit}")
 
-    pngs = [f"{part}_{casing}.png" for part in ("frame", "plate", "fascia", "housing") for casing in CASINGS] + ["glass_off.png"]
-    (TEXTURES / "attributions.yml").write_text(
-        f'- files: [{", ".join(chr(34) + p + chr(34) for p in pngs)}]\n'
+    # The laptop's parts take their colours and details from the laptop sprite, so they credit it as well.
+    parts = ("frame", "plate", "fascia", "housing")
+    pngs = [f"{part}_{casing}.png" for part in parts for casing in CASINGS if casing != "laptop"] + ["glass_off.png"]
+    laptop = [f"{part}_laptop.png" for part in parts]
+    entries = ((pngs, COPYRIGHT), (laptop, f"{COPYRIGHT}; {credit}"))
+    (TEXTURES / "attributions.yml").write_text("".join(
+        f'- files: [{", ".join(chr(34) + p + chr(34) for p in files)}]\n'
         f'  license: "{LICENSE}"\n'
-        f'  copyright: "{COPYRIGHT}"\n'
-        '  source: "https://github.com/Ignies/ColonialMarinesUniverse"\n',
-        encoding="utf-8", newline="\n")
+        f'  copyright: "{copyright}"\n'
+        '  source: "https://github.com/Ignies/ColonialMarinesUniverse"\n'
+        for files, copyright in entries), encoding="utf-8", newline="\n")
     return art, glass, power
+
+
+def laptop_credit():
+    """The laptop sprite's own credit, from its RSI, for the parts drawn after it."""
+    meta = json.loads((LAPTOP_RSI / "meta.json").read_text(encoding="utf-8-sig"))
+    assert meta["license"] == LICENSE, meta["license"]
+    return ("the laptop casing (frame, plate, fascia and housing _laptop and the laptop_* power states) takes its "
+            "colours and details from the laptop sprite, Resources/Textures/CMU14/Items/laptop.rsi: "
+            + meta["copyright"])
 
 
 # ── Review ────────────────────────────────────────────────────────────────────────────────────────────────────────
