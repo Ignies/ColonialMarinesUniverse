@@ -46,6 +46,7 @@ public sealed partial class CMUComputerSessionSystem : EntitySystem
     [Dependency] private IAdminLogManager _adminLog = default!;
     [Dependency] private IConfigurationManager _cfg = default!;
     [Dependency] private IGameTiming _timing = default!;
+    [Dependency] private IPrototypeManager _prototype = default!;
     [Dependency] private CMUCmbSystem _cmb = default!;
     [Dependency] private CMUComputerPowerSystem _computerPower = default!;
     [Dependency] private CMUDeepAliasSystem _aliases = default!;
@@ -77,6 +78,7 @@ public sealed partial class CMUComputerSessionSystem : EntitySystem
         {
             subs.Event<CMUNetVisitMessage>(OnVisit);
             subs.Event<CMUComputerLogoutMessage>(OnLogout);
+            subs.Event<CMUComputerGuestLoginMessage>(OnGuestLogin);
             subs.Event<CMUComputerPowerButtonMessage>(OnPowerButton);
             subs.Event<CMUComputerCardSlotMessage>(OnCardSlot);
             subs.Event<CMUComputerOpenConsoleMessage>(OnOpenConsole);
@@ -131,6 +133,8 @@ public sealed partial class CMUComputerSessionSystem : EntitySystem
             args.PushMarkup(Loc.GetString("cmu-pc-examine-dark"));
         else if (ent.Comp.SessionUser is { } user)
             args.PushMarkup(Loc.GetString("cmu-pc-examine-session", ("name", user)));
+        else if (ent.Comp.Guest)
+            args.PushMarkup(Loc.GetString("cmu-pc-examine-guest"));
         else
             args.PushMarkup(Loc.GetString("cmu-pc-examine-login"));
     }
@@ -330,6 +334,13 @@ public sealed partial class CMUComputerSessionSystem : EntitySystem
         var name = card.Comp.FullName ?? Name(card);
         var job = card.Comp.LocalizedJobTitle;
         var account = card.Comp.AccountNumber;
+        // A card at a guest session turns it into this user's own, on a clean screen.
+        if (ent.Comp.Guest)
+        {
+            ent.Comp.Guest = false;
+            ent.Comp.Screen.Clear();
+        }
+
         ent.Comp.SessionUser = name;
         ent.Comp.SessionJob = job;
         ent.Comp.SessionAccount = account;
@@ -339,6 +350,27 @@ public sealed partial class CMUComputerSessionSystem : EntitySystem
     }
 
     /// <summary>Logging off from the start menu hands the card back.</summary>
+    /// <summary>Whether this terminal's login screen offers guest browsing.</summary>
+    public bool GuestsAllowed(CMUPersonalComputerComponent computer)
+    {
+        return computer.AllowGuests
+               ?? _prototype.TryIndex(computer.Os, out var os) && os.AllowGuests;
+    }
+
+    private void OnGuestLogin(Entity<CMUPersonalComputerComponent> ent, ref CMUComputerGuestLoginMessage args)
+    {
+        if (!ent.Comp.On
+            || ent.Comp.SessionUser != null
+            || ent.Comp.Guest
+            || !GuestsAllowed(ent.Comp))
+            return;
+
+        ent.Comp.Guest = true;
+        ent.Comp.Screen.Clear();
+        Dirty(ent);
+        AddLog(ent, Loc.GetString("cmu-pc-log-guest"));
+    }
+
     private void OnLogout(Entity<CMUPersonalComputerComponent> ent, ref CMUComputerLogoutMessage args)
     {
         if (GetCard(ent) is { } card)
@@ -351,7 +383,7 @@ public sealed partial class CMUComputerSessionSystem : EntitySystem
     private void OnScreen(Entity<CMUPersonalComputerComponent> ent, ref CMUComputerScreenMessage args)
     {
         if (!ent.Comp.On
-            || _cfg.GetCVar(CMUPersonalComputerCVars.Login) && ent.Comp.RequireLogin && ent.Comp.SessionUser == null)
+            || _cfg.GetCVar(CMUPersonalComputerCVars.Login) && ent.Comp.RequireLogin && ent.Comp.SessionUser == null && !ent.Comp.Guest)
             return;
 
         var screen = new List<CMUComputerScreenWindow>();
@@ -391,6 +423,14 @@ public sealed partial class CMUComputerSessionSystem : EntitySystem
     private void EndSession(Entity<CMUPersonalComputerComponent> ent)
     {
         CloseConsoleApps(ent);
+        if (ent.Comp.Guest)
+        {
+            ent.Comp.Guest = false;
+            ent.Comp.Screen.Clear();
+            Dirty(ent);
+            AddLog(ent, Loc.GetString("cmu-pc-log-guest-out"));
+        }
+
         if (ent.Comp.SessionUser is not { } name)
             return;
 

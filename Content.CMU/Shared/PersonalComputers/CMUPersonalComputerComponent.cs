@@ -101,6 +101,20 @@ public sealed partial class CMUPersonalComputerComponent : Component
     [DataField, AutoNetworkedField]
     public int TerminalId;
 
+    /// <summary>
+    /// Someone is browsing as a guest: no card, so no account, no mail and no console programs, only the browser and
+    /// the files. A card put in the reader turns it into a proper session.
+    /// </summary>
+    [DataField, AutoNetworkedField]
+    public bool Guest;
+
+    /// <summary>
+    /// Whether the login screen offers to browse as a guest. Unset, the OS decides: the colony's public terminals do,
+    /// company, Marshal and military machines do not. Mappers set it to make a desk public or private.
+    /// </summary>
+    [DataField, AutoNetworkedField]
+    public bool? AllowGuests;
+
     /// <summary>Whose ID card opened the session, or null while the terminal waits at its login screen.</summary>
     [DataField, AutoNetworkedField]
     public string? SessionUser;

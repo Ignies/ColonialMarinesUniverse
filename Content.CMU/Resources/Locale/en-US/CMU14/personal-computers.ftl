@@ -1162,3 +1162,13 @@ cmu-shop-mail-arrived-body = Your { $item } is waiting on the WeyBay pickup pall
 cmu-shop-mail-arrived-terminal-body = Your { $item } is waiting at { $where }, by the terminal you ordered from, in a crate with your name on it. This colony has no WeyBay pickup pallet.
 cmu-shop-parcel-name = WeyBay parcel for { $buyer }
 cmu-shop-parcel-desc = A WeyBay crate. The label says { $buyer }, and inside, { $item }.
+
+## Guest browsing
+
+cmu-pc-login-or = or
+cmu-pc-login-guest = BROWSE AS GUEST
+cmu-pc-login-guest-hint = The ExtraNet and files only. No mail, no account, no programs.
+cmu-pc-guest-name = Guest
+cmu-pc-log-guest = Guest session started.
+cmu-pc-log-guest-out = Guest session ended.
+cmu-pc-examine-guest = Someone is browsing it as a guest.

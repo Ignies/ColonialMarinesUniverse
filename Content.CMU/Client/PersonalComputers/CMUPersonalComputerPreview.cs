@@ -41,6 +41,8 @@ public sealed class CMUPersonalComputerPreview
             ("panel-card-out", 2f, () => _deep.UseReader()),
             ("panel-booting", 1.5f, () => _deep.PressPower()),
             ("panel-login", 9f, () => { }),
+            ("panel-guest", 4f, () => _deep.LoginGuest()),
+            ("panel-guest-out", 3f, () => _deep.Guest = false),
             ("panel-card-in", 2.5f, () => _deep.UseReader()),
             ("seegson-rewire", 3.6f, () => Boot("CMUOsSeegson")),
             ("seegson-colonylink", 3.4f, () => { }),
@@ -327,6 +329,15 @@ public sealed class CMUPersonalComputerPreview
         }
 
         public TimeSpan SinceSwitchedOn => TimeSpan.Zero;
+
+        public bool Guest { get; set; }
+
+        public bool GuestsAllowed => true;
+
+        public void LoginGuest()
+        {
+            Guest = true;
+        }
 
         public IReadOnlyList<CMUComputerScreenWindow> Screen { get; } = new List<CMUComputerScreenWindow>();
 

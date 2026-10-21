@@ -69,6 +69,10 @@ public sealed partial class CMUComputerOsPrototype : IPrototype
     [DataField]
     public Color Background = Color.FromHex("#040805");
 
+    /// <summary>Whether its terminals let people browse as a guest, without an ID card. The colony's own OS does.</summary>
+    [DataField]
+    public bool AllowGuests;
+
     /// <summary>How the desktop is laid out: its menus, taskbar and window frames.</summary>
     [DataField]
     public CMUComputerShell Shell = CMUComputerShell.Classic;

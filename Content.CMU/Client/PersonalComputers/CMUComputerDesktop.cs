@@ -254,7 +254,7 @@ public sealed partial class CMUComputerDesktop : BoxContainer
             Children = { _iconGrid },
         });
         menu.AddChild(new CMUTerminalRule { Color = _theme.Phosphor, Margin = new Thickness(0, 2) });
-        if (_shortcuts?.SessionUser is { } user)
+        if ((_shortcuts?.SessionUser ?? (_shortcuts is { Guest: true } ? Loc.GetString("cmu-pc-guest-name") : null)) is { } user)
         {
             var who = _theme.Label(Loc.GetString("cmu-os-shell-user", ("name", user.ToUpperInvariant())), _theme.ShellSmall, _theme.Dim);
             who.ClipText = true;
@@ -462,7 +462,7 @@ public sealed partial class CMUComputerDesktop : BoxContainer
         AddIcon(CMUComputerApp.Browser, "cmu-pc-app-browser");
         AddIcon(CMUComputerApp.Files, "cmu-pc-app-files");
         AddIcon(CMUComputerApp.System, "cmu-pc-app-system");
-        if (_shortcuts != null && _cfg.GetCVar(CMUPersonalComputerCVars.Mail))
+        if (_shortcuts is { Guest: false } && _cfg.GetCVar(CMUPersonalComputerCVars.Mail))
             AddIcon(CMUComputerApp.Mail, "cmu-pc-app-mail");
         if (_deep != null)
             AddIcon(CMUComputerApp.Deeps, "cmu-pc-app-deeps");
@@ -470,9 +470,10 @@ public sealed partial class CMUComputerDesktop : BoxContainer
         if (_shortcuts == null)
             return;
 
-        // A colony console's own screens, each opening the old console window.
+        // A colony console's own screens, each opening the old console window. Not for guests.
         var host = _shortcuts;
-        for (var i = 0; i < host.ConsoleApps.Count; i++)
+        var consoleApps = host.Guest ? 0 : host.ConsoleApps.Count;
+        for (var i = 0; i < consoleApps; i++)
         {
             var index = i;
             var name = host.ConsoleApps[i];

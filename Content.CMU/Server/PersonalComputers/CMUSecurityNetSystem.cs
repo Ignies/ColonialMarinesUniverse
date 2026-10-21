@@ -166,6 +166,6 @@ public sealed class CMUSecurityNetSystem : EntitySystem
         if (!computer.On)
             return CMUSecurityStatus.Off;
 
-        return computer.SessionUser != null ? CMUSecurityStatus.LoggedIn : CMUSecurityStatus.Online;
+        return computer.SessionUser != null || computer.Guest ? CMUSecurityStatus.LoggedIn : CMUSecurityStatus.Online;
     }
 }

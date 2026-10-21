@@ -139,6 +139,8 @@ public sealed class CMUComputerBridgeServerSystem : EntitySystem
         _ui.SetUi(uid, CMUComputerLogUiKey.Key, new InterfaceData("CMUComputerLogBui"));
 
         var computer = EnsureComp<CMUPersonalComputerComponent>(uid);
+        // A console keeps its own access: nobody browses one as a guest.
+        computer.AllowGuests = false;
         if (os is { } chosen)
             computer.Os = chosen;
 

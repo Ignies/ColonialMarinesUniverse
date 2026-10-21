@@ -44,7 +44,8 @@ public sealed class CMUComputerCarrierSystem : EntitySystem
             or CMUGameDeleteMessage
             or CMUComputerLogoutMessage
             or CMUComputerOpenConsoleMessage
-            or CMUComputerScreenMessage;
+            or CMUComputerScreenMessage
+            or CMUComputerGuestLoginMessage;
     }
 
     /// <summary>

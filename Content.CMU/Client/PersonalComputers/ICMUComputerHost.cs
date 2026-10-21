@@ -11,6 +11,17 @@ public interface ICMUComputerHost
 {
     int TerminalId { get; }
 
+    /// <summary>Someone is browsing as a guest: the browser and files, no account, no mail, no console programs.</summary>
+    bool Guest => false;
+
+    /// <summary>Whether the login screen offers to browse as a guest.</summary>
+    bool GuestsAllowed => false;
+
+    /// <summary>Browses as a guest from the login screen.</summary>
+    void LoginGuest()
+    {
+    }
+
     /// <summary>Who is logged in, or null while the terminal waits for an ID card.</summary>
     string? SessionUser { get; }
 

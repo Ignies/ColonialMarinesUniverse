@@ -141,6 +141,15 @@ public sealed partial class CMUPersonalComputerBui : BoundUserInterface, ICMUNet
 
     public string? SessionUser => Computer?.SessionUser;
 
+    public bool Guest => Computer?.Guest ?? false;
+
+    public bool GuestsAllowed => Computer is { } computer && (computer.AllowGuests ?? _os?.AllowGuests ?? false);
+
+    public void LoginGuest()
+    {
+        SendMessage(new CMUComputerGuestLoginMessage());
+    }
+
     public string? SessionJob => Computer?.SessionJob;
 
     public TimeSpan TraceStarted => Computer?.TraceStarted ?? TimeSpan.Zero;

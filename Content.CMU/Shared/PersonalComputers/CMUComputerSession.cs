@@ -19,6 +19,10 @@ public sealed class CMUNetVisitMessage(string address, bool found) : BoundUserIn
     public readonly bool Found = found;
 }
 
+/// <summary>Browses as a guest from the login screen, on a terminal that allows it.</summary>
+[Serializable, NetSerializable]
+public sealed class CMUComputerGuestLoginMessage : BoundUserInterfaceMessage;
+
 /// <summary>Ends the session from the start menu, which hands the card back.</summary>
 [Serializable, NetSerializable]
 public sealed class CMUComputerLogoutMessage : BoundUserInterfaceMessage;

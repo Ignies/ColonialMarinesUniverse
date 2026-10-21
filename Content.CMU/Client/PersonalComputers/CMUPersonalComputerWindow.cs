@@ -74,6 +74,9 @@ public sealed partial class CMUPersonalComputerWindow : DefaultWindow
     /// </summary>
     private static readonly TimeSpan JustSwitchedOn = TimeSpan.FromSeconds(2);
 
+    /// <summary>Stands in for a user's name while a guest is on, so a guest session is told apart from a user's.</summary>
+    private const string GuestSession = "\u0001guest";
+
     public CMUPersonalComputerWindow()
     {
         IoCManager.InjectDependencies(this);
@@ -324,7 +327,9 @@ public sealed partial class CMUPersonalComputerWindow : DefaultWindow
     /// </summary>
     private void UpdateSession()
     {
-        var user = _host?.SessionUser;
+        var guest = _host is { Guest: true } && _host.SessionUser == null;
+        // A guest is its own session: the desktop starts fresh when one begins or ends.
+        var user = _host?.SessionUser ?? (guest ? GuestSession : null);
         var loggedIn = _host is not { RequireLogin: true } || user != null;
         if (_sessionShown && loggedIn == _showingDesktop && user == _shownUser)
             return;
@@ -335,7 +340,7 @@ public sealed partial class CMUPersonalComputerWindow : DefaultWindow
         _layer.RemoveAllChildren();
         if (!loggedIn)
         {
-            _layer.AddChild(new CMUComputerLogin(_theme!, _host!.TerminalId));
+            _layer.AddChild(new CMUComputerLogin(_theme!, _host!.TerminalId, _host));
             return;
         }
 

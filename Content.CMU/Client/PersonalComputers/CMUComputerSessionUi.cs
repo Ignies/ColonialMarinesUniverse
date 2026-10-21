@@ -17,7 +17,7 @@ public sealed class CMUComputerLogin : BoxContainer
     private readonly Label _prompt;
     private float _blink;
 
-    public CMUComputerLogin(CMUComputerTheme theme, int terminalId)
+    public CMUComputerLogin(CMUComputerTheme theme, int terminalId, ICMUComputerHost? host = null)
     {
         Orientation = LayoutOrientation.Vertical;
         HorizontalExpand = true;
@@ -31,6 +31,16 @@ public sealed class CMUComputerLogin : BoxContainer
         AddChild(theme.Label(Loc.GetString("cmu-pc-login-title", ("id", terminalId)), theme.Bold));
         _prompt = theme.Label(Loc.GetString("cmu-pc-login-prompt"), theme.Bold, theme.Phosphor);
         AddChild(_prompt);
+        if (host is { GuestsAllowed: true })
+        {
+            AddChild(theme.Label(Loc.GetString("cmu-pc-login-or"), theme.Font, theme.Dim));
+            var guest = theme.Button(Loc.GetString("cmu-pc-login-guest"));
+            guest.HorizontalAlignment = HAlignment.Center;
+            guest.MinWidth = 180;
+            guest.OnPressed += _ => host.LoginGuest();
+            AddChild(guest);
+            AddChild(theme.Label(Loc.GetString("cmu-pc-login-guest-hint"), theme.Small, theme.Dim));
+        }
         foreach (var child in Children)
         {
             if (child is Label label)
