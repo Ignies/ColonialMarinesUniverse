@@ -14,12 +14,13 @@ namespace Content.Client.CMU14.PersonalComputers;
 
 /// <summary>
 /// The front of the machine under the screen, a slim strip drawn in its casing: the data drive with its activity
-/// light on the left, a vent across the middle, and on the right the ATM's card reader, the power light and the power
-/// button. The reader is the ATM's own, lights, slot shadow and the card standing in it included, and so are the
+/// light on the left, a vent across the middle, and on the right the printer's slot (desk machines only), the ATM's
+/// card reader, the power light and the power button. The reader is the ATM's own, lights, slot shadow and the card standing in it included, and so are the
 /// status lights.
 /// </summary>
 /// <remarks>
-/// The art is <c>fascia_&lt;casing&gt;.png</c>, <c>housing_&lt;casing&gt;.png</c> and <c>power.rsi</c> from
+/// The art is <c>fascia_&lt;casing&gt;.png</c>, <c>housing_&lt;casing&gt;.png</c>, <c>power.rsi</c>
+/// and <c>printer_paper.rsi</c> from
 /// <c>Content.CMU/Design/PersonalComputers/PcPixelArt/pc_pixel_art.py</c>; the rectangles here mirror its LAYOUT.
 /// </remarks>
 public sealed partial class CMUComputerPanel : Control
@@ -49,6 +50,14 @@ public sealed partial class CMUComputerPanel : Control
     private static readonly UIBox2 CardRect = UIBox2.FromDimensions(62, -32, 51, 48);
     private static readonly UIBox2 PowerLedRect = UIBox2.FromDimensions(119, 12, 5, 5);
     private static readonly UIBox2 PowerRect = UIBox2.FromDimensions(130, 3, 21, 17);
+    // Printed paper rises out of the printer's slot, up over the bezel's bottom edge and the screen.
+    private static readonly UIBox2 PaperRect = UIBox2.FromDimensions(7, -33, 46, 42);
+
+    // The paper's feed: a frame for each few pixels out, then it hangs there a moment and is torn off.
+    private const int PaperFrames = 10;
+    private const float FeedSeconds = 2.4f;
+    private const float HangSeconds = 1.6f;
+    private const float TornSeconds = 0.5f;
 
     [Dependency] private IRobustRandom _random = default!;
     [Dependency] private IResourceCache _cache = default!;
@@ -62,6 +71,8 @@ public sealed partial class CMUComputerPanel : Control
     private readonly ColonyAtmWindow.AtmSprite _powerLed;
     private readonly ColonyAtmWindow.AtmSprite _diskLed;
     private readonly PowerButton _power;
+    private readonly ColonyAtmWindow.AtmSprite? _paper;
+    private float _printing = -1f;
     private bool _cardKnown;
     private string? _cardShown;
     private float _busy;
@@ -116,6 +127,64 @@ public sealed partial class CMUComputerPanel : Control
         Place(_powerLed, PowerLedRect, true);
         Place(_power, PowerRect, true);
         Place(_diskLed, DiskLedRect, false);
+
+        // Laptops have no printer.
+        if (CMUComputerPrinting.CanPrint(casing))
+        {
+            _paper = new ColonyAtmWindow.AtmSprite(_cache.GetResource<RSIResource>(Art / "printer_paper.rsi").RSI)
+            {
+                MouseFilter = MouseFilterMode.Ignore,
+            };
+            Place(_paper, PaperRect, true);
+        }
+    }
+
+    protected override void EnteredTree()
+    {
+        base.EnteredTree();
+        if (_host != null)
+            _host.Printed += OnPrinted;
+    }
+
+    protected override void ExitedTree()
+    {
+        base.ExitedTree();
+        if (_host != null)
+            _host.Printed -= OnPrinted;
+    }
+
+    private void OnPrinted(CMUComputerPrintedMessage message)
+    {
+        Print();
+    }
+
+    /// <summary>Feeds a sheet out of the printer's slot and tears it off.</summary>
+    public void Print()
+    {
+        if (_paper == null)
+            return;
+
+        _printing = 0f;
+        Pulse(FeedSeconds);
+    }
+
+    private void UpdatePaper(float delta)
+    {
+        if (_paper == null || _printing < 0f)
+            return;
+
+        _printing += delta;
+        if (_printing < FeedSeconds)
+            _paper.Show($"out_{Math.Clamp((int) (_printing / FeedSeconds * PaperFrames) + 1, 1, PaperFrames)}");
+        else if (_printing < FeedSeconds + HangSeconds)
+            _paper.Show($"out_{PaperFrames}");
+        else if (_printing < FeedSeconds + HangSeconds + TornSeconds)
+            _paper.Show("sheet");
+        else
+        {
+            _paper.Show(null);
+            _printing = -1f;
+        }
     }
 
     private static ColonyAtmWindow.AtmSprite Light(RSI rsi, string tooltip)
@@ -163,6 +232,7 @@ public sealed partial class CMUComputerPanel : Control
         base.FrameUpdate(args);
         var on = _host?.On ?? true;
         var card = _host?.CardPrototype;
+        UpdatePaper(args.DeltaSeconds);
 
         // A running machine ticks over now and then even when nobody touches it.
         _busy -= args.DeltaSeconds;

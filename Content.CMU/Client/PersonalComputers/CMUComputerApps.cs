@@ -329,7 +329,19 @@ public sealed partial class CMUComputerFilesApp : BoxContainer
             _host!.DeleteNote(index);
             _pane.RemoveAllChildren();
         };
-        box.AddChild(new BoxContainer { Orientation = LayoutOrientation.Horizontal, SeparationOverride = 6, Children = { edit, delete } });
+        var buttons = new BoxContainer { Orientation = LayoutOrientation.Horizontal, SeparationOverride = 6, Children = { edit, delete } };
+        if (_host!.CanPrint)
+        {
+            var print = _theme.Button(Loc.GetString("cmu-notes-print"));
+            print.OnPressed += _ =>
+            {
+                OnClicked?.Invoke();
+                _host.PrintNote(index);
+            };
+            buttons.AddChild(print);
+        }
+
+        box.AddChild(buttons);
         _pane.AddChild(new ScrollContainer { VerticalExpand = true, HScrollEnabled = false, Children = { box } });
     }
 

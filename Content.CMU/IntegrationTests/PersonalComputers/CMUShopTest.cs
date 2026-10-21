@@ -3,6 +3,7 @@ using Content.IntegrationTests.Fixtures;
 using Content.Server.CMU14.PersonalComputers;
 using Content.Shared.Access.Components;
 using Content.Shared.CMU14.PersonalComputers;
+using Content.Shared.Paper;
 using Content.Shared.Storage.Components;
 using Robust.Shared.GameObjects;
 using Robust.Shared.Prototypes;
@@ -76,6 +77,47 @@ public sealed class CMUShopTest : GameTest
             var xform = SEntMan.System<SharedTransformSystem>();
             Assert.That((xform.GetWorldPosition(crate) - xform.GetWorldPosition(pallet)).Length(), Is.LessThan(1f),
                 "The crate was not left on the pickup pallet.");
+        });
+    }
+
+    [Test]
+    [Description("A buyer can save an order's receipt to Files and print copies; nobody else's card gets it.")]
+    public async Task ReceiptsSaveAndPrint()
+    {
+        var map = await Pair.CreateTestMap();
+        await Server.WaitAssertion(() =>
+        {
+            var computer = SEntMan.SpawnEntity("RMCPersonalDesktop", map.GridCoords);
+            var card = SEntMan.GetComponent<IdCardComponent>(SEntMan.SpawnEntity("CMIDCardGold", map.GridCoords));
+            var entry = SProtoMan.Index(Catalog).Entries[0];
+            card.AccountNumber = 515151;
+            card.AccountBalance = entry.Price;
+
+            var pc = SEntMan.GetComponent<CMUPersonalComputerComponent>(computer);
+            pc.On = true;
+            pc.SessionUser = "Test Buyer";
+            pc.SessionAccount = card.AccountNumber;
+
+            var user = SEntMan.SpawnEntity("CMMobHuman", map.GridCoords);
+            void Send(BoundUserInterfaceMessage message)
+            {
+                message.Actor = user;
+                message.UiKey = CMUPersonalComputerUiKey.Key;
+                SEntMan.EventBus.RaiseLocalEvent(computer, (object) message);
+            }
+
+            Send(new CMUShopBuyMessage(Catalog, 0));
+            Send(new CMUShopReceiptMessage(1, false));
+            Assert.That(pc.Notes, Has.Count.EqualTo(1), "The receipt was not saved to Files.");
+            Assert.That(pc.Notes[0].Text, Does.Contain("Test Buyer").And.Contain("**5151").And.Not.Contain("515151"),
+                "The receipt does not name the buyer with the card masked.");
+
+            Send(new CMUShopReceiptMessage(1, true));
+            Assert.That(SEntMan.Count<PaperComponent>(), Is.EqualTo(1), "The receipt was not printed.");
+
+            pc.SessionAccount = 999999;
+            Send(new CMUShopReceiptMessage(1, false));
+            Assert.That(pc.Notes, Has.Count.EqualTo(1), "Another card got the buyer's receipt.");
         });
     }
 

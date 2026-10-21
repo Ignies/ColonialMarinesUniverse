@@ -92,6 +92,14 @@ public sealed class CMUShopBuyMessage(string catalog, int entry) : BoundUserInte
     public readonly int Entry = entry;
 }
 
+/// <summary>Asks for an order's receipt: saved to Files, or printed when <see cref="Print"/>.</summary>
+[Serializable, NetSerializable]
+public sealed class CMUShopReceiptMessage(int order, bool print) : BoundUserInterfaceMessage
+{
+    public readonly int Order = order;
+    public readonly bool Print = print;
+}
+
 public static class CMUShopLimits
 {
     /// <summary>Orders an account can have on their way at once.</summary>

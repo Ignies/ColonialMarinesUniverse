@@ -1244,3 +1244,34 @@ cmu-spacegpt-stall-8 = Thinking very hard...
 cmu-cmd-spacegpt-desc = Holds, releases, denies or rewrites the answers to a SpaceGPT question.
 cmu-cmd-spacegpt-help = Usage: spacegpt <hold|release|deny|options> <question>
 cmu-cmd-spacegpt-gone = There is no SpaceGPT question { $id } waiting, or it is already in that state.
+
+## Printing
+
+cmu-notes-print = Print
+cmu-print-name = printout ({ $name })
+cmu-print-signed = Printed for { $author }
+cmu-print-none = This machine has no printer.
+cmu-print-busy = The printer is still busy with the last sheet.
+
+## WeyBay receipts
+
+cmu-shop-receipt = RECEIPT
+cmu-shop-receipt-tooltip = Save the receipt to this terminal's Files.
+cmu-shop-receipt-print = PRINT
+cmu-shop-receipt-print-tooltip = Print a copy of the receipt.
+cmu-shop-receipt-name = WEYBAY-RECEIPT-{ $id }
+cmu-shop-receipt-saved = Receipt saved to Files as { $name }.TXT.
+cmu-shop-receipt-body =
+    WEYBAY - SALES RECEIPT
+    Order no. { $id }
+    ----------------------------------
+    { $item }
+    Total paid: ${ $price }
+    ----------------------------------
+    Customer: { $buyer }
+    Card: { $card }
+    Ordered at { $time } (shift time)
+
+    Thank you for shopping with WeyBay.
+    Delivered by the Company freight run.
+    No refunds once the crate is opened.

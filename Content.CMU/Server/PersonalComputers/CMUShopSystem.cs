@@ -28,7 +28,9 @@ public sealed class CMUShopSystem : EntitySystem
     [Dependency] private IGameTiming _timing = default!;
     [Dependency] private IPrototypeManager _prototype = default!;
     [Dependency] private ColonyBankSystem _bank = default!;
+    [Dependency] private CMUComputerPrintSystem _print = default!;
     [Dependency] private CMUMailSystem _mail = default!;
+    [Dependency] private CMUPersonalComputerSystem _computers = default!;
     [Dependency] private CMUSecurityNetSystem _security = default!;
     [Dependency] private MetaDataSystem _metaData = default!;
     [Dependency] private SharedEntityStorageSystem _storage = default!;
@@ -49,6 +51,7 @@ public sealed class CMUShopSystem : EntitySystem
         public int Account;
         public string Buyer = string.Empty;
         public EntProtoId Item;
+        public int Price;
         public TimeSpan Ordered;
         public TimeSpan Due;
         public EntityUid Terminal;
@@ -69,6 +72,7 @@ public sealed class CMUShopSystem : EntitySystem
         {
             subs.Event<CMUShopRequestMessage>(OnRequest);
             subs.Event<CMUShopBuyMessage>(OnBuy);
+            subs.Event<CMUShopReceiptMessage>(OnReceipt);
         });
     }
 
@@ -119,6 +123,7 @@ public sealed class CMUShopSystem : EntitySystem
             Account = number,
             Buyer = buyer,
             Item = entry.Item,
+            Price = entry.Price,
             Ordered = now,
             Due = now + TimeSpan.FromMinutes(entry.Minutes),
             Terminal = ent,
@@ -133,6 +138,46 @@ public sealed class CMUShopSystem : EntitySystem
         _adminLog.Add(LogType.Action, LogImpact.Low,
             $"{ToPrettyString(args.Actor):player} bought {entry.Item} for {entry.Price} as {buyer} on terminal {ToPrettyString(ent)}");
         SendState(ent, args.Actor);
+    }
+
+    /// <summary>
+    /// An order's receipt, for the card that paid for it: saved to the terminal's Files, or printed on its printer.
+    /// </summary>
+    private void OnReceipt(Entity<CMUPersonalComputerComponent> ent, ref CMUShopReceiptMessage args)
+    {
+        var id = args.Order;
+        var account = ent.Comp.SessionAccount;
+        if (!Enabled || account == 0 || _orders.FirstOrDefault(o => o.Id == id && o.Account == account) is not { } order)
+            return;
+
+        var name = Loc.GetString("cmu-shop-receipt-name", ("id", order.Id.ToString("D4")));
+        var text = Receipt(order);
+        var from = Loc.GetString("cmu-shop-mail-from");
+        if (!args.Print)
+        {
+            _computers.AddNote(ent, name, text, from);
+            _popup.PopupEntity(Loc.GetString("cmu-shop-receipt-saved", ("name", name)), ent, args.Actor);
+            return;
+        }
+
+        if (!_print.CanPrint(ent.Comp))
+            _popup.PopupEntity(Loc.GetString("cmu-print-none"), ent, args.Actor, PopupType.SmallCaution);
+        else if (!_print.TryPrint(ent, args.Actor, $"{name}.TXT", text, from))
+            _popup.PopupEntity(Loc.GetString("cmu-print-busy"), ent, args.Actor, PopupType.SmallCaution);
+    }
+
+    /// <summary>The receipt's text: what was bought, for how much, by whom and when, the card number masked.</summary>
+    private string Receipt(Order order)
+    {
+        var card = order.Account.ToString();
+        var masked = card.Length > 4 ? new string('*', card.Length - 4) + card[^4..] : card;
+        return Loc.GetString("cmu-shop-receipt-body",
+            ("id", order.Id.ToString("D4")),
+            ("item", ItemName(order.Item)),
+            ("price", order.Price),
+            ("buyer", order.Buyer),
+            ("card", masked),
+            ("time", order.Ordered.ToString(@"hh\:mm")));
     }
 
     private void SendState(Entity<CMUPersonalComputerComponent> ent, EntityUid actor)

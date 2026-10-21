@@ -127,6 +127,21 @@ public interface ICMUComputerHost
 
     void DeleteNote(int index);
 
+    /// <summary>Whether this machine has a printer: desk terminals do, laptops do not.</summary>
+    bool CanPrint => false;
+
+    /// <summary>Prints a note from Files; the paper comes out of the machine.</summary>
+    void PrintNote(int index)
+    {
+    }
+
+    /// <summary>A sheet is coming out of this machine's printer.</summary>
+    event Action<CMUComputerPrintedMessage>? Printed
+    {
+        add { }
+        remove { }
+    }
+
     void SetWallpaper(ProtoId<CMUWallpaperPrototype>? wallpaper);
 
     void AskSpaceGpt(string question);
@@ -175,6 +190,11 @@ public interface ICMUComputerHost
 
     /// <summary>Buys a catalogue entry with the card in the reader.</summary>
     void BuyShop(string catalog, int entry)
+    {
+    }
+
+    /// <summary>An order's receipt: saved to Files, or printed.</summary>
+    void ShopReceipt(int order, bool print)
     {
     }
 

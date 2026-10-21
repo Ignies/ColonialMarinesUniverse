@@ -191,11 +191,29 @@ public sealed partial class CMUNetShop : BoxContainer, IDocumentTag
                 CMUShopOrderState.InTransit => Loc.GetString("cmu-shop-order-transit", ("minutes", minutes)),
                 _ => Loc.GetString("cmu-shop-order-processing", ("minutes", minutes)),
             };
-            _orders.AddChild(new Label
+            var row = new BoxContainer { Orientation = BoxContainer.LayoutOrientation.Horizontal, SeparationOverride = 6 };
+            row.AddChild(new Label
             {
                 Text = Loc.GetString("cmu-shop-order-line", ("id", order.Id), ("item", name), ("status", status)),
                 FontColorOverride = order.State == CMUShopOrderState.Arrived ? _accent : _text,
+                HorizontalExpand = true,
+                ClipText = true,
             });
+
+            var id = order.Id;
+            var receipt = Button(Loc.GetString("cmu-shop-receipt"));
+            receipt.ToolTip = Loc.GetString("cmu-shop-receipt-tooltip");
+            receipt.OnPressed += _ => _host?.ShopReceipt(id, false);
+            row.AddChild(receipt);
+            if (_host is { CanPrint: true })
+            {
+                var print = Button(Loc.GetString("cmu-shop-receipt-print"));
+                print.ToolTip = Loc.GetString("cmu-shop-receipt-print-tooltip");
+                print.OnPressed += _ => _host?.ShopReceipt(id, true);
+                row.AddChild(print);
+            }
+
+            _orders.AddChild(row);
         }
     }
 

@@ -8,6 +8,7 @@ using Content.Shared.CMU14.PersonalComputers;
 using Content.Shared.CMU14.PersonalComputers.DeepWeb;
 using Content.Shared.CMU14.Threats.Mobs.CLF;
 using Content.Shared.Interaction;
+using Content.Shared.Paper;
 using Robust.Shared.GameObjects;
 using Robust.Shared.Map;
 using Robust.Shared.Timing;
@@ -168,6 +169,39 @@ public sealed class CMUComputerFeaturesTest : GameTest
             Assert.That(spaceGpt.Deny(id, "admin"), "The question could not be denied.");
             Assert.That(spaceGpt.OpenPolls, Is.Zero, "A denied question stayed open.");
             Assert.That(spaceGpt.Release(id, "admin"), Is.False, "A denied question was released.");
+        });
+    }
+
+    [Test]
+    [Description("Desk terminals print notes onto paper, a sheet at a time; laptops have no printer.")]
+    public async Task DesksPrintNotesButLaptopsDoNot()
+    {
+        var map = await Pair.CreateTestMap();
+        await Server.WaitAssertion(() =>
+        {
+            var desk = Computer(map.GridCoords);
+            var (user, card) = LogIn(desk, map.GridCoords);
+            Send(desk, user, new CMUNoteSaveMessage("shopping", "two eggs, [bold]coffee[/bold]"));
+            Send(desk, user, new CMUComputerPrintNoteMessage(0));
+            Send(desk, user, new CMUComputerPrintNoteMessage(0));
+
+            var papers = new List<PaperComponent>();
+            var query = SEntMan.EntityQueryEnumerator<PaperComponent>();
+            while (query.MoveNext(out var paper))
+                papers.Add(paper);
+
+            Assert.That(papers, Has.Count.EqualTo(1), "The printer printed twice without waiting, or not at all.");
+            Assert.That(papers[0].Content, Does.Contain("SHOPPING.TXT").IgnoreCase, "The paper has no title.");
+            Assert.That(papers[0].Content, Does.Contain(@"\[bold]coffee"), "The note's markup was not escaped.");
+            Assert.That(papers[0].Content, Does.Contain(card.FullName!), "The paper is not signed.");
+
+            var laptop = Computer(map.GridCoords);
+            SEntMan.GetComponent<CMUPersonalComputerComponent>(laptop).Casing = CMUComputerCasing.Laptop;
+            var (other, _) = LogIn(laptop, map.GridCoords);
+            Send(laptop, other, new CMUNoteSaveMessage("draft", "nothing to see"));
+            Send(laptop, other, new CMUComputerPrintNoteMessage(0));
+            Assert.That(Server.System<CMUComputerPrintSystem>().CanPrint(SEntMan.GetComponent<CMUPersonalComputerComponent>(laptop)), Is.False);
+            Assert.That(SEntMan.Count<PaperComponent>(), Is.EqualTo(1), "A laptop printed.");
         });
     }
 

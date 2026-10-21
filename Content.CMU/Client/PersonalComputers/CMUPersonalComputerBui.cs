@@ -32,6 +32,7 @@ public sealed partial class CMUPersonalComputerBui : BoundUserInterface, ICMUNet
     public event Action<CMUMailStateMessage>? MailReceived;
     public event Action<CMUSpaceGptAnswerMessage>? SpaceGptAnswered;
     public event Action<CMUSpaceGptHoldMessage>? SpaceGptHeld;
+    public event Action<CMUComputerPrintedMessage>? Printed;
     public event Action<CMUArcadeStateMessage>? ArcadeReceived;
     public event Action<CMUBetStateMessage>? BetsReceived;
     public event Action<CMUTapeLiveStateMessage>? TapeLiveReceived;
@@ -107,6 +108,9 @@ public sealed partial class CMUPersonalComputerBui : BoundUserInterface, ICMUNet
                 break;
             case CMUSpaceGptHoldMessage held:
                 SpaceGptHeld?.Invoke(held);
+                break;
+            case CMUComputerPrintedMessage printed:
+                Printed?.Invoke(printed);
                 break;
             case CMUArcadeStateMessage arcade:
                 ArcadeReceived?.Invoke(arcade);
@@ -271,6 +275,14 @@ public sealed partial class CMUPersonalComputerBui : BoundUserInterface, ICMUNet
         SendMessage(new CMUNoteDeleteMessage(index));
     }
 
+    public bool CanPrint => Computer is { } computer
+        && CMUComputerPrinting.CanPrint(computer.Casing ?? _os?.Casing ?? CMUComputerCasing.Seegson);
+
+    public void PrintNote(int index)
+    {
+        SendMessage(new CMUComputerPrintNoteMessage(index));
+    }
+
     public void SetWallpaper(ProtoId<CMUWallpaperPrototype>? wallpaper)
     {
         SendMessage(new CMUNetSetWallpaperMessage(wallpaper));
@@ -299,6 +311,11 @@ public sealed partial class CMUPersonalComputerBui : BoundUserInterface, ICMUNet
     public void BuyShop(string catalog, int entry)
     {
         SendMessage(new CMUShopBuyMessage(catalog, entry));
+    }
+
+    public void ShopReceipt(int order, bool print)
+    {
+        SendMessage(new CMUShopReceiptMessage(order, print));
     }
 
     public void RequestTapeLive()

@@ -84,6 +84,12 @@ public sealed partial class CMUPersonalComputerSystem : EntitySystem
         if (name.Length == 0 || text.Length == 0)
             return;
 
+        AddNote(ent, name, text, ent.Comp.SessionUser ?? string.Empty);
+    }
+
+    /// <summary>Puts a note in the terminal's Files, replacing one with the same name and the oldest if it is full.</summary>
+    public void AddNote(Entity<CMUPersonalComputerComponent> ent, string name, string text, string author)
+    {
         if (name.Length > CMUNoteLimits.NameLength)
             name = name[..CMUNoteLimits.NameLength];
 
@@ -94,7 +100,7 @@ public sealed partial class CMUPersonalComputerSystem : EntitySystem
         if (ent.Comp.Notes.Count >= CMUNoteLimits.Count)
             ent.Comp.Notes.RemoveAt(0);
 
-        ent.Comp.Notes.Add(new CMUComputerNote { Name = name, Author = ent.Comp.SessionUser ?? string.Empty, Text = text });
+        ent.Comp.Notes.Add(new CMUComputerNote { Name = name, Author = author, Text = text });
         Dirty(ent);
     }
 

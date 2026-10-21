@@ -115,6 +115,13 @@ public sealed class CMUPersonalComputerPreview
                 if (_window?.Desktop?.Browser is { } browser && Find<CMUNetShop>(browser) is { } shop)
                     ScrollTo(shop, 60);
             }),
+            ("seegson-weybay-orders", 3f, () =>
+            {
+                if (_window?.Desktop?.Browser is { } browser && Find<CMUNetShop>(browser) is { } shop)
+                    ScrollTo(shop);
+            }),
+            ("seegson-print", 1.4f, () => _deep.PrintNote(0)),
+            ("seegson-print-out", 2.5f, () => { }),
             ("seegson-youtape-trending", 3f, () => _window?.Desktop?.Browser?.Navigate("youtape.vhs/trending")),
             ("seegson-youtape-trending-play", 6f, () =>
             {
@@ -426,6 +433,26 @@ public sealed class CMUPersonalComputerPreview
         }
 
         public IReadOnlyList<CMUComputerNote> Notes => _notes;
+
+        public bool CanPrint => true;
+
+        public event Action<CMUComputerPrintedMessage>? Printed;
+
+        public void PrintNote(int index)
+        {
+            Printed?.Invoke(new CMUComputerPrintedMessage("PREVIEW.TXT"));
+        }
+
+        public event Action<CMUShopStateMessage>? ShopReceived;
+
+        public void RequestShop()
+        {
+            ShopReceived?.Invoke(new CMUShopStateMessage(new List<CMUShopOrderView>
+            {
+                new(2, "FoodPizzaMargherita", CMUShopOrderState.InTransit, TimeSpan.FromMinutes(4), string.Empty),
+                new(1, "ToyRubberDuck", CMUShopOrderState.Arrived, TimeSpan.Zero, "Cargo Bay"),
+            }, 240));
+        }
 
         public ProtoId<CMUWallpaperPrototype>? Wallpaper { get; private set; }
 
