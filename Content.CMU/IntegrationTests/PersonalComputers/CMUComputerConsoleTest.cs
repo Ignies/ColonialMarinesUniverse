@@ -2,13 +2,17 @@ using Content.IntegrationTests.Fixtures;
 using Content.Server.CMU14.PersonalComputers;
 using Content.Shared._RMC14.Rules;
 using Content.Shared.Access.Components;
+using System.Linq;
 using Content.Shared.CMU14.PersonalComputers;
 using Content.Shared.Interaction;
 using Content.Shared.UserInterface;
 using Robust.Server.GameObjects;
 using Robust.Shared.Configuration;
 using Robust.Shared.GameObjects;
+using Robust.Shared.ContentPack;
 using Robust.Shared.Map;
+using Robust.Shared.Prototypes;
+using Robust.Shared.Utility;
 
 namespace Content.IntegrationTests.CMU14.PersonalComputers;
 
@@ -60,6 +64,93 @@ public sealed class CMUComputerConsoleTest : GameTest
             finally
             {
                 cfg.SetCVar(CMUPersonalComputerCVars.Bridge, true);
+            }
+        });
+    }
+
+    [Test]
+    [Description("A PC opened by a verb, like the Marshals' camera monitor, opens its OS on use with its own window as a program, and stays a PC when the bridge lets go.")]
+    public async Task VerbComputersGetTheirWindowAsAProgram()
+    {
+        var map = await Pair.CreateTestMap();
+        var cfg = Server.ResolveDependency<IConfigurationManager>();
+        await Server.WaitAssertion(() =>
+        {
+            SEntMan.EnsureComponent<RMCPlanetComponent>(map.MapUid);
+            var bridge = SEntMan.System<CMUComputerBridgeServerSystem>();
+            var monitor = SEntMan.SpawnEntity("CMUMonitorCameraColonyCMB", map.GridCoords); // anchored by its prototype
+            var original = SEntMan.GetComponent<ActivatableUIComponent>(monitor).Key;
+            var pc = SEntMan.GetComponent<CMUPersonalComputerComponent>(monitor);
+            var os = pc.Os;
+            var terminal = pc.TerminalId;
+
+            bridge.Refresh();
+            Assert.That(SEntMan.GetComponent<ActivatableUIComponent>(monitor).Key, Is.EqualTo(CMUPersonalComputerUiKey.Key), "Using the monitor does not open its OS.");
+            var apps = SEntMan.GetComponent<CMUComputerConsoleComponent>(monitor).Apps;
+            Assert.That(apps.Count == 1 && Equals(apps[0].Key, original), "The camera window is not a program on it.");
+            Assert.That(pc.Os, Is.EqualTo(os), "The bridge changed the monitor's own OS.");
+            Assert.That(pc.TerminalId, Is.EqualTo(terminal), "The bridge renumbered the monitor's terminal.");
+
+            cfg.SetCVar(CMUPersonalComputerCVars.Bridge, false);
+            try
+            {
+                bridge.Refresh();
+                Assert.That(SEntMan.HasComponent<CMUPersonalComputerComponent>(monitor), "The monitor stopped being a PC when the bridge let go.");
+                Assert.That(SEntMan.GetComponent<ActivatableUIComponent>(monitor).Key, Is.EqualTo(original), "The monitor did not get its camera window back on use.");
+            }
+            finally
+            {
+                cfg.SetCVar(CMUPersonalComputerCVars.Bridge, true);
+            }
+        });
+    }
+
+    [Test]
+    [Description("On Stable Garrison every computer that opens a window runs the PC OS, dropship consoles, vendors and the like aside.")]
+    public async Task StableGarrisonComputersAreBridged()
+    {
+        await Server.WaitAssertion(() =>
+        {
+            var resources = Server.ResolveDependency<IResourceManager>();
+            var ids = new HashSet<string>();
+            foreach (var file in resources.ContentFindFiles(new ResPath("/Maps/CMU14/StableGarrisonMultiZ")))
+            {
+                using var reader = resources.ContentFileReadText(file);
+                foreach (var line in reader.ReadToEnd().Split('\n'))
+                {
+                    if (line.StartsWith("- proto: "))
+                        ids.Add(line["- proto: ".Length..].Trim());
+                }
+            }
+
+            Assert.That(ids, Is.Not.Empty, "Stable Garrison's maps were not found.");
+            var bridge = SEntMan.System<CMUComputerBridgeServerSystem>();
+            bool Bridges(string id) => bridge.Bridges(SProtoMan.Index<EntityPrototype>(id));
+
+            foreach (var id in new[]
+                     {
+                         "CMUMonitorCameraColonyCMB", "CMUMonitorCameraColonyGovfor", "CMUMonitorCameraColonyWEYU",
+                         "ComputerCriminalRecords", "AUbudgetConsole",
+                         "RMCIDComputer", "CMASRSConsoleColony", "RMCOverwatchConsoleGovforRotating",
+                     })
+            {
+                Assert.That(ids, Does.Contain(id), $"{id} is no longer on Stable Garrison; update this test.");
+                Assert.That(Bridges(id), $"{id} on Stable Garrison does not run the PC OS.");
+            }
+
+            foreach (var id in new[] { "CMComputerDropshipNavigationPlanetside", "RMCDropshipFabricator", "RMCTelevision", "CMUTacticalMapTableLargeGovfor", "CMUAutodocConsole", "CMUBodyScannerConsole" })
+                Assert.That(Bridges(id), Is.False, $"{id} was bridged, but it is not a computer the colony uses.");
+
+            // Every other computer, monitor and terminal on the map is bridged too: nothing named like one is missed.
+            foreach (var id in ids)
+            {
+                if (!SProtoMan.TryIndex<EntityPrototype>(id, out var proto)
+                    || !proto.Components.ContainsKey(SEntMan.ComponentFactory.GetComponentName<ActivatableUIComponent>())
+                    || !new[] { "Console", "Computer", "Terminal", "Monitor" }.Any(k => id.Contains(k))
+                    || new[] { "Dropship", "Television", "TacticalMapTable", "PersonalDesktop", "Autodoc", "BodyScanner" }.Any(k => id.Contains(k)))
+                    continue;
+
+                Assert.That(bridge.Bridges(proto), $"{id} on Stable Garrison is a computer the bridge misses.");
             }
         });
     }

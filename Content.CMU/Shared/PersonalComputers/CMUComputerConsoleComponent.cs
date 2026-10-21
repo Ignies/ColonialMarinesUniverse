@@ -21,6 +21,13 @@ public sealed partial class CMUComputerConsoleComponent : Component
     /// </summary>
     [DataField, AutoNetworkedField]
     public Enum? OriginalKey;
+
+    /// <summary>
+    /// The console was a PC of its own before the bridge, opened by a verb, like the Marshals' camera monitors: it keeps
+    /// its PC when the bridge lets go.
+    /// </summary>
+    [DataField]
+    public bool NativeComputer;
 }
 
 [DataDefinition, Serializable, NetSerializable]
@@ -43,9 +50,10 @@ public sealed class CMUComputerOpenConsoleMessage(int app) : BoundUserInterfaceM
 }
 
 /// <summary>
-/// Which consoles the bridge turns into PCs: any whose prototype is, or inherits from, an included prototype and none
-/// of the excluded ones, placed anchored on a colony (planet) map. New consoles made from the usual parents are picked
-/// up without changes.
+/// Which consoles the bridge turns into PCs, placed anchored on a colony (planet) map: any whose prototype is, or
+/// inherits from, an included prototype or one named like a computer (a keyword in its id), and none of the excluded
+/// ones or one with an excluded keyword. So a new console named like one, or made from the usual parents, is picked up
+/// without changes.
 /// </summary>
 [Prototype("cmuComputerBridge")]
 public sealed partial class CMUComputerBridgePrototype : IPrototype
@@ -58,6 +66,14 @@ public sealed partial class CMUComputerBridgePrototype : IPrototype
 
     [DataField]
     public List<EntProtoId> Exclude = new();
+
+    /// <summary>A prototype whose id, or a parent's, has one of these in it is a computer, e.g. Console, Monitor.</summary>
+    [DataField]
+    public List<string> Keywords = new();
+
+    /// <summary>A prototype whose id, or a parent's, has one of these in it is never bridged, e.g. Dropship.</summary>
+    [DataField]
+    public List<string> ExcludeKeywords = new();
 
     /// <summary>The OS for consoles inheriting from a prototype; the first match up the parent chain wins.</summary>
     [DataField]

@@ -158,6 +158,11 @@ public sealed class CMUPersonalComputerPreview
             ("weyland-memo", 3f, () => _window?.Desktop?.Browser?.Navigate("intranet.wy/memo")),
             ("cmb-splash", 6f, () => Boot("CMUOsCMB")),
             ("cmb-desktop", 3f, () => { }),
+            ("cmb-map", 5f, () =>
+            {
+                _window?.Desktop?.Open(CMUComputerApp.Browser);
+                _window?.Desktop?.Browser?.Navigate("cmb.bureau/map");
+            }),
             // The law enforcers' casings, each booted to its desktop.
             ("law-cmb", 11f, () => Boot("CMUOsCMB", casing: CMUComputerCasing.Cmb)),
             ("law-security", 11f, () => Boot("CMUOsSeegson", casing: CMUComputerCasing.Security)),
@@ -481,8 +486,22 @@ public sealed class CMUPersonalComputerPreview
 
         public void RequestCmb(CMUCmbPanel panel)
         {
-            CmbReceived?.Invoke(new CMUCmbStateMessage(panel, new List<CMUCmbAlert>(), new List<CMUCmbTerminal>(),
-                new List<CMUCmbFax>(), new List<CMUCmbRecord>(), null));
+            // The grid the previewing player stands on, with a few terminals scattered round them, one alerted.
+            var entities = IoCManager.Resolve<IEntityManager>();
+            var terminals = new List<CMUCmbTerminal>();
+            NetEntity? grid = null;
+            if (IoCManager.Resolve<Robust.Client.Player.IPlayerManager>().LocalEntity is { } player
+                && entities.GetComponent<TransformComponent>(player) is { GridUid: { } gridUid } xform)
+            {
+                grid = entities.GetNetEntity(gridUid);
+                var at = xform.LocalPosition;
+                var offsets = new[] { new System.Numerics.Vector2(0, 0), new(14, 6), new(-20, 10), new(8, -18), new(-12, -9), new(30, -4) };
+                for (var i = 0; i < offsets.Length; i++)
+                    terminals.Add(new CMUCmbTerminal(20 + i, entities.GetNetEntity(player), at + offsets[i], i == 2));
+            }
+
+            CmbReceived?.Invoke(new CMUCmbStateMessage(panel, new List<CMUCmbAlert>(), terminals,
+                new List<CMUCmbFax>(), new List<CMUCmbRecord>(), grid));
         }
 
         public IReadOnlyList<string> Discovered => _discovered;

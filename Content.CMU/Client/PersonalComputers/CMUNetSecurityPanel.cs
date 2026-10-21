@@ -189,25 +189,9 @@ public sealed partial class CMUNetSecurityPanel : BoxContainer, IDocumentTag
             return;
         }
 
-        var map = new NavMapControl
-        {
-            MapUid = grid,
-            HorizontalExpand = true,
-            SetHeight = 420,
-        };
-        var texture = _entities.System<SpriteSystem>().Frame0(new SpriteSpecifier.Texture(Pin));
-        foreach (var terminal in state.Terminals)
-        {
-            var flagged = terminal.Status == CMUSecurityStatus.Dark || terminal.Hacked;
-            map.TrackedEntities[terminal.Entity] = new NavMapBlip(
-                new EntityCoordinates(grid.Value, terminal.Position), texture, StatusColor(terminal), flagged);
-        }
-
-        map.ForceNavMapUpdate();
-
         // Clicking a pin names the terminal and what it is doing under the map.
         var picked = new BoxContainer { Orientation = LayoutOrientation.Vertical };
-        map.TrackedEntitySelectedAction += entity =>
+        void Pick(NetEntity? entity)
         {
             picked.RemoveAllChildren();
             foreach (var terminal in state.Terminals)
@@ -215,7 +199,35 @@ public sealed partial class CMUNetSecurityPanel : BoxContainer, IDocumentTag
                 if (terminal.Entity == entity)
                     picked.AddChild(Describe(terminal));
             }
-        };
+        }
+
+        // The colony's own map, the one the tactical map tables draw; the outline map where a colony has none.
+        var pins = state.Terminals.ConvertAll(t => new CMUColonyMapPin(t.Entity, t.Position, StatusColor(t),
+            t.Status == CMUSecurityStatus.Dark || t.Hacked));
+        Control map;
+        if (CMUColonyMapView.TryCreate(_entities, grid.Value, pins, "background_mp", entity => Pick(entity)) is { } colony)
+        {
+            map = colony;
+        }
+        else
+        {
+            var outline = new NavMapControl
+            {
+                MapUid = grid,
+                HorizontalExpand = true,
+                SetHeight = 420,
+            };
+            var texture = _entities.System<SpriteSystem>().Frame0(new SpriteSpecifier.Texture(Pin));
+            foreach (var pin in pins)
+            {
+                outline.TrackedEntities[pin.Entity] = new NavMapBlip(
+                    new EntityCoordinates(grid.Value, pin.Position), texture, pin.Colour, pin.Flagged);
+            }
+
+            outline.ForceNavMapUpdate();
+            outline.TrackedEntitySelectedAction += entity => Pick(entity);
+            map = outline;
+        }
 
         AddChild(new Label { Text = Loc.GetString("cmu-security-map-hint") });
         AddChild(new Label { Text = Loc.GetString("cmu-security-map-legend") });

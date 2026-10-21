@@ -1,3 +1,4 @@
+using System.Linq;
 using Content.Shared._RMC14.Rules;
 using Content.Shared.CMU14.PersonalComputers;
 using Content.Shared.UserInterface;
@@ -77,13 +78,17 @@ public sealed class CMUComputerBridgeServerSystem : EntitySystem
         if (meta.EntityPrototype is not { } proto || !xform.Anchored || xform.MapUid is not { } map || !HasComp<RMCPlanetComponent>(map))
             return false;
 
-        // A computer that already runs the OS of its own, like a desk PC, is not a console.
-        if (HasComp<CMUPersonalComputerComponent>(uid) && !HasComp<CMUComputerConsoleComponent>(uid))
-            return false;
-
+        // A desk PC, which opens the OS itself, is not a console. A PC that opens something else and the OS by a verb,
+        // like the Marshals' camera monitors, is: its own window becomes a program on it.
         if (activatable.Key is CMUPersonalComputerUiKey && !HasComp<CMUComputerConsoleComponent>(uid))
             return false;
 
+        return Classify(proto).Bridged;
+    }
+
+    /// <summary>Whether consoles made from this prototype run the PC OS when placed on a colony.</summary>
+    public bool Bridges(EntityPrototype proto)
+    {
         return Classify(proto).Bridged;
     }
 
@@ -98,14 +103,14 @@ public sealed class CMUComputerBridgeServerSystem : EntitySystem
         var networks = new HashSet<ProtoId<CMUNetworkPrototype>>();
         foreach (var ancestor in Ancestry(proto))
         {
-            if (rules.Exclude.Contains(ancestor))
+            if (rules.Exclude.Contains(ancestor) || rules.ExcludeKeywords.Any(k => ancestor.Contains(k, StringComparison.Ordinal)))
             {
                 included = false;
                 os = null;
                 break;
             }
 
-            if (rules.Include.Contains(ancestor))
+            if (rules.Include.Contains(ancestor) || rules.Keywords.Any(k => ancestor.Contains(k, StringComparison.Ordinal)))
                 included = true;
 
             if (os == null && rules.Os.TryGetValue(ancestor, out var match))
@@ -138,10 +143,11 @@ public sealed class CMUComputerBridgeServerSystem : EntitySystem
         _ui.SetUi(uid, CMUComputerToolUiKey.Key, new InterfaceData("CMUComputerToolBui"));
         _ui.SetUi(uid, CMUComputerLogUiKey.Key, new InterfaceData("CMUComputerLogBui"));
 
+        var native = HasComp<CMUPersonalComputerComponent>(uid);
         var computer = EnsureComp<CMUPersonalComputerComponent>(uid);
         // A console keeps its own access: nobody browses one as a guest.
         computer.AllowGuests = false;
-        if (os is { } chosen)
+        if (os is { } chosen && !native)
             computer.Os = chosen;
 
         // Extra networks go on top of the OS ones, as the computer's own list.
@@ -151,9 +157,12 @@ public sealed class CMUComputerBridgeServerSystem : EntitySystem
             computer.Networks.UnionWith(rules.Networks);
         }
 
-        _computers.Setup((uid, computer));
+        // A PC of its own already has its terminal number and colony.
+        if (!native)
+            _computers.Setup((uid, computer));
 
         var console = EnsureComp<CMUComputerConsoleComponent>(uid);
+        console.NativeComputer = native;
         console.Apps = new List<CMUConsoleApp> { new() { Name = Name(uid), Key = key } };
         console.OriginalKey = key;
         Dirty(uid, console);
@@ -165,6 +174,13 @@ public sealed class CMUComputerBridgeServerSystem : EntitySystem
         _ui.CloseUi(uid, CMUPersonalComputerUiKey.Key);
         _ui.CloseUi(uid, CMUComputerToolUiKey.Key);
         _ui.CloseUi(uid, CMUComputerLogUiKey.Key);
+
+        // A PC of its own stays one: only the bridge's program goes.
+        if (TryComp(uid, out CMUComputerConsoleComponent? console) && console.NativeComputer)
+        {
+            RemComp<CMUComputerConsoleComponent>(uid);
+            return;
+        }
 
         // A card left in the reader drops out in front of the console.
         if (_container.TryGetContainer(uid, CMUPersonalComputerComponent.CardSlotId, out var slot))

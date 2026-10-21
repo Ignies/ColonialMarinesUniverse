@@ -137,6 +137,17 @@ public sealed partial class CMUNetCmbPanel : BoxContainer, IDocumentTag
             return;
         }
 
+        // The colony's own map with the terminals on it, the one the tactical map tables draw.
+        var pins = state.Terminals.ConvertAll(t => new CMUColonyMapPin(t.Entity, t.Position,
+            t.Alerted ? Color.FromHex("#E0303A") : Color.FromHex("#8FC4FF"), t.Alerted));
+        if (CMUColonyMapView.TryCreate(_entities, grid.Value, pins, "background_cmb", picked => _host?.Trace(picked)) is { } colony)
+        {
+            AddChild(new Label { Text = Loc.GetString("cmu-cmb-map-hint") });
+            AddChild(colony);
+            ListAlerted(state);
+            return;
+        }
+
         var map = new NavMapControl
         {
             MapUid = grid,
@@ -159,8 +170,12 @@ public sealed partial class CMUNetCmbPanel : BoxContainer, IDocumentTag
         };
         AddChild(new Label { Text = Loc.GetString("cmu-cmb-map-hint") });
         AddChild(map);
+        ListAlerted(state);
+    }
 
-        // The alerted terminals under the map, so the numbers can be read off.
+    /// <summary>The alerted terminals under the map, so the numbers can be read off.</summary>
+    private void ListAlerted(CMUCmbStateMessage state)
+    {
         foreach (var terminal in state.Terminals)
         {
             if (terminal.Alerted)
