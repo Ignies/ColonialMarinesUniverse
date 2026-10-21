@@ -59,6 +59,10 @@ public sealed class CMUPersonalComputerCVars
     public static readonly CVarDef<bool> Hijack =
         CVarDef.Create("cmu.pc.hijack", true, CVar.SERVER | CVar.REPLICATED);
 
+    /// <summary>ExtraNet shops like WeyBay, whose orders come in as parcels at the colony's pickup pallet.</summary>
+    public static readonly CVarDef<bool> Shop =
+        CVarDef.Create("cmu.pc.shop", true, CVar.SERVER | CVar.REPLICATED);
+
     /// <summary>Camera grids tapped from eyes on the deep web.</summary>
     public static readonly CVarDef<bool> CameraTap =
         CVarDef.Create("cmu.pc.camera_tap", true, CVar.SERVER | CVar.REPLICATED);

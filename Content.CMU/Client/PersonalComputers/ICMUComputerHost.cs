@@ -138,6 +138,22 @@ public interface ICMUComputerHost
     {
     }
 
+    /// <summary>The logged in account's shop orders and balance, answering <see cref="RequestShop"/>.</summary>
+    event Action<CMUShopStateMessage>? ShopReceived
+    {
+        add { }
+        remove { }
+    }
+
+    void RequestShop()
+    {
+    }
+
+    /// <summary>Buys a catalogue entry with the card in the reader.</summary>
+    void BuyShop(string catalog, int entry)
+    {
+    }
+
     /// <summary>Opens the TV network's cameras on the terminal, to watch a broadcast.</summary>
     void WatchTapeLive(NetEntity camera)
     {

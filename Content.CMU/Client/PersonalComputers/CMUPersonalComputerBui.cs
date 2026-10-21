@@ -34,6 +34,7 @@ public sealed partial class CMUPersonalComputerBui : BoundUserInterface, ICMUNet
     public event Action<CMUArcadeStateMessage>? ArcadeReceived;
     public event Action<CMUBetStateMessage>? BetsReceived;
     public event Action<CMUTapeLiveStateMessage>? TapeLiveReceived;
+    public event Action<CMUShopStateMessage>? ShopReceived;
 
     public CMUPersonalComputerBui(EntityUid owner, Enum uiKey) : base(owner, uiKey)
     {
@@ -110,6 +111,9 @@ public sealed partial class CMUPersonalComputerBui : BoundUserInterface, ICMUNet
                 break;
             case CMUTapeLiveStateMessage live:
                 TapeLiveReceived?.Invoke(live);
+                break;
+            case CMUShopStateMessage shop:
+                ShopReceived?.Invoke(shop);
                 break;
         }
     }
@@ -237,6 +241,16 @@ public sealed partial class CMUPersonalComputerBui : BoundUserInterface, ICMUNet
     public void SubmitScore(CMUArcadeGame game, int score)
     {
         SendMessage(new CMUArcadeSubmitMessage(game, score));
+    }
+
+    public void RequestShop()
+    {
+        SendMessage(new CMUShopRequestMessage());
+    }
+
+    public void BuyShop(string catalog, int entry)
+    {
+        SendMessage(new CMUShopBuyMessage(catalog, entry));
     }
 
     public void RequestTapeLive()

@@ -107,6 +107,12 @@ public sealed class CMUPersonalComputerPreview
             ("seegson-youtape-match-2", 8f, () => TapePreview("sports", "match", 900)),
             ("seegson-youtape-play", 10f, () => TapePreview("play", "play", 800)),
             ("seegson-youtape-play-2", 10f, () => TapePreview("play", "play", 1000)),
+            ("seegson-weybay", 4f, () => _window?.Desktop?.Browser?.Navigate("weybay.shop")),
+            ("seegson-weybay-catalogue", 4f, () =>
+            {
+                if (_window?.Desktop?.Browser is { } browser && Find<CMUNetShop>(browser) is { } shop)
+                    ScrollTo(shop, 60);
+            }),
             ("seegson-youtape-trending", 3f, () => _window?.Desktop?.Browser?.Navigate("youtape.vhs/trending")),
             ("seegson-youtape-trending-play", 6f, () =>
             {

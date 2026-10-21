@@ -40,10 +40,12 @@ public sealed class CMUTapePlayer : LayoutContainer
     private Vector2 ArenaAt => new(0, _size.Y - CMUSportsArena.ArenaHeight - 6);
 
     /// <summary>Where a let's play's game sits, clear of the streamer's facecam.</summary>
-    private Vector2 GameAt => (_size - GameSize) / 2f;
+    private Vector2 GameAt => Narrow
+        ? new Vector2((_size.X - GameSize.X) / 2f, 8)
+        : (_size - GameSize) / 2f;
 
     /// <summary>How big the game is drawn: as big as the screen allows, the way a stream fills the frame.</summary>
-    private float GameZoom => Math.Min((_size.X - 8) / 320f, (_size.Y - 8) / 224f);
+    private float GameZoom => Narrow ? (_size.X - 8) / 320f : Math.Min((_size.X - 8) / 320f, (_size.Y - 8) / 224f);
 
     private Vector2 GameSize => new Vector2(320, 224) * GameZoom;
 
@@ -53,6 +55,10 @@ public sealed class CMUTapePlayer : LayoutContainer
         get
         {
             var game = GameSize;
+            // A tall reel stacks like a phone stream: the game on top, the streamer under it, the width of the screen.
+            if (Narrow)
+                return UIBox2.FromDimensions(new Vector2(8, GameAt.Y + game.Y + 4), new Vector2(_size.X - 16, 88));
+
             var size = new Vector2(Math.Min(110, game.X * 0.36f), Math.Min(84, game.Y * 0.4f));
             return UIBox2.FromDimensions(GameAt + game - size, size);
         }
@@ -458,17 +464,27 @@ public sealed class CMUTapePlayer : LayoutContainer
                 bottom -= band;
             }
 
+            var above = bottom;
             if (scene.Strap is { } strap)
             {
                 var font = player.Font(Sans, player.Narrow ? 9 : 11);
-                var height = 18 * scale;
-                var top = bottom - 44 * scale;
-                var width = Math.Min(PixelWidth - 20 * scale, CMUComputerShellStyle.Width(font, strap, scale) + 20 * scale);
-                handle.DrawRect(UIBox2.FromDimensions(new Vector2(10 * scale, top), new Vector2(width, height)), scene.Kind == "ad" ? Color.FromHex("#E8C020") : Color.FromHex("#B01818"));
-                handle.DrawString(font, new Vector2(20 * scale, top + 2 * scale), strap, scale, scene.Kind == "ad" ? Color.Black : Color.White);
+                var lines = Wrap(font, strap, PixelWidth - 40 * scale, scale);
+                var lineHeight = font.GetLineHeight(scale);
+                var height = lines.Count * lineHeight + 4 * scale;
+                var top = bottom - (player.Narrow ? 8 : 26) * scale - height;
+                var width = 0f;
+                foreach (var line in lines)
+                    width = Math.Max(width, CMUComputerShellStyle.Width(font, line, scale));
+
+                handle.DrawRect(UIBox2.FromDimensions(new Vector2(10 * scale, top), new Vector2(width + 20 * scale, height)),
+                    scene.Kind == "ad" ? Color.FromHex("#E8C020") : Color.FromHex("#B01818"));
+                for (var i = 0; i < lines.Count; i++)
+                    handle.DrawString(font, new Vector2(20 * scale, top + 2 * scale + i * lineHeight), lines[i], scale, scene.Kind == "ad" ? Color.Black : Color.White);
+
+                above = top;
             }
 
-            DrawCaption(handle, scene, at, bottom, scale);
+            DrawCaption(handle, scene, at, above, scale);
             if (scene.Kind == "ad")
             {
                 var advert = Loc.GetString("cmu-tape-advert");
@@ -495,13 +511,11 @@ public sealed class CMUTapePlayer : LayoutContainer
             var shown = line[..Math.Min(line.Length, (int) ((at - index * each) * TypeSpeed))];
             var font = player.Font(Sans, player.Narrow ? 9 : 10);
             // A let's play keeps its captions clear of the facecam.
-            var right = (scene.Kind == "play" ? player._size.X - player.Facecam.Left + 6 : 12) * scale;
+            var right = (scene.Kind == "play" && !player.Narrow ? player._size.X - player.Facecam.Left + 6 : 12) * scale;
             var lines = Wrap(font, shown, PixelWidth - right - 28 * scale, scale);
             var lineHeight = font.GetLineHeight(scale);
             var height = lines.Count * lineHeight + 8 * scale;
             var top = bottom - height - 4 * scale;
-            if (scene.Strap != null)
-                top = Math.Min(top, bottom - 44 * scale - height - 4 * scale);
 
             if (lines.Count > 0)
                 handle.DrawRect(new UIBox2(12 * scale, top, PixelWidth - right, top + height), Color.Black.WithAlpha(0.65f));
@@ -539,6 +553,10 @@ public sealed class CMUTapePlayer : LayoutContainer
         /// <summary>PLAY or PAUSE and the tape counter, top left, the way a deck shows them.</summary>
         private void DrawDeck(DrawingHandleScreen handle, CMUTape tape, float scale)
         {
+            // A reel is a clip, not a tape in a deck.
+            if (player.Narrow)
+                return;
+
             var font = player.Font(Vhs, 11);
             var state = Loc.GetString(player.Playing ? "cmu-tape-play" : "cmu-tape-pause");
             var counter = $"{(int) player.Time / 3600}:{(int) player.Time / 60 % 60:00}:{(int) player.Time % 60:00}";
