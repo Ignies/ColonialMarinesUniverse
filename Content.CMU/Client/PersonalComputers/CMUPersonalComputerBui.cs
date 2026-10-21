@@ -31,6 +31,7 @@ public sealed partial class CMUPersonalComputerBui : BoundUserInterface, ICMUNet
     public event Action<CMUSecurityStateMessage>? SecurityReceived;
     public event Action<CMUMailStateMessage>? MailReceived;
     public event Action<CMUSpaceGptAnswerMessage>? SpaceGptAnswered;
+    public event Action<CMUSpaceGptHoldMessage>? SpaceGptHeld;
     public event Action<CMUArcadeStateMessage>? ArcadeReceived;
     public event Action<CMUBetStateMessage>? BetsReceived;
     public event Action<CMUTapeLiveStateMessage>? TapeLiveReceived;
@@ -103,6 +104,9 @@ public sealed partial class CMUPersonalComputerBui : BoundUserInterface, ICMUNet
                 break;
             case CMUSpaceGptAnswerMessage answer:
                 SpaceGptAnswered?.Invoke(answer);
+                break;
+            case CMUSpaceGptHoldMessage held:
+                SpaceGptHeld?.Invoke(held);
                 break;
             case CMUArcadeStateMessage arcade:
                 ArcadeReceived?.Invoke(arcade);

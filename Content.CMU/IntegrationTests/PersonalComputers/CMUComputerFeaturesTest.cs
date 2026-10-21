@@ -137,8 +137,38 @@ public sealed class CMUComputerFeaturesTest : GameTest
             Assert.That(spaceGpt.OpenPolls, Is.EqualTo(1), "The question did not reach the ghosts.");
         });
 
-        await Server.WaitRunTicks((int) (CMUSpaceGptLimits.Voting.TotalSeconds * 35));
+        await Server.WaitRunTicks((int) ((CMUSpaceGptLimits.AdminDelay + CMUSpaceGptLimits.Voting).TotalSeconds * 35));
         await Server.WaitAssertion(() => Assert.That(spaceGpt.OpenPolls, Is.Zero, "The poll was never answered."));
+    }
+
+    [Test]
+    [Description("Admins can hold a SpaceGPT question past its vote, rewrite its answers, and deny it.")]
+    public async Task SpaceGptAdminsModerateQuestions()
+    {
+        var map = await Pair.CreateTestMap();
+        var spaceGpt = Server.System<CMUSpaceGptSystem>();
+        var id = 0;
+        await Server.WaitAssertion(() =>
+        {
+            var computer = Computer(map.GridCoords);
+            var (user, _) = LogIn(computer, map.GridCoords);
+            Send(computer, user, new CMUSpaceGptAskMessage("Where is the CLF hiding?"));
+            id = spaceGpt.LastPoll;
+            Assert.That(spaceGpt.Hold(id, "admin"), "The question could not be held.");
+            Assert.That(spaceGpt.Hold(id, "admin"), Is.False, "A held question was held twice.");
+        });
+
+        await Server.WaitRunTicks((int) ((CMUSpaceGptLimits.AdminDelay + CMUSpaceGptLimits.Voting).TotalSeconds * 35));
+        await Server.WaitAssertion(() =>
+        {
+            Assert.That(spaceGpt.OpenPolls, Is.EqualTo(1), "A held question was answered anyway.");
+            Assert.That(spaceGpt.SetOptions(id, new List<string> { "  In the mines ", "", "Nowhere" }, "admin"), "The answers were not rewritten.");
+            Assert.That(spaceGpt.TryGetPoll(id, out _, out _, out var options));
+            Assert.That(options, Is.EqualTo(new List<string> { "In the mines", "Nowhere" }), "The rewritten answers were not cleaned.");
+            Assert.That(spaceGpt.Deny(id, "admin"), "The question could not be denied.");
+            Assert.That(spaceGpt.OpenPolls, Is.Zero, "A denied question stayed open.");
+            Assert.That(spaceGpt.Release(id, "admin"), Is.False, "A denied question was released.");
+        });
     }
 
     [Test]

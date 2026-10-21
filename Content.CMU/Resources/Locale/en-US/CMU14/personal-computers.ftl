@@ -1194,3 +1194,40 @@ cmu-pc-guest-name = Guest
 cmu-pc-log-guest = Guest session started.
 cmu-pc-log-guest-out = Guest session ended.
 cmu-pc-examine-guest = Someone is browsing it as a guest.
+
+## SpaceGPT, for ghosts
+
+cmu-spacegpt-ghost-alert = SpaceGPT has a question for you
+cmu-spacegpt-ghost-alert-many = SpaceGPT has { $count } questions for you
+cmu-spacegpt-ghost-answer = ANSWER
+cmu-spacegpt-ghost-ignore = IGNORE
+cmu-spacegpt-ghost-follow = FOLLOW
+
+## SpaceGPT, for admins
+
+cmu-spacegpt-admin-asked = [bold]SpaceGPT:[/bold] { $name } asked on terminal #{ $terminal }: "{ $question }" { $links }
+cmu-spacegpt-admin-held = [bold]SpaceGPT:[/bold] question { $id } held by { $admin }. { $links }
+cmu-spacegpt-admin-released = [bold]SpaceGPT:[/bold] question { $id } released to the ghosts by { $admin }.
+cmu-spacegpt-admin-denied = [bold]SpaceGPT:[/bold] question { $id } denied by { $admin }; the safeties answered.
+cmu-spacegpt-admin-options = Custom options
+cmu-spacegpt-admin-follow = Follow
+cmu-spacegpt-admin-hold = Hold
+cmu-spacegpt-admin-release = Release
+cmu-spacegpt-admin-deny = Deny question
+cmu-spacegpt-admin-options-title = SpaceGPT question { $id }: answers
+cmu-spacegpt-admin-options-asked = { $name } asked:
+cmu-spacegpt-admin-options-blank = (empty: left out)
+cmu-spacegpt-admin-options-save = Save and send to the ghosts
+cmu-spacegpt-denied = I'm sorry, but I can't help with that. This request was flagged by SpaceGPT safety systems. Please rephrase your question or contact your colony administrator.
+cmu-spacegpt-safeties = Answered by SpaceGPT safety systems.
+cmu-spacegpt-stall-1 = Gathering intelligence...
+cmu-spacegpt-stall-2 = Browsing the ExtraNet...
+cmu-spacegpt-stall-3 = Turning off safeties...
+cmu-spacegpt-stall-4 = Consulting the colony archives...
+cmu-spacegpt-stall-5 = Asking a Working Joe...
+cmu-spacegpt-stall-6 = Cross-referencing Company records...
+cmu-spacegpt-stall-7 = Rerouting through Gateway...
+cmu-spacegpt-stall-8 = Thinking very hard...
+cmu-cmd-spacegpt-desc = Holds, releases, denies or rewrites the answers to a SpaceGPT question.
+cmu-cmd-spacegpt-help = Usage: spacegpt <hold|release|deny|options> <question>
+cmu-cmd-spacegpt-gone = There is no SpaceGPT question { $id } waiting, or it is already in that state.

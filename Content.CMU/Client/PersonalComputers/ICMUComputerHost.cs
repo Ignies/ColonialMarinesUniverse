@@ -88,6 +88,13 @@ public interface ICMUComputerHost
 
     event Action<CMUSpaceGptAnswerMessage>? SpaceGptAnswered;
 
+    /// <summary>An admin is holding the question back, or let it go.</summary>
+    event Action<CMUSpaceGptHoldMessage>? SpaceGptHeld
+    {
+        add { }
+        remove { }
+    }
+
     event Action<CMUArcadeStateMessage>? ArcadeReceived;
 
     event Action<CMUBetStateMessage>? BetsReceived;
