@@ -25,9 +25,48 @@ public sealed class CMUTapePlayer : LayoutContainer
     [Dependency] private IEntityManager _entities = default!;
     [Dependency] private IPrototypeManager _prototypes = default!;
     [Dependency] private IResourceCache _cache = default!;
+    [Dependency] private IGameTiming _timing = default!;
 
-    public const float ScreenWidth = 480;
-    public const float ScreenHeight = 270;
+    // Wide enough for a sportsbook arena at its own size: its dolls cannot be scaled crisply.
+    public static readonly Vector2 Widescreen = new(CMUSportsArena.ArenaWidth, 292);
+
+    /// <summary>A reel's tall screen.</summary>
+    public static readonly Vector2 Portrait = new(190, 338);
+
+    /// <summary>The screen's size; tapes place everything by fractions of it.</summary>
+    private readonly Vector2 _size;
+
+    /// <summary>Where a match's arena sits, under the deck's counter.</summary>
+    private Vector2 ArenaAt => new(0, _size.Y - CMUSportsArena.ArenaHeight - 6);
+
+    /// <summary>Where a let's play's game sits, clear of the streamer's facecam.</summary>
+    private Vector2 GameAt => (_size - GameSize) / 2f;
+
+    /// <summary>How big the game is drawn: as big as the screen allows, the way a stream fills the frame.</summary>
+    private float GameZoom => Math.Min((_size.X - 8) / 320f, (_size.Y - 8) / 224f);
+
+    private Vector2 GameSize => new Vector2(320, 224) * GameZoom;
+
+    /// <summary>Where the streamer is cut in over the game: its bottom right corner, in UI units.</summary>
+    public UIBox2 Facecam
+    {
+        get
+        {
+            var game = GameSize;
+            var size = new Vector2(Math.Min(110, game.X * 0.36f), Math.Min(84, game.Y * 0.4f));
+            return UIBox2.FromDimensions(GameAt + game - size, size);
+        }
+    }
+
+    /// <summary>A reel's tall screen, which letters smaller and leaves the channel to the page.</summary>
+    public bool Narrow => _size.X < 300;
+
+    /// <summary>A streamer's doll is drawn this big, and cut off at the chest by the facecam.</summary>
+    private const float BustScale = 5;
+
+    private readonly Dictionary<Content.Shared.CMU14.PersonalComputers.CMUSport, CMUSportsArena> _arenas = new();
+    private readonly Dictionary<Content.Shared.CMU14.PersonalComputers.CMUArcadeGame, CMUArcadeScreen> _games = new();
+    private Control? _embedded;
 
     private readonly Dictionary<(string Outfit, int Look), (EntityUid Dummy, SpriteView View)> _dolls = new();
     private readonly List<(Control View, CMUTapeActor Actor)> _onScreen = new();
@@ -43,10 +82,15 @@ public sealed class CMUTapePlayer : LayoutContainer
     /// <summary>The tape ran out.</summary>
     public event Action? OnEnded;
 
-    public CMUTapePlayer()
+    public CMUTapePlayer() : this(Widescreen)
+    {
+    }
+
+    public CMUTapePlayer(Vector2 size)
     {
         IoCManager.InjectDependencies(this);
-        SetSize = new Vector2(ScreenWidth, ScreenHeight);
+        _size = size;
+        SetSize = size;
         MinSize = SetSize;
         RectClipContent = true;
         _overlay = new CMUTapeOverlay(this);
@@ -61,6 +105,16 @@ public sealed class CMUTapePlayer : LayoutContainer
     {
         _tape = tape;
         ForgetOtherCasts(tape);
+        // A new tape brings its own matches and games; the old ones go, and their dolls with them.
+        _embedded?.Orphan();
+        _embedded = null;
+        foreach (var arena in _arenas.Values)
+            arena.Orphan();
+        foreach (var game in _games.Values)
+            game.Orphan();
+
+        _arenas.Clear();
+        _games.Clear();
         _time = 0;
         _scene = -1;
         Playing = true;
@@ -132,9 +186,19 @@ public sealed class CMUTapePlayer : LayoutContainer
         var (scene, at) = Current();
         foreach (var (view, actor) in _onScreen)
         {
-            var size = view.SetSize;
             var bob = actor.Talking && Playing && scene != null ? MathF.Abs(MathF.Sin(at * 9f)) * 2f : 0;
-            SetPosition(view, new Vector2(actor.At.X * ScreenWidth - size.X / 2f, actor.At.Y * ScreenHeight - size.Y - bob));
+            if (view is CMUTapeBust bust)
+            {
+                // The streamer sits in the facecam, head and shoulders, and bobs inside it.
+                var box = Facecam;
+                SetPosition(bust, box.TopLeft);
+                bust.SetSize = box.Size;
+                SetPosition(bust.Doll, new Vector2((box.Width - 32 * BustScale) / 2f, -0.06f * 32 * BustScale - bob));
+                continue;
+            }
+
+            var size = view.SetSize;
+            SetPosition(view, new Vector2(actor.At.X * _size.X - size.X / 2f, actor.At.Y * _size.Y - size.Y - bob));
         }
     }
 
@@ -165,10 +229,42 @@ public sealed class CMUTapePlayer : LayoutContainer
             view.Orphan();
 
         _onScreen.Clear();
+        _embedded?.Orphan();
+        _embedded = null;
         if (_tape == null || index < 0)
             return;
 
-        foreach (var actor in _tape.Scenes[index].Actors)
+        var scene = _tape.Scenes[index];
+        if (scene.Match is { } match)
+        {
+            if (!_arenas.TryGetValue(match.Sport, out var arena))
+                _arenas[match.Sport] = arena = CMUSportsArena.Create(match.Sport);
+
+            AddChild(arena);
+            SetPosition(arena, ArenaAt);
+            arena.Show(match, true, scene.MatchFrom);
+            _embedded = arena;
+        }
+        else if (scene.Game is { } game)
+        {
+            // One game per tape, carried on from scene to scene; it freezes while a scene without it is up.
+            if (!_games.TryGetValue(game, out var screen))
+            {
+                screen = game switch
+                {
+                    Content.Shared.CMU14.PersonalComputers.CMUArcadeGame.TrackerReflex => new CMUTrackerReflex(_timing) { Demo = true },
+                    _ => new CMUHuggerRun(_timing) { Demo = true },
+                };
+                _games[game] = screen;
+            }
+
+            screen.Zoom = GameZoom;
+            AddChild(screen);
+            SetPosition(screen, GameAt);
+            _embedded = screen;
+        }
+
+        foreach (var actor in scene.Actors)
         {
             if (Actor(actor) is not { } view)
                 continue;
@@ -197,7 +293,13 @@ public sealed class CMUTapePlayer : LayoutContainer
         if (string.IsNullOrEmpty(actor.Outfit) || _tape == null)
             return null;
 
-        return Doll(actor.Outfit, CMUTapeLook.LookSeed(_tape.Seed, actor.Character), actor.Scale);
+        var doll = Doll(actor.Outfit, CMUTapeLook.LookSeed(_tape.Seed, actor.Character), actor.Bust ? BustScale : actor.Scale);
+        if (!actor.Bust)
+            return doll;
+
+        doll.Orphan();
+        var bust = new CMUTapeBust(doll);
+        return bust;
     }
 
     /// <summary>
@@ -299,6 +401,14 @@ public sealed class CMUTapePlayer : LayoutContainer
         if (Picture(scene.Background) is { } background)
             handle.DrawTextureRect(background, PixelSizeBox);
 
+        if (scene.Kind == "play")
+        {
+            // A stream is the game filling the frame, with the streamer cut in over its corner.
+            handle.DrawRect(PixelSizeBox, Color.FromHex("#0E0B14"));
+            var monitor = UIBox2.FromDimensions(GameAt * UIScale, GameSize * UIScale);
+            handle.DrawRect(monitor, Color.FromHex("#050805"));
+        }
+
         var scale = UIScale;
         if (scene.Ad != null && Picture(scene.Ad) is { } ad)
         {
@@ -350,7 +460,7 @@ public sealed class CMUTapePlayer : LayoutContainer
 
             if (scene.Strap is { } strap)
             {
-                var font = player.Font(Sans, 11);
+                var font = player.Font(Sans, player.Narrow ? 9 : 11);
                 var height = 18 * scale;
                 var top = bottom - 44 * scale;
                 var width = Math.Min(PixelWidth - 20 * scale, CMUComputerShellStyle.Width(font, strap, scale) + 20 * scale);
@@ -366,7 +476,7 @@ public sealed class CMUTapePlayer : LayoutContainer
                 var width = CMUComputerShellStyle.Width(font, advert, scale);
                 handle.DrawString(font, new Vector2(PixelWidth - width - 14 * scale, 8 * scale), advert, scale, Color.White.WithAlpha(0.8f));
             }
-            else if (tape.Channel.Length > 0 && scene.Kind is not ("card" or "standby"))
+            else if (!player.Narrow && tape.Channel.Length > 0 && scene.Kind is not ("card" or "standby"))
                 handle.DrawString(player.Font(Sans, 9), new Vector2(PixelWidth - CMUComputerShellStyle.Width(player.Font(Sans, 9), tape.Channel, scale) - 10 * scale, 8 * scale), tape.Channel, scale, Color.White.WithAlpha(0.7f));
 
             DrawDeck(handle, tape, scale);
@@ -383,8 +493,10 @@ public sealed class CMUTapePlayer : LayoutContainer
             var index = Math.Min(scene.Lines.Count - 1, (int) (at / each));
             var line = scene.Lines[index];
             var shown = line[..Math.Min(line.Length, (int) ((at - index * each) * TypeSpeed))];
-            var font = player.Font(Sans, 10);
-            var lines = Wrap(font, shown, PixelWidth - 40 * scale, scale);
+            var font = player.Font(Sans, player.Narrow ? 9 : 10);
+            // A let's play keeps its captions clear of the facecam.
+            var right = (scene.Kind == "play" ? player._size.X - player.Facecam.Left + 6 : 12) * scale;
+            var lines = Wrap(font, shown, PixelWidth - right - 28 * scale, scale);
             var lineHeight = font.GetLineHeight(scale);
             var height = lines.Count * lineHeight + 8 * scale;
             var top = bottom - height - 4 * scale;
@@ -392,7 +504,7 @@ public sealed class CMUTapePlayer : LayoutContainer
                 top = Math.Min(top, bottom - 44 * scale - height - 4 * scale);
 
             if (lines.Count > 0)
-                handle.DrawRect(new UIBox2(12 * scale, top, PixelWidth - 12 * scale, top + height), Color.Black.WithAlpha(0.65f));
+                handle.DrawRect(new UIBox2(12 * scale, top, PixelWidth - right, top + height), Color.Black.WithAlpha(0.65f));
 
             for (var i = 0; i < lines.Count; i++)
                 handle.DrawString(font, new Vector2(20 * scale, top + 4 * scale + i * lineHeight), lines[i], scale, Color.FromHex("#FFF6C8"));
@@ -480,5 +592,18 @@ public sealed class CMUTapePlayer : LayoutContainer
 
             return lines;
         }
+    }
+}
+
+/// <summary>A doll seen from the chest up, cut in over a game with nothing behind it.</summary>
+public sealed class CMUTapeBust : LayoutContainer
+{
+    public readonly SpriteView Doll;
+
+    public CMUTapeBust(SpriteView doll)
+    {
+        Doll = doll;
+        RectClipContent = true;
+        AddChild(doll);
     }
 }

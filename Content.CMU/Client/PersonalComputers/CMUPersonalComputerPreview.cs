@@ -102,6 +102,33 @@ public sealed class CMUPersonalComputerPreview
             ("seegson-youtape-weather", 4f, () => TapePreview("weather", "weather", 300)),
             ("seegson-youtape-food", 4f, () => TapePreview("food", "food", 400)),
             ("seegson-youtape-bunk", 4f, () => TapePreview("bunk", "bunk", 500)),
+            ("seegson-youtape-sports", 4f, () => TapePreview("sports", "sports", 600)),
+            ("seegson-youtape-match", 8f, () => TapePreview("sports", "match", 700)),
+            ("seegson-youtape-match-2", 8f, () => TapePreview("sports", "match", 900)),
+            ("seegson-youtape-play", 10f, () => TapePreview("play", "play", 800)),
+            ("seegson-youtape-play-2", 10f, () => TapePreview("play", "play", 1000)),
+            ("seegson-youtape-trending", 3f, () => _window?.Desktop?.Browser?.Navigate("youtape.vhs/trending")),
+            ("seegson-youtape-trending-play", 6f, () =>
+            {
+                if (_window?.Desktop?.Browser is { } browser && Find<CMUNetTapeLink>(browser) is { } link)
+                    link.Activate();
+            }),
+            ("seegson-youtape-reels", 6f, () => _window?.Desktop?.Browser?.Navigate("youtape.vhs/reels")),
+            ("seegson-youtape-reels-scrolled", 4f, () =>
+            {
+                if (_window?.Desktop?.Browser is { } browser && Find<CMUNetReels>(browser) is { } reels)
+                    ScrollTo(reels);
+            }),
+            ("seegson-youtape-reels-next", 6f, () =>
+            {
+                if (_window?.Desktop?.Browser is { } browser && Find<CMUNetReels>(browser) is { } reels)
+                    reels.Next();
+            }),
+            ("seegson-youtape-reels-third", 6f, () =>
+            {
+                if (_window?.Desktop?.Browser is { } browser && Find<CMUNetReels>(browser) is { } reels)
+                    reels.Next();
+            }),
             ("seegson-youtape-shelf", 4f, () =>
             {
                 if (_window?.Desktop?.Browser is { } browser && Find<CMUNetTape>(browser) is { } tape)

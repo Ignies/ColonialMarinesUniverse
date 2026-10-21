@@ -24,6 +24,9 @@ public sealed class CMUTapeActor
 
     /// <summary>Who this is in the tape's cast, numbered as the tape casts them; their look is drawn from it.</summary>
     public int Character;
+
+    /// <summary>Seen from the chest up in a facecam, the way a streamer is.</summary>
+    public bool Bust;
 }
 
 /// <summary>Someone cast in a tape: the starting gear they are dressed for, and their place in the cast.</summary>
@@ -55,6 +58,14 @@ public sealed class CMUTapeScene
 
     /// <summary>The ad picture, in an ad break.</summary>
     public string? Ad;
+
+    /// <summary>A sportsbook match replayed in its arena, from <see cref="MatchFrom"/> seconds in.</summary>
+    public CMUBetMatch? Match;
+
+    public float MatchFrom;
+
+    /// <summary>An arcade game playing itself, for a streamer to talk over.</summary>
+    public CMUArcadeGame? Game;
 }
 
 /// <summary>A whole tape, built from its seed.</summary>
@@ -76,15 +87,40 @@ public sealed class CMUTape
 /// </summary>
 public static class CMUTapeGenerator
 {
-    public static readonly string[] Genres = { "news", "news", "weather", "food", "bunk", "doc" };
+    public static readonly string[] Genres = { "news", "news", "weather", "food", "bunk", "doc", "sports", "sports", "play", "play" };
+
+    private static readonly CMUArcadeGame[] Games = { CMUArcadeGame.HuggerRun, CMUArcadeGame.TrackerReflex };
 
     private const int MaxDepth = 12;
 
-    public static CMUTape Generate(int seed, CMUTapeGrammarPrototype grammar, string colony)
+    /// <param name="results">The round's finished sportsbook matches; sports tapes replay these when there are any.</param>
+    /// <param name="genre">Makes a tape of this genre rather than a random one, for links to a particular tape.</param>
+    public static CMUTape Generate(int seed, CMUTapeGrammarPrototype grammar, string colony, IReadOnlyList<CMUBetMatch>? results = null,
+        string? genre = null)
     {
-        var random = new System.Random(seed);
+        // Scrambled first: the runtime's generator starts nearby seeds on nearly the same numbers.
+        var random = new System.Random(Scramble(seed));
         var teller = new Teller(grammar, random, colony);
         var tape = new CMUTape { Seed = seed, Genre = Genres[random.Next(Genres.Length)] };
+        if (genre != null)
+            tape.Genre = genre;
+
+        // Sports and let's plays are about something: picked first, so the title can name it.
+        CMUBetMatch? match = null;
+        CMUArcadeGame game = default;
+        if (tape.Genre == "sports")
+        {
+            match = results is { Count: > 0 } && teller.Chance(0.6) ? teller.Pick(results) : Synthetic(random, seed);
+            teller.Fill["{sport}"] = Loc.GetString($"cmu-sport-{match.Sport}");
+            teller.Fill["{match}"] = MatchName(match);
+            teller.Fill["{winner}"] = match.Name(match.Winner);
+        }
+        else if (tape.Genre == "play")
+        {
+            game = teller.Pick(Games);
+            teller.Fill["{game}"] = Loc.GetString($"cmu-arcade-{game}");
+        }
+
         tape.Title = teller.Say($"#title.{tape.Genre}#");
         tape.Channel = teller.Say($"#channel.{tape.Genre}#");
         tape.Rewinds = (int) Math.Pow(10, 1 + random.NextDouble() * 5);
@@ -100,6 +136,15 @@ public static class CMUTapeGenerator
                 break;
             case "weather":
                 Forecast(tape, teller, true);
+                break;
+            case "sports":
+                Sports(tape, teller, match!);
+                break;
+            case "play":
+                Play(tape, teller, game);
+                break;
+            case "static":
+                Static(tape, teller);
                 break;
             default:
                 Show(tape, teller, tape.Genre);
@@ -229,6 +274,175 @@ public static class CMUTapeGenerator
         }
     }
 
+    /// <summary>
+    /// The sports desk: the caster sets it up, the match plays in its own arena (the whole sprint, the closing stretch of
+    /// anything longer, through to the arena's result banner), then the caster calls it.
+    /// </summary>
+    private static void Sports(CMUTape tape, Teller teller, CMUBetMatch match)
+    {
+        var caster = teller.Cast("sportscaster");
+        var sport = Loc.GetString($"cmu-sport-{match.Sport}").ToUpperInvariant();
+        var open = teller.Scene("sports", 9);
+        open.Strap = $"{sport}: {MatchName(match)}";
+        open.Lines.Add(teller.Say("#sports.open#"));
+        open.Actors.Add(Person(caster, new Vector2(0.5f, 0.9f)));
+        tape.Scenes.Add(open);
+
+        var length = CMUSports.Length(match.Sport);
+        var shown = match.Sport == CMUSport.Sprint ? length : Math.Min(length, teller.Range(35, 55));
+        tape.Scenes.Add(new CMUTapeScene
+        {
+            Kind = "match",
+            Duration = shown + 6,
+            Match = match,
+            MatchFrom = Math.Max(0, length - shown),
+        });
+
+        if (teller.Chance(0.5))
+            tape.Scenes.Add(Ad(teller));
+
+        var close = teller.Scene("sports", 8);
+        close.Strap = $"{sport}: {match.Name(match.Winner).ToUpperInvariant()}";
+        close.Lines.Add(teller.Say("#sports.close#"));
+        close.Actors.Add(Person(caster, new Vector2(0.5f, 0.9f)));
+        tape.Scenes.Add(close);
+    }
+
+    /// <summary>A streamer playing an arcade game: the game plays itself, the streamer talks over it from a facecam.</summary>
+    private static void Play(CMUTape tape, Teller teller, CMUArcadeGame game)
+    {
+        var streamer = teller.Cast("streamer");
+        var segments = teller.Range(3, 5);
+        for (var i = 0; i < segments; i++)
+        {
+            var key = i == 0 ? "open" : i == segments - 1 ? "close" : "story";
+            var scene = new CMUTapeScene { Kind = "play", Duration = teller.Range(14, 22), Game = game };
+            scene.Lines.Add(teller.Say($"#play.{key}#"));
+            if (key == "story")
+                scene.Lines.Add(teller.Say("#play.story#"));
+
+            if (i == 0)
+                scene.Strap = tape.Channel;
+
+            scene.Actors.Add(new CMUTapeActor
+            {
+                Outfit = streamer.Outfit,
+                Character = streamer.Character,
+                Bust = true,
+                Talking = true,
+            });
+            tape.Scenes.Add(scene);
+        }
+    }
+
+    /// <summary>Nothing but cards and static, with something said in it now and then that should not be.</summary>
+    private static void Static(CMUTape tape, Teller teller)
+    {
+        tape.Scenes.Clear();
+        var cards = teller.Range(4, 6);
+        for (var i = 0; i < cards; i++)
+        {
+            var scene = teller.Scene(i % 2 == 0 ? "standby" : "card", teller.Range(6, 9));
+            scene.Lines.Add(teller.Say(i == cards - 1 ? "#static.last#" : "#static.line#"));
+            tape.Scenes.Add(scene);
+        }
+    }
+
+    /// <summary>The kinds of reel: short, tall, one shot, a hook across the top.</summary>
+    public static readonly string[] ReelKinds = { "food", "bunk", "doc", "weather", "play", "play" };
+
+    /// <summary>
+    /// A reel: one short, tall shot of a food test, a bunk moment, a creature, a forecast or a game clip with its
+    /// streamer, its hook as the strap and a line or two over it. Like-counted rather than rewound.
+    /// </summary>
+    public static CMUTape Reel(int seed, CMUTapeGrammarPrototype grammar, string colony)
+    {
+        var random = new System.Random(Scramble(seed));
+        var teller = new Teller(grammar, random, colony);
+        var kind = ReelKinds[random.Next(ReelKinds.Length)];
+        var tape = new CMUTape { Seed = seed, Genre = "reel" };
+        CMUArcadeGame game = default;
+        if (kind == "play")
+        {
+            game = teller.Pick(Games);
+            teller.Fill["{game}"] = Loc.GetString($"cmu-arcade-{game}");
+        }
+
+        tape.Title = teller.Say($"#reel.{kind}.title#");
+        tape.Channel = teller.Say($"#channel.{kind}#");
+        tape.Rewinds = (int) Math.Pow(10, 2 + random.NextDouble() * 4);
+
+        var place = kind switch
+        {
+            "doc" => "wild",
+            _ => kind,
+        };
+        var scene = kind == "play"
+            ? new CMUTapeScene { Kind = "play", Duration = teller.Range(12, 16), Game = game }
+            : teller.Scene(place, teller.Range(10, 14));
+        scene.Strap = tape.Title;
+        scene.Lines.Add(teller.Say($"#reel.{kind}.line#"));
+        scene.Lines.Add(teller.Say($"#reel.{kind}.line#"));
+        switch (kind)
+        {
+            case "play":
+                var streamer = teller.Cast("streamer");
+                scene.Actors.Add(new CMUTapeActor { Outfit = streamer.Outfit, Character = streamer.Character, Bust = true, Talking = true });
+                break;
+            case "weather":
+                var condition = teller.Pick(teller.Conditions());
+                var where = teller.Say("#weather.place#");
+                var temperature = teller.Range(-30, 42);
+                scene.Weather.Add(new CMUTapeWeather(condition, $"{where} {temperature}", new Vector2(0.5f, 0.32f)));
+                scene.Lines[1] = teller.Say($"#weather.{condition}#").Replace("{place}", where).Replace("{temp}", temperature.ToString());
+                scene.Actors.Add(Person(teller.Cast("presenter"), new Vector2(0.5f, 0.92f)));
+                break;
+            case "doc":
+                teller.Props(scene, "doc", 2);
+                break;
+            default:
+                scene.Actors.Add(Person(teller.Cast("host"), new Vector2(0.5f, 0.92f)));
+                teller.Props(scene, kind, 1);
+                break;
+        }
+
+        tape.Scenes.Add(scene);
+        return tape;
+    }
+
+    /// <summary>A match nobody bet on: made up from the tape's own seed, played out the same way as a real one.</summary>
+    private static CMUBetMatch Synthetic(System.Random random, int seed)
+    {
+        var sport = (CMUSport) random.Next(4);
+        var count = CMUSports.Entrants(sport);
+        var pool = CMUSports.UsesTeams(sport) ? CMUSports.Teams.Length : CMUSports.Athletes.Length;
+        var entrants = Enumerable.Range(0, pool).OrderBy(_ => random.Next()).Take(count).ToList();
+        var odds = Enumerable.Repeat(2f, count).ToList();
+        var matchSeed = random.Next();
+        var winner = random.Next(count);
+        var result = CMUSports.Play(sport, matchSeed, count, winner).Result;
+        // Crowds take their looks from the id, so every made up match has its own.
+        return new CMUBetMatch(1_000_000 + (seed & 0xFFFFF), sport, entrants, odds, TimeSpan.Zero, matchSeed, winner, result);
+    }
+
+    private static int Scramble(int seed)
+    {
+        var x = (uint) seed;
+        x ^= x >> 16;
+        x *= 0x7FEB352D;
+        x ^= x >> 15;
+        x *= 0x846CA68B;
+        x ^= x >> 16;
+        return (int) (x & 0x7FFFFFFF);
+    }
+
+    private static string MatchName(CMUBetMatch match)
+    {
+        return match.Entrants.Count == 2
+            ? $"{match.Name(0)} vs {match.Name(1)}"
+            : $"{match.Name(0)}, {match.Name(1)} and {match.Entrants.Count - 2} more";
+    }
+
     private static CMUTapeActor Person(CMUTapeCast cast, Vector2 at, bool talking = true)
     {
         return new CMUTapeActor { Outfit = cast.Outfit, Character = cast.Character, At = at, Talking = talking };
@@ -270,6 +484,9 @@ public static class CMUTapeGenerator
         }
 
         private int _cast;
+
+        /// <summary>Words filled in after the grammar has spoken, such as the match or game a tape is about.</summary>
+        public readonly Dictionary<string, string> Fill = new();
 
         public string Outfit(string role)
         {
@@ -318,7 +535,11 @@ public static class CMUTapeGenerator
         /// <summary>Expands every <c>#rule#</c> in the text, rules within rules, then puts in the colony.</summary>
         public string Say(string text)
         {
-            return Expand(text, 0).Replace("{colony}", colony);
+            var said = Expand(text, 0).Replace("{colony}", colony);
+            foreach (var (key, value) in Fill)
+                said = said.Replace(key, value);
+
+            return said;
         }
 
         private string Expand(string text, int depth)

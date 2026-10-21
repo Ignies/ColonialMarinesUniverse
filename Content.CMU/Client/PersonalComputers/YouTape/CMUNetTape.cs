@@ -31,7 +31,11 @@ public sealed partial class CMUNetTape : BoxContainer, IDocumentTag
     private readonly Random _random = new();
     private int _shelfSize = 6;
     private bool _showLive = true;
+    private bool _autoplay = true;
     private ICMUComputerHost? _host;
+
+    /// <summary>The round's finished sportsbook matches, for sports tapes to replay.</summary>
+    private List<CMUBetMatch> _results = new();
 
     public CMUNetTape()
     {
@@ -76,6 +80,7 @@ public sealed partial class CMUNetTape : BoxContainer, IDocumentTag
             _shelfSize = Math.Clamp(size, 0, 12);
 
         _showLive = !args.TryGetValue("Live", out var live) || !live.Equals("false", StringComparison.OrdinalIgnoreCase);
+        _autoplay = !args.TryGetValue("Autoplay", out var autoplay) || !autoplay.Equals("false", StringComparison.OrdinalIgnoreCase);
         if (_shelfSize > 0)
         {
             AddChild(Heading(Loc.GetString("cmu-tape-shelf")));
@@ -95,11 +100,17 @@ public sealed partial class CMUNetTape : BoxContainer, IDocumentTag
     protected override void EnteredTree()
     {
         base.EnteredTree();
-        if (_player.Tape == null)
+        if (_player.Tape == null && _autoplay)
             Play(_random.Next());
 
         FillShelf();
         _host = Browser()?.Host;
+        if (_host != null)
+        {
+            _host.BetsReceived += OnBets;
+            _host.RequestBets();
+        }
+
         if (_showLive && _host != null)
         {
             _host.TapeLiveReceived += OnLive;
@@ -116,7 +127,10 @@ public sealed partial class CMUNetTape : BoxContainer, IDocumentTag
     {
         base.ExitedTree();
         if (_host != null)
+        {
             _host.TapeLiveReceived -= OnLive;
+            _host.BetsReceived -= OnBets;
+        }
 
         _host = null;
     }
@@ -146,6 +160,28 @@ public sealed partial class CMUNetTape : BoxContainer, IDocumentTag
         }
     }
 
+    /// <summary>Plays a particular tape, as a link to it names it: made from its title, so it is always the same.</summary>
+    public void PlayFixed(string title, string channel, string? genre)
+    {
+        if (!_prototypes.TryIndex(Grammar, out var grammar))
+            return;
+
+        var seed = 17;
+        foreach (var c in title)
+            seed = seed * 31 + c;
+
+        var colony = Browser()?.ColonyName ?? Loc.GetString("cmu-tape-default-colony");
+        var tape = CMUTapeGenerator.Generate(seed, grammar, colony, _results, genre);
+        tape.Title = title;
+        if (channel.Length > 0)
+            tape.Channel = channel;
+
+        _player.Load(tape);
+        _title.Text = tape.Title;
+        _byline.Text = Loc.GetString("cmu-tape-byline", ("channel", tape.Channel), ("rewinds", tape.Rewinds));
+        UpdatePlay();
+    }
+
     private void Play(int seed)
     {
         if (Make(seed) is not { } tape)
@@ -163,7 +199,7 @@ public sealed partial class CMUNetTape : BoxContainer, IDocumentTag
             return null;
 
         var colony = Browser()?.ColonyName ?? Loc.GetString("cmu-tape-default-colony");
-        return CMUTapeGenerator.Generate(seed, grammar, colony);
+        return CMUTapeGenerator.Generate(seed, grammar, colony, _results);
     }
 
     private void UpdatePlay()
@@ -192,6 +228,11 @@ public sealed partial class CMUNetTape : BoxContainer, IDocumentTag
             };
             _shelf.AddChild(pick);
         }
+    }
+
+    private void OnBets(CMUBetStateMessage message)
+    {
+        _results = message.Matches.FindAll(m => m.Result != null && m.Winner >= 0);
     }
 
     private void OnLive(CMUTapeLiveStateMessage message)
