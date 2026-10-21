@@ -1056,6 +1056,28 @@ cmu-pc-system-dark = {"  "}OFFLINE: tuned off the colony network
 cmu-mail-dark = Offline. This terminal is tuned off the colony network.
 cmu-cmb-trace-dark = TRACE LOST: the terminal dropped off the colony network
 
+## Insurgent relay bugs
+
+cmu-pc-tool-bug = Bug terminal
+cmu-pc-tool-format = Format terminal
+cmu-relay-already = This terminal is already carrying a relay.
+cmu-relay-not-clean = This terminal reaches no colony network to route through.
+cmu-relay-planted = The relay is in. This terminal's traffic will carry the insurgents'.
+cmu-relay-format-no-skill = You don't know how to format this terminal.
+cmu-relay-format-nothing = Nothing to format: this terminal is clean.
+cmu-relay-format-done = The terminal wipes and reboots. The screen is clean again.
+cmu-relay-format-log = Terminal formatted.
+cmu-relay-heading = RELAYS
+cmu-relay-intro = Bugged terminals you can route this terminal's deep traffic through. Lookups then land on the relay.
+cmu-relay-refresh = Refresh relays
+cmu-relay-none = No relays. Bug a public terminal with an access tuner.
+cmu-relay-nobody = no one logged in
+cmu-relay-online = online
+cmu-relay-offline = offline
+cmu-relay-row = Terminal #{$id} — {$location} — {$who} ({$status})
+cmu-relay-route = Route
+cmu-relay-routing = Routing
+
 cmu-net-network-security = Colony Security Network
 cmu-net-site-colony-security = Colony Security
 cmu-net-tab-security-log = Unauthorized Use

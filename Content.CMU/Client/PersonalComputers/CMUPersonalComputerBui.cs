@@ -35,6 +35,7 @@ public sealed partial class CMUPersonalComputerBui : BoundUserInterface, ICMUNet
     public event Action<CMUBetStateMessage>? BetsReceived;
     public event Action<CMUTapeLiveStateMessage>? TapeLiveReceived;
     public event Action<CMUShopStateMessage>? ShopReceived;
+    public event Action<CMURelayListMessage>? RelayReceived;
 
     public CMUPersonalComputerBui(EntityUid owner, Enum uiKey) : base(owner, uiKey)
     {
@@ -115,6 +116,9 @@ public sealed partial class CMUPersonalComputerBui : BoundUserInterface, ICMUNet
             case CMUShopStateMessage shop:
                 ShopReceived?.Invoke(shop);
                 break;
+            case CMURelayListMessage relays:
+                RelayReceived?.Invoke(relays);
+                break;
         }
     }
 
@@ -159,6 +163,32 @@ public sealed partial class CMUPersonalComputerBui : BoundUserInterface, ICMUNet
     public bool Carrier => Computer?.Carrier ?? true;
 
     public bool Dark => Computer is { } computer && EntMan.System<CMUExtraNetSystem>().IsDark(computer);
+
+    public float Corruption
+    {
+        get
+        {
+            if (!_cfg.GetCVar(CMUPersonalComputerCVars.Relay)
+                || !EntMan.TryGetComponent(Owner, out CMUComputerRelayComponent? relay))
+                return 0f;
+
+            if (relay.CorruptionTime <= TimeSpan.Zero)
+                return 1f;
+
+            var age = IoCManager.Resolve<Robust.Shared.Timing.IGameTiming>().CurTime - relay.PlantedAt;
+            return (float) Math.Clamp(age / relay.CorruptionTime, 0, 1);
+        }
+    }
+
+    public void RequestRelays()
+    {
+        SendMessage(new CMURelayListRequestMessage());
+    }
+
+    public void Route(NetEntity? terminal)
+    {
+        SendMessage(new CMURelayRouteMessage(terminal));
+    }
 
     public string? Platoon => Computer?.Platoon;
 

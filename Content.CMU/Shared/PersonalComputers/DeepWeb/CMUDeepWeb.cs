@@ -46,6 +46,13 @@ public sealed partial class CMUDeepWebAccessComponent : Component
 
     [DataField]
     public TimeSpan ScanCooldown = TimeSpan.FromSeconds(45);
+
+    /// <summary>
+    /// A bugged terminal this hacked terminal is routing its deep traffic through, so its lookups frame that
+    /// terminal and whoever is logged in there. Null when not routing; ignored once the relay drops offline.
+    /// </summary>
+    [DataField, AutoNetworkedField]
+    public NetEntity? Relay;
 }
 
 /// <summary>
@@ -91,6 +98,9 @@ public sealed class CMUDeepHackBoard
 
     /// <summary>For a retune: whether it takes the terminal dark, or back onto the colony network.</summary>
     public bool ToDark;
+
+    /// <summary>Planting an insurgent relay bug: plays like a hack, but installs a relay instead of deep access.</summary>
+    public bool Bug;
     public CMUDeepHackStage Stage;
     public int Frequency;
     public int Amplitude;

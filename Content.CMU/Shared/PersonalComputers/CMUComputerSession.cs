@@ -50,6 +50,12 @@ public enum CMUComputerToolAction : byte
 
     /// <summary>Tunes the terminal off the colony network, or back onto it.</summary>
     Retune,
+
+    /// <summary>Bugs a public terminal into an insurgent relay to route deep traffic through. Insurgents only.</summary>
+    Bug,
+
+    /// <summary>Wipes the terminal, clearing an insurgent relay bug and the screen corruption it leaves.</summary>
+    Format,
 }
 
 [Serializable, NetSerializable]

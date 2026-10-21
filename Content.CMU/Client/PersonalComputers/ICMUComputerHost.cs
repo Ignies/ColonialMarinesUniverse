@@ -43,6 +43,12 @@ public interface ICMUComputerHost
     /// <summary>Tuned off the colony network with an access tuner: no colony sites, nothing reported.</summary>
     bool Dark { get; }
 
+    /// <summary>
+    /// How corrupted a bugged terminal's screen is, 0 clean to 1 fully bugged, growing with the relay's age. Zero
+    /// on a terminal with no relay bug.
+    /// </summary>
+    float Corruption => 0f;
+
     /// <summary>Switched on with the front panel's power button.</summary>
     bool On { get; }
 

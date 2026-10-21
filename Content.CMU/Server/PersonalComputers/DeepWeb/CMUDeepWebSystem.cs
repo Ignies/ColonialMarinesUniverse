@@ -39,6 +39,7 @@ public sealed partial class CMUDeepWebSystem : EntitySystem
     [Dependency] private CMUDeepMazeSystem _maze = default!;
     [Dependency] private CMUDeepAliasSystem _aliases = default!;
     [Dependency] private CMUNetBoardSystem _boards = default!;
+    [Dependency] private CMUComputerRelaySystem _relay = default!;
     [Dependency] private CMUComputerRetuneSystem _retune = default!;
     [Dependency] private CMUSecurityNetSystem _security = default!;
     [Dependency] private InsurgencyFactionApplySystem _factions = default!;
@@ -109,6 +110,39 @@ public sealed partial class CMUDeepWebSystem : EntitySystem
         return true;
     }
 
+    /// <summary>
+    /// Opens the access tuner to bug a public terminal into an insurgent relay: the same lock and route as a hack,
+    /// but on solving it installs a relay instead of deep access. A dark or already hacked terminal cannot be a relay
+    /// (it reaches no colony network to carry traffic), so it is refused.
+    /// </summary>
+    public bool TryStartBug(Entity<CMUDeepWebHackableComponent> ent, EntityUid user)
+    {
+        if (!_cfg.GetCVar(CMUPersonalComputerCVars.Relay)
+            || !TryComp(ent, out CMUPersonalComputerComponent? computer))
+            return false;
+
+        if (HasComp<CMUComputerRelayComponent>(ent))
+        {
+            _popup.PopupEntity(Loc.GetString("cmu-relay-already"), ent, user);
+            return false;
+        }
+
+        if (HasComp<CMUDeepWebAccessComponent>(ent) || computer.Dark)
+        {
+            _popup.PopupEntity(Loc.GetString("cmu-relay-not-clean"), ent, user, PopupType.SmallCaution);
+            return false;
+        }
+
+        if (!CanTune(ent, user))
+            return false;
+
+        if (ent.Comp.Board is not { Bug: true } board || board.User != user)
+            ent.Comp.Board = NewBoard(ent.Comp, user, bug: true);
+
+        Open(ent, user);
+        return true;
+    }
+
     private bool CanTune(Entity<CMUDeepWebHackableComponent> ent, EntityUid user)
     {
         if (!_skills.HasSkill(user, EngineerSkill, ent.Comp.SkillLevel))
@@ -171,7 +205,7 @@ public sealed partial class CMUDeepWebSystem : EntitySystem
     /// A fresh attempt. Better engineers get a cleaner carrier, a smaller board, more anchors and more time;
     /// experts are handed the carrier and only route it.
     /// </summary>
-    public CMUDeepHackBoard NewBoard(CMUDeepWebHackableComponent hackable, EntityUid user)
+    public CMUDeepHackBoard NewBoard(CMUDeepWebHackableComponent hackable, EntityUid user, bool bug = false)
     {
         var skill = _skills.GetSkill(user, EngineerSkill);
         var (width, height, anchors, noise, trace) = skill switch
@@ -188,6 +222,7 @@ public sealed partial class CMUDeepWebSystem : EntitySystem
         var board = new CMUDeepHackBoard
         {
             User = user,
+            Bug = bug,
             Stage = skill >= 4 ? CMUDeepHackStage.Route : CMUDeepHackStage.Tune,
             Frequency = rng.Next(1, CMUDeepHackPuzzle.MaxFrequency + 1),
             Amplitude = rng.Next(1, CMUDeepHackPuzzle.MaxAmplitude + 1),
@@ -281,9 +316,19 @@ public sealed partial class CMUDeepWebSystem : EntitySystem
 
     private void Solve(Entity<CMUDeepWebHackableComponent> ent, EntityUid user)
     {
+        var bug = ent.Comp.Board?.Bug ?? false;
         ent.Comp.Board = null;
-        EnsureComp<CMUDeepWebAccessComponent>(ent);
         _ui.CloseUi(ent.Owner, CMUDeepHackUiKey.Key, user);
+
+        // A bug board installs a relay on the victim's terminal instead of jacking this one into the deep.
+        if (bug && TryComp(ent, out CMUPersonalComputerComponent? computer))
+        {
+            _relay.Plant((ent.Owner, computer), user);
+            _popup.PopupEntity(Loc.GetString("cmu-relay-planted"), ent, user, PopupType.Medium);
+            return;
+        }
+
+        EnsureComp<CMUDeepWebAccessComponent>(ent);
         _popup.PopupEntity(Loc.GetString("cmu-deep-hack-success"), ent, user, PopupType.Medium);
         _adminLog.Add(LogType.Action, LogImpact.Medium, $"{ToPrettyString(user):player} hacked {ToPrettyString(ent)} into the deep web");
     }

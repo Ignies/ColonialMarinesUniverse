@@ -4,6 +4,7 @@ using Content.Shared.CMU14.PersonalComputers.DeepWeb;
 using Robust.Client.UserInterface;
 using Robust.Client.UserInterface.Controls;
 using Robust.Shared.Configuration;
+using Robust.Shared.GameObjects;
 using Robust.Shared.Prototypes;
 using Robust.Shared.Timing;
 
@@ -50,6 +51,15 @@ public interface ICMUDeepHost
     void Sniff(int terminal);
 
     void Loop(string network);
+
+    /// <summary>The insurgents' live relay bugs, answering <see cref="RequestRelays"/>.</summary>
+    event Action<CMURelayListMessage>? RelayReceived;
+
+    /// <summary>Asks the server for the relays this hacked terminal could route its deep traffic through.</summary>
+    void RequestRelays();
+
+    /// <summary>Routes this terminal's deep traffic through the given relay, or stops routing when null.</summary>
+    void Route(NetEntity? terminal);
 }
 
 /// <summary>
@@ -71,6 +81,7 @@ public sealed partial class CMUDeepHome : BoxContainer
     private readonly BoxContainer _found;
     private int _shown = -1;
     private BoxContainer? _toolOutput;
+    private BoxContainer? _relayList;
 
     public event Action? OnClicked;
     public event Action? OnKeyTyped;
@@ -110,8 +121,83 @@ public sealed partial class CMUDeepHome : BoxContainer
         if (host.IsInsurgent)
             AddChild(BuildHijack());
 
+        if (host.IsInsurgent && IoCManager.Resolve<IConfigurationManager>().GetCVar(CMUPersonalComputerCVars.Relay))
+            AddChild(BuildRelays());
+
         if (IoCManager.Resolve<IConfigurationManager>().GetCVar(CMUPersonalComputerCVars.HackerTools))
             AddChild(BuildTools());
+    }
+
+    /// <summary>The insurgents' relay bugs, each with a button to route this terminal's deep traffic through it.</summary>
+    private Control BuildRelays()
+    {
+        _relayList = new BoxContainer { Orientation = LayoutOrientation.Vertical, SeparationOverride = 4 };
+
+        var refresh = _theme.Button(Loc.GetString("cmu-relay-refresh"));
+        refresh.HorizontalAlignment = HAlignment.Left;
+        refresh.OnPressed += _ =>
+        {
+            OnClicked?.Invoke();
+            _host.RequestRelays();
+        };
+
+        return new BoxContainer
+        {
+            Orientation = LayoutOrientation.Vertical,
+            SeparationOverride = 4,
+            Margin = new Thickness(0, 14, 0, 0),
+            Children =
+            {
+                new CMUTerminalRule { Color = _theme.Phosphor.WithAlpha(0.6f) },
+                new Label { Text = Loc.GetString("cmu-relay-heading"), StyleClasses = { "LabelHeading" } },
+                new Label { Text = Loc.GetString("cmu-relay-intro") },
+                refresh,
+                _relayList,
+            },
+        };
+    }
+
+    private void OnRelayList(CMURelayListMessage message)
+    {
+        if (_relayList == null)
+            return;
+
+        _relayList.RemoveAllChildren();
+        if (message.Relays.Count == 0)
+        {
+            _relayList.AddChild(new Label { Text = Loc.GetString("cmu-relay-none"), FontColorOverride = _theme.Dim });
+            return;
+        }
+
+        foreach (var relay in message.Relays)
+        {
+            var who = relay.User ?? Loc.GetString("cmu-relay-nobody");
+            var status = Loc.GetString(relay.Online ? "cmu-relay-online" : "cmu-relay-offline");
+            var title = Loc.GetString("cmu-relay-row",
+                ("id", relay.TerminalId), ("location", relay.Location), ("who", who), ("status", status));
+
+            var info = relay;
+            var route = _theme.Button(Loc.GetString(relay.Routed ? "cmu-relay-routing" : "cmu-relay-route"));
+            // A relay that has dropped offline cannot be newly routed to, but an active route can still be dropped.
+            route.Disabled = !relay.Online && !relay.Routed;
+            route.OnPressed += _ =>
+            {
+                OnClicked?.Invoke();
+                _host.Route(info.Routed ? null : info.Terminal);
+                _host.RequestRelays();
+            };
+
+            _relayList.AddChild(new BoxContainer
+            {
+                Orientation = LayoutOrientation.Horizontal,
+                SeparationOverride = 8,
+                Children =
+                {
+                    new Label { Text = title, HorizontalExpand = true, ClipText = true },
+                    route,
+                },
+            });
+        }
     }
 
     /// <summary>The packet sniffer and the camera loop, with their last result under them.</summary>
@@ -170,12 +256,16 @@ public sealed partial class CMUDeepHome : BoxContainer
     {
         base.EnteredTree();
         _host.ToolResult += OnToolResult;
+        _host.RelayReceived += OnRelayList;
+        if (_relayList != null)
+            _host.RequestRelays();
     }
 
     protected override void ExitedTree()
     {
         base.ExitedTree();
         _host.ToolResult -= OnToolResult;
+        _host.RelayReceived -= OnRelayList;
     }
 
     private void OnToolResult(CMUDeepToolResultMessage result)

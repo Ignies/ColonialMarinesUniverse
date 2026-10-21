@@ -1,0 +1,4 @@
+- files: ["relay_bug.svg", "relay_bug.svg.192dpi.png", "relay_format.svg", "relay_format.svg.192dpi.png"]
+  license: "CC-BY-SA-3.0"
+  copyright: "Drawn for CMU: a microchip beetle for bugging a colony terminal and an eraser for formatting one, in the flat style of the engine's verb icons."
+  source: "https://github.com/Ignies/ColonialMarinesUniverse"

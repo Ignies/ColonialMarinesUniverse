@@ -35,6 +35,9 @@ public sealed partial class CMUNetBrowser : BoxContainer, ILinkClickHandler
     private readonly ICMUDeepHost? _deep;
     private readonly ICMUComputerHost? _shortcuts;
     private bool _shownCarrier = true;
+
+    /// <summary>The corruption step the page on screen was drawn at, so it is only redrawn as the bug worsens.</summary>
+    private int _shownCorruption;
     private readonly HashSet<ProtoId<CMUNetworkPrototype>> _networks;
     private readonly string _home;
 
@@ -332,7 +335,7 @@ public sealed partial class CMUNetBrowser : BoxContainer, ILinkClickHandler
 
                 using (var reader = _resources.ContentFileReadText(file))
                 {
-                    _view.ShowDocument(CMUExtraNetSystem.LocalPaths(FillColony(reader.ReadToEnd()), page.Site!), page.Site!.Style);
+                    _view.ShowDocument(Glitch(CMUExtraNetSystem.LocalPaths(FillColony(reader.ReadToEnd()), page.Site!)), page.Site!.Style);
                 }
 
                 SetSaveable(page.Address);
@@ -477,9 +480,10 @@ public sealed partial class CMUNetBrowser : BoxContainer, ILinkClickHandler
 
     private void SetStatus(string title, string status)
     {
+        // The saved title stays clean, so a shortcut is still named right, but the shown title and status corrupt.
         PageTitle = title;
-        _status.Text = Loc.GetString(status);
-        OnTitleChanged?.Invoke(title);
+        _status.Text = Glitch(Loc.GetString(status));
+        OnTitleChanged?.Invoke(Glitch(title));
 
         // Every finished load goes to the terminal's log; failed lookups of live deep addresses alert the Marshals.
         if (status == "cmu-pc-browser-status-loading")
@@ -494,12 +498,29 @@ public sealed partial class CMUNetBrowser : BoxContainer, ILinkClickHandler
     /// <summary>The computer this browser runs on, for page tags that talk to the server.</summary>
     public ICMUComputerHost? Host => _shortcuts;
 
-    /// <summary>Reloads the page when the carrier drops or comes back.</summary>
+    /// <summary>The corruption of a bugged terminal's screen, 0 clean to 1, seeded by the terminal so each differs.</summary>
+    private string Glitch(string text)
+    {
+        var corruption = _shortcuts?.Corruption ?? 0f;
+        return corruption <= 0f ? text : CMUTextCorruption.Corrupt(text, corruption, _shortcuts?.TerminalId ?? 0);
+    }
+
+    /// <summary>Redraws the page when the carrier drops or comes back, or as a relay bug corrupts the screen further.</summary>
     protected override void FrameUpdate(FrameEventArgs args)
     {
         base.FrameUpdate(args);
-        if (_shortcuts == null || _shortcuts.Carrier == _shownCarrier || _historyIndex < 0)
+        if (_shortcuts == null || _historyIndex < 0)
             return;
+
+        var carrierChanged = _shortcuts.Carrier != _shownCarrier;
+        var corruption = (int) (Math.Clamp(_shortcuts.Corruption, 0f, 1f) * 40f);
+        if (!carrierChanged && corruption == _shownCorruption)
+            return;
+
+        _shownCorruption = corruption;
+        // Redrawing only to spread the corruption is not a new visit, so it must not be reported again.
+        if (!carrierChanged)
+            _quiet = true;
 
         Show(_history[_historyIndex], false);
     }
@@ -511,10 +532,10 @@ public sealed partial class CMUNetBrowser : BoxContainer, ILinkClickHandler
     {
         _view.ShowControls((page, style) =>
         {
-            page.AddChild(new Label { Text = Loc.GetString(title), StyleClasses = { "LabelHeading" } });
+            page.AddChild(new Label { Text = Glitch(Loc.GetString(title)), StyleClasses = { "LabelHeading" } });
             page.AddChild(new RichTextLabel
             {
-                Text = Loc.GetString(body, ("address", address)),
+                Text = Glitch(Loc.GetString(body, ("address", address))),
                 Margin = new Thickness(0, 8, 0, 0),
                 ModulateSelfOverride = style.Text,
             });

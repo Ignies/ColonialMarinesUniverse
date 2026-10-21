@@ -190,6 +190,23 @@ public sealed class CMUPersonalComputerPreview
                 _boards.Hijacked = true;
                 _window?.Desktop?.Browser?.Navigate("herald.colony.news");
             }),
+            // A bugged colony terminal: its screen corrupts more and more until someone formats it.
+            ("bug-boot", 3f, () =>
+            {
+                _deep.Corruption = 0f;
+                Boot("CMUOsSeegson");
+            }),
+            ("bug-light", 3.5f, () =>
+            {
+                _deep.Corruption = 0.3f;
+                _window?.Desktop?.Open(CMUComputerApp.Browser);
+                _window?.Desktop?.Browser?.Navigate("admin.colony.gov/charter");
+            }),
+            ("bug-heavy", 3.5f, () =>
+            {
+                _deep.Corruption = 0.7f;
+                _window?.Desktop?.Browser?.Navigate("admin.colony.gov/charter");
+            }),
         };
     }
 
@@ -312,6 +329,9 @@ public sealed class CMUPersonalComputerPreview
         public bool Carrier => true;
 
         public bool Dark { get; set; }
+
+        /// <summary>Set by the preview's bug steps to show the relay's screen corruption.</summary>
+        public float Corruption { get; set; }
 
         public string? Platoon => null;
 
@@ -497,6 +517,21 @@ public sealed class CMUPersonalComputerPreview
         }
 
         public void Loop(string network)
+        {
+        }
+
+        public event Action<CMURelayListMessage>? RelayReceived;
+
+        public void RequestRelays()
+        {
+            RelayReceived?.Invoke(new CMURelayListMessage(new List<CMURelayInfo>
+            {
+                new(NetEntity.Invalid, 14, "Colony Bar", "Mara Oyelaran", true, true),
+                new(NetEntity.Invalid, 31, "Reception", null, false, false),
+            }));
+        }
+
+        public void Route(NetEntity? terminal)
         {
         }
 

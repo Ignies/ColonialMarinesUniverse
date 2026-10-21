@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Format terminal: an eraser wiping a line clean, for wiping a bugged colony terminal. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <mask id="band">
+      <rect width="64" height="64" fill="#ffffff"/>
+      <rect x="10" y="32" width="44" height="4" fill="#000000"/>
+    </mask>
+  </defs>
+  <rect x="20" y="8" width="24" height="42" rx="5" fill="#ffffff" mask="url(#band)" transform="rotate(-40 32 30)"/>
+  <g fill="none" stroke="#ffffff" stroke-width="4" stroke-linecap="round">
+    <path d="M30 58 H58"/>
+    <path d="M6 58 H11 M16 58 H21"/>
+  </g>
+  <circle cx="54" cy="47" r="2.5" fill="#ffffff"/>
+  <circle cx="58" cy="40" r="1.8" fill="#ffffff"/>
+</svg>

@@ -7,6 +7,7 @@ using Content.Shared.Access.Components;
 using Content.Shared.Access.Systems;
 using Content.Shared.CMU14.PersonalComputers;
 using Content.Shared.CMU14.PersonalComputers.DeepWeb;
+using Content.Shared.CMU14.Threats.Mobs.CLF;
 using Content.Shared.Database;
 using Content.Shared.Examine;
 using Content.Shared.GameTicking;
@@ -49,6 +50,7 @@ public sealed partial class CMUComputerSessionSystem : EntitySystem
     [Dependency] private IPrototypeManager _prototype = default!;
     [Dependency] private CMUCmbSystem _cmb = default!;
     [Dependency] private CMUComputerPowerSystem _computerPower = default!;
+    [Dependency] private CMUComputerRelaySystem _relay = default!;
     [Dependency] private CMUDeepAliasSystem _aliases = default!;
     [Dependency] private CMUDeepWebSystem _deep = default!;
     [Dependency] private CMUExtraNetSystem _net = default!;
@@ -469,9 +471,21 @@ public sealed partial class CMUComputerSessionSystem : EntitySystem
 
         AddLog(ent, Loc.GetString(args.Found ? "cmu-pc-log-visit" : "cmu-pc-log-visit-failed", ("address", address)));
 
-        // A dark terminal's pages stay in its own log; nothing goes out live.
         var host = CMUExtraNetSystem.Split(address).Host;
-        if (HasComp<CMUDeepWebAccessComponent>(ent) || _net.IsDark(ent.Comp) || !_aliases.TryGetSite(host, out _))
+        var liveDeep = _aliases.TryGetSite(host, out _);
+
+        // A hacked terminal is off the colony's monitoring. If the insurgents route it through a relay, a live deep
+        // lookup frames that relay instead; either way this terminal reports nothing under its own number.
+        if (HasComp<CMUDeepWebAccessComponent>(ent))
+        {
+            if (liveDeep)
+                _relay.RouteLookup(ent, address, args.Actor);
+
+            return;
+        }
+
+        // A dark terminal's pages stay in its own log; nothing goes out live.
+        if (_net.IsDark(ent.Comp) || !liveDeep)
             return;
 
         var location = _security.Location(ent);
@@ -540,7 +554,7 @@ public sealed partial class CMUComputerSessionSystem : EntitySystem
                 _ui.OpenUi(ent.Owner, CMUComputerLogUiKey.Key, user);
                 SendLog(ent, user);
                 break;
-            case CMUComputerToolAction.Hack or CMUComputerToolAction.Retune when !IsPowered(ent):
+            case CMUComputerToolAction.Hack or CMUComputerToolAction.Retune or CMUComputerToolAction.Bug or CMUComputerToolAction.Format when !IsPowered(ent):
                 _popup.PopupEntity(Loc.GetString("cmu-pc-no-power"), ent, user, PopupType.SmallCaution);
                 break;
             case CMUComputerToolAction.Hack:
@@ -550,6 +564,16 @@ public sealed partial class CMUComputerSessionSystem : EntitySystem
             case CMUComputerToolAction.Retune:
                 if (TryComp(ent, out CMUDeepWebHackableComponent? tunable) && _deep.TryStartRetune((ent.Owner, tunable), user))
                     AddLog(ent, Loc.GetString("cmu-pc-log-tamper"));
+                break;
+            // A bug leaves no line in the log: the relay is covert, and the screen corruption is the only tell.
+            case CMUComputerToolAction.Bug:
+                if (_cfg.GetCVar(CMUPersonalComputerCVars.Relay)
+                    && HasComp<CLFMemberComponent>(user)
+                    && TryComp(ent, out CMUDeepWebHackableComponent? buggable))
+                    _deep.TryStartBug((ent.Owner, buggable), user);
+                break;
+            case CMUComputerToolAction.Format:
+                _relay.Format((ent.Owner, ent.Comp), user);
                 break;
         }
     }

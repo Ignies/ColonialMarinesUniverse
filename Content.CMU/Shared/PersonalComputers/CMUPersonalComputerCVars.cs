@@ -133,4 +133,12 @@ public sealed class CMUPersonalComputerCVars
     /// <summary>The colony security network: the terminal map and the unauthorized use log.</summary>
     public static readonly CVarDef<bool> SecurityNet =
         CVarDef.Create("cmu.pc.security_net", true, CVar.SERVER | CVar.REPLICATED);
+
+    /// <summary>
+    /// The insurgent relay bug: bugging a public terminal with an access tuner and routing deep web traffic through
+    /// it from a hacked terminal, so the lookups frame that terminal and its user. Off: the bug and format options
+    /// are gone, planted relays stop carrying traffic and the screen corruption stops.
+    /// </summary>
+    public static readonly CVarDef<bool> Relay =
+        CVarDef.Create("cmu.pc.relay", true, CVar.SERVER | CVar.REPLICATED);
 }

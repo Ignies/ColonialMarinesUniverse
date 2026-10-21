@@ -1,11 +1,14 @@
 using System.Numerics;
 using Content.Client.UserInterface.Controls;
 using Content.Shared.CMU14.PersonalComputers;
+using Content.Shared.CMU14.PersonalComputers.DeepWeb;
+using Content.Shared.CMU14.Threats.Mobs.CLF;
 using Robust.Client.Graphics;
 using Robust.Client.UserInterface;
 using Robust.Client.UserInterface.Controls;
 using Robust.Client.UserInterface.CustomControls;
 using Robust.Shared.Configuration;
+using Robust.Shared.Player;
 using Robust.Shared.Timing;
 using Robust.Shared.Utility;
 
@@ -87,8 +90,25 @@ public sealed class CMUComputerToolBui : BoundUserInterface
             options.Add(Option(CMUComputerToolAction.Retune, label, new SpriteSpecifier.Texture(new ResPath("/Textures/Interface/VerbIcons/signal.svg.192dpi.png"))));
         }
 
+        if (cfg.GetCVar(CMUPersonalComputerCVars.Relay))
+        {
+            // Only an insurgent is offered the bug, and only on a clean public terminal they could route through.
+            if (EntMan.HasComponent<CMUDeepWebHackableComponent>(Owner)
+                && !EntMan.HasComponent<CMUDeepWebAccessComponent>(Owner)
+                && !EntMan.HasComponent<CMUComputerRelayComponent>(Owner)
+                && IsInsurgent())
+                options.Add(Option(CMUComputerToolAction.Bug, "cmu-pc-tool-bug", new SpriteSpecifier.Texture(new ResPath("/Textures/CMU14/Interface/VerbIcons/relay_bug.svg.192dpi.png"))));
+
+            options.Add(Option(CMUComputerToolAction.Format, "cmu-pc-tool-format", new SpriteSpecifier.Texture(new ResPath("/Textures/CMU14/Interface/VerbIcons/relay_format.svg.192dpi.png"))));
+        }
+
         _menu.SetButtons(options);
         _menu.OpenOverMouseScreenPosition();
+    }
+
+    private bool IsInsurgent()
+    {
+        return EntMan.HasComponent<CLFMemberComponent>(IoCManager.Resolve<ISharedPlayerManager>().LocalEntity);
     }
 
     private RadialMenuActionOption<CMUComputerToolAction> Option(CMUComputerToolAction action, string label, SpriteSpecifier icon)
