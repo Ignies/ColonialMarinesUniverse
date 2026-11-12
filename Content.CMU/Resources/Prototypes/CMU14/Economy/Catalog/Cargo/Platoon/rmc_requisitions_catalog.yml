@@ -255,6 +255,10 @@
         crate: CMUCrateVehicleAmmoCupolaTracer
         maxStock: 2
         stockReplenishDelay: 300
+      - cost: 1400
+        crate: CMUCrateVehicleAmmoCupolaAP
+        maxStock: 1
+        stockReplenishDelay: 600
       - cost: 1200
         crate: RMCCrateVehicleAmmoLZRNFlamer
         maxStock: 2

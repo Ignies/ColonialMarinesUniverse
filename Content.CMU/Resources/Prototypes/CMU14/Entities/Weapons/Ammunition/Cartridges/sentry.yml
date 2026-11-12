@@ -25,3 +25,33 @@
     color: "#ff4300"
     radius: 2.0
     energy: 7.0
+
+- type: entity
+  parent: CMCartridgeSentry10x50mm
+  id: CMUCartridgeCupolaAP
+  name: cartridge (10x50mm, armor-piercing)
+  categories: [ HideSpawnMenu ]
+  components:
+  - type: CartridgeAmmo
+    proto: CMUBulletCupolaAP
+    muzzleFlash: MuzzleFlashEffectVehicleOver
+
+# A hardened penetrator: less of a wound than ball, but it punches through body armor and, unlike ball,
+# into vehicle hulls. Structural damage reaches hulls and walls only; no living thing takes it.
+- type: entity
+  parent: VehicleBulletSentry10x50mm
+  id: CMUBulletCupolaAP
+  name: bullet (10x50mm, armor-piercing)
+  categories: [ HideSpawnMenu ]
+  components:
+  - type: Projectile
+    damage:
+      types:
+        Piercing: 20
+        Structural: 6
+  - type: CMArmorPiercing
+    amount: 30
+  # Marks the round as anti-vehicle, so armored vehicles' RequireProjectileTarget lets it hit them
+  # without being clicked. A multiplier of 1 leaves its damage to them as it is.
+  - type: VehicleDamageMultiplier
+    multiplier: 1

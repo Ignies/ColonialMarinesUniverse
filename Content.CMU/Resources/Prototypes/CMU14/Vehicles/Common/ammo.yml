@@ -26,6 +26,32 @@
 
 - type: entity
   parent: VehicleAmmoBoxBase
+  id: CMUAmmoBoxCupolaAP
+  name: cupola cannon ammo crate (armor-piercing)
+  description: Armor-piercing ammunition for cupola-mounted vehicle cannons and the gun jeep. Hardened penetrators that chew through armored hulls and body armor, but leave smaller wounds than standard rounds.
+  components:
+  - type: Sprite
+    layers:
+    - state: cupola_0
+      map: [ "enum.BulletBoxLayers.Fill" ]
+  - type: GenericVisualizer
+    visuals:
+      enum.BulletBoxLayers.Fill:
+        enum.BulletBoxLayers.Fill:
+          Empty: { state: cupola_0, visible: true }
+          Low: { state: cupola_0, visible: true }
+          Medium: { state: cupola_1, visible: true }
+          High: { state: cupola_1, visible: true }
+          Full: { state: cupola_1, visible: true }
+  - type: BulletBox
+    amount: 200
+    max: 200
+    bulletType: VehicleAmmoBoxCupola
+    ammoProto: CMUCartridgeCupolaAP
+    usedIn: Tank cupola, gun jeep
+
+- type: entity
+  parent: VehicleAmmoBoxBase
   id: CMUAmmoBoxLTBCannonAPFSDS
   name: LTB APFSDS cannon shell
   description: Ammunition for light tank cannons. A fin-stabilized discarding-sabot penetrator with no explosive filler, meant to punch through armor rather than fragment. Barely scratches infantry or structures.

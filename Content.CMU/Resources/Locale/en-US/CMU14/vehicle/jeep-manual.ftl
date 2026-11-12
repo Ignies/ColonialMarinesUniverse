@@ -207,8 +207,10 @@ cmu-jeep-manual-crashes-repair = Beat the dents out with a lit welder on the fro
 cmu-jeep-manual-gun = Gun jeep: machine gun
 cmu-jeep-manual-gun-about = A belt fed machine gun on a pedestal, fired by whoever sits in the gunner's seat. It swings 45 degrees either way and holds 300 rounds.
 cmu-jeep-manual-gun-use =
-    Sit in the gunner's seat and fire; your hands stay on the gun.
+    Sit in the gunner's seat and fire; your hands stay on the gun. Its rounds pass the jeep's own riders by.
     To reload, use a cupola ammo crate on the jeep (1.5 s).
+    A crate of another round, armor-piercing or tracer, swaps the belt instead (3 s): what's left in the gun comes out in a crate of its own.
+    Armor-piercing rounds wound less, but go through body armor and into the hulls of armored vehicles, which shrug off standard rounds.
 cmu-jeep-manual-gun-repair =
     Weld it like the hull.
     It comes off through vehicle maintenance with the jack: the gun before its mount.

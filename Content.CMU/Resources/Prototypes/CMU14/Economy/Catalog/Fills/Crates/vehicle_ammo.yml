@@ -10,6 +10,16 @@
 
 - type: entity
   parent: RMCCrateAmmo
+  id: CMUCrateVehicleAmmoCupolaAP
+  name: M56 cupola magazines crate (armor-piercing) (x2)
+  components:
+  - type: StorageFill
+    contents:
+    - id: CMUAmmoBoxCupolaAP
+      amount: 2
+
+- type: entity
+  parent: RMCCrateAmmo
   id: CMUCrateVehicleAmmoCupolaMixed
   name: M56 cupola magazines crate (mixed) (x2)
   description: A mixed crate of M56 cupola magazines, carrying one standard and one tracer magazine instead of a single type in bulk.
