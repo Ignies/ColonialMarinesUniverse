@@ -13,6 +13,8 @@ namespace Content.Client.CMU14.Vehicle;
 /// prototype's one state.
 /// </summary>
 /// <remarks>
+/// Only the sentry's head is drawn. On the ground most sentries also stand on a base plate, drawn as a
+/// separate layer; on the jeep the pintle and its pedestal take the plate's place.
 /// The overlay entity is the vehicle turret system's, redrawn only when it first appears; nothing is
 /// raised when the sentry's ammo, power or the vehicle's state change, so each frame sets the state,
 /// touching the sprite only when it differs. There are a handful of turret overlays at most.

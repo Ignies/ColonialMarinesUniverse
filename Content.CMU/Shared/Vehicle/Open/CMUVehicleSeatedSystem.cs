@@ -74,7 +74,7 @@ public sealed class CMUVehicleSeatedSystem : EntitySystem
 
     private void OnPreventCollide(Entity<CMUVehicleSeatedComponent> ent, ref PreventCollideEvent args)
     {
-        if (args.OurFixture.Hard && args.OtherFixture.Hard
+        if ((args.OurFixture.Hard && args.OtherFixture.Hard)
             || IsFromOwnMountedGun(ent, args.OtherEntity))
         {
             args.Cancelled = true;

@@ -5,7 +5,9 @@ using Content.Shared._RMC14.Vehicle;
 using Content.Shared._RMC14.Weapons.Ranged;
 using Content.Shared._RMC14.Weapons.Ranged.IFF;
 using Content.Shared._RMC14.Xenonids;
+using Content.Shared.Administration.Logs;
 using Content.Shared.Buckle;
+using Content.Shared.Database;
 using Content.Shared.Buckle.Components;
 using Content.Shared.Containers.ItemSlots;
 using Content.Shared.Hands.EntitySystems;
@@ -40,6 +42,7 @@ namespace Content.Shared.CMU14.Vehicle.Open;
 /// </remarks>
 public sealed class CMUJeepSentryMountSystem : EntitySystem
 {
+    [Dependency] private ISharedAdminLogManager _adminLog = default!;
     [Dependency] private SharedBuckleSystem _buckle = default!;
     [Dependency] private SharedContainerSystem _container = default!;
     [Dependency] private SharedGunSystem _guns = default!;
@@ -190,6 +193,10 @@ public sealed class CMUJeepSentryMountSystem : EntitySystem
         IEnumerable<string> friendly,
         IEnumerable<string> armedHostile)
     {
+        // A locked sentry's factions are its own: only which of them it fires on armed can change.
+        if (IsLocked(ent))
+            friendly = ent.Comp.FriendlyFactions.ToArray();
+
         ent.Comp.FriendlyFactions = friendly
             .Where(SharedSentryTargetingSystem.SentryAllowedFactions.Contains)
             .ToHashSet();
@@ -353,6 +360,9 @@ public sealed class CMUJeepSentryMountSystem : EntitySystem
 
         Dirty(ent);
         ApplyRules(ent);
+        var (user, pintle) = (ToPrettyString(args.Actor), ToPrettyString(ent));
+        _adminLog.Add(LogType.Action, LogImpact.Low,
+            $"{user:user} set {pintle:pintle} to hold fire on {args.Faction}: {args.Friendly}");
     }
 
     private void OnArmedMsg(Entity<CMUJeepSentryMountComponent> ent, ref CMUJeepSentryArmedMessage args)
@@ -367,6 +377,9 @@ public sealed class CMUJeepSentryMountSystem : EntitySystem
 
         Dirty(ent);
         ApplyRules(ent);
+        var (user, pintle) = (ToPrettyString(args.Actor), ToPrettyString(ent));
+        _adminLog.Add(LogType.Action, LogImpact.Low,
+            $"{user:user} set {pintle:pintle} to fire on armed {args.Faction}: {args.ArmedHostile}");
     }
 
     private void OnModeMsg(Entity<CMUJeepSentryMountComponent> ent, ref CMUJeepSentryModeMessage args)
@@ -387,6 +400,8 @@ public sealed class CMUJeepSentryMountSystem : EntitySystem
         ent.Comp.Powered = args.Powered;
         ent.Comp.Target = null;
         Dirty(ent);
+        _adminLog.Add(LogType.Action, LogImpact.Low,
+            $"{ToPrettyString(args.Actor):user} switched {ToPrettyString(ent):pintle} {(args.Powered ? "on" : "off")}");
     }
 
     /// <summary>
@@ -473,10 +488,17 @@ public sealed class CMUJeepSentryMountSystem : EntitySystem
     /// </summary>
     public float GetRange(Entity<CMUJeepSentryMountComponent> mount, EntityUid sentry)
     {
-        return MetaData(sentry).EntityPrototype is { } proto
-               && mount.Comp.SentryRanges.TryGetValue(proto.ID, out var range)
-            ? range
-            : mount.Comp.Range;
+        // A sentry's variants, a corporate omni sentry say, see as far as the sentry they're made from.
+        if (MetaData(sentry).EntityPrototype is { } proto)
+        {
+            foreach (var kind in _prototypes.EnumerateParents(proto, includeSelf: true))
+            {
+                if (mount.Comp.SentryRanges.TryGetValue(kind.ID, out var range))
+                    return range;
+            }
+        }
+
+        return mount.Comp.Range;
     }
 
     /// <summary>

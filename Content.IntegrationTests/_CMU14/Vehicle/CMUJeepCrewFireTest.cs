@@ -31,12 +31,13 @@ public sealed class CMUJeepCrewFireTest : GameTest
             var transform = SEntMan.System<SharedTransformSystem>();
             var gun = SEntMan.EntityQuery<RefillableByBulletBoxComponent>(true)
                 .Select(c => c.Owner)
-                .Single(uid => transform.GetParentUid(uid) is var parent &&
-                               (parent == jeep || transform.GetParentUid(parent) == jeep));
+                .Single(uid => transform.GetParentUid(uid) is var parent
+                               && (parent == jeep || transform.GetParentUid(parent) == jeep));
 
             // A round on a line straight through the driver's seat, to a target past the jeep.
             var driverPosition = transform.GetMapCoordinates(driver).Position;
-            target = SEntMan.SpawnEntity("CMMobHuman", new MapCoordinates(driverPosition + new Vector2(2.5f, 0f), map.MapId));
+            target = SEntMan.SpawnEntity("CMMobHuman", new MapCoordinates(driverPosition + new Vector2(2.5f, 0f),
+                map.MapId));
             var round = SEntMan.SpawnEntity("VehicleBulletSentry10x50mm",
                 new MapCoordinates(driverPosition - new Vector2(1.5f, 0f), map.MapId));
             SEntMan.System<SharedGunSystem>().ShootProjectile(round, Vector2.UnitX, Vector2.Zero, gun);
@@ -61,7 +62,8 @@ public sealed class CMUJeepCrewFireTest : GameTest
         EntityUid pistol = default;
         await Server.WaitPost(() =>
         {
-            pistol = SEntMan.SpawnEntity("RMCWeaponPistolB92FS", SEntMan.GetComponent<TransformComponent>(passenger).Coordinates);
+            pistol = SEntMan.SpawnEntity("RMCWeaponPistolB92FS",
+                SEntMan.GetComponent<TransformComponent>(passenger).Coordinates);
             Assert.That(SEntMan.System<SharedHandsSystem>().TryPickupAnyHand(passenger, pistol), Is.True);
         });
 
@@ -122,7 +124,8 @@ public sealed class CMUJeepCrewFireTest : GameTest
         {
             Assert.That(SEntMan.GetComponent<BuckleComponent>(driver).Buckled, Is.True, "The driver should be seated.");
             if (passenger)
-                Assert.That(SEntMan.GetComponent<BuckleComponent>(rider).Buckled, Is.True, "The passenger should be seated.");
+                Assert.That(SEntMan.GetComponent<BuckleComponent>(rider).Buckled, Is.True,
+                    "The passenger should be seated.");
         });
 
         return (map, jeep, driver, rider);
