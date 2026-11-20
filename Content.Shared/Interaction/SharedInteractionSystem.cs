@@ -7,6 +7,7 @@ using Content.Shared._RMC14.Storage;
 using Content.Shared.ActionBlocker;
 using Content.Shared.Administration.Logs;
 using Content.Shared.CCVar;
+using Content.Shared.CMU14.Movement; // CMU14
 using Content.Shared.Chat;
 using Content.Shared.CombatMode;
 using Content.Shared.Database;
@@ -349,6 +350,13 @@ namespace Content.Shared.Interaction
 
             if (!InRangeUnobstructed(userEntity.Value, uid, popup: true))
                 return false;
+
+            // CMU14 Begin: let the target use the click, e.g. a vehicle to be braced against and pushed
+            var cmuPull = new CMUTryPullObjectEvent(userEntity.Value);
+            RaiseLocalEvent(uid, ref cmuPull);
+            if (cmuPull.Handled)
+                return false;
+            // CMU14 End
 
             _pullSystem.TogglePull(uid, userEntity.Value);
             return false;

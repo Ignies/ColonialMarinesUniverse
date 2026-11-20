@@ -61,6 +61,8 @@
   - type: CMUVehicleCrash
   - type: CMUVehicleTyres
   - type: CMUVehicleCover
+  # Ctrl+click the front or back to brace against it, then walk into it to push it slowly.
+  - type: CMUVehiclePushable
   - type: VehicleOvercharge
     speedMultiplier: 1.55
     duration: 3

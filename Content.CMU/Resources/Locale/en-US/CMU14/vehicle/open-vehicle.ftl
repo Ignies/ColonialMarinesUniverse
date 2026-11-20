@@ -28,3 +28,11 @@ cmu-vehicle-searchlight-broken = The searchlight's lens is smashed. Weld it back
 cmu-vehicle-searchlight-hand-full = Free your hand to take hold of the searchlight.
 cmu-vehicle-searchlight-needs-light = Hold the searchlight in your other hand to fit it.
 cmu-vehicle-searchlight-needs-screwdriver = You need a screwdriver in your other hand to fit the searchlight.
+
+cmu-vehicle-push-brace-back = You brace against the back of {THE($vehicle)}. Walk into it to push it on.
+cmu-vehicle-push-brace-front = You brace against the front of {THE($vehicle)}. Walk into it to push it back.
+cmu-vehicle-push-ends-only = You can only push {THE($vehicle)} from its front or back.
+cmu-vehicle-push-driven = Someone's at the wheel of {THE($vehicle)}.
+cmu-vehicle-push-cant = You can't push {THE($vehicle)}.
+cmu-vehicle-push-no-wheels = {CAPITALIZE(THE($vehicle))} won't budge on its bare hubs.
+cmu-vehicle-push-knocked-off = {CAPITALIZE(THE($vehicle))} is shoved back against you and knocks you off your feet!
