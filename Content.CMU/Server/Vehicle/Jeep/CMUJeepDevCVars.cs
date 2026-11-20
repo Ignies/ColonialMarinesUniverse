@@ -31,4 +31,15 @@ public sealed class CMUJeepDevCVars
     /// Sets the day/night cycle of the first player's levels to midday, for screenshots.
     /// </summary>
     public static readonly CVarDef<bool> DevDaylight = CVarDef.Create("cmu.jeep.dev_daylight", false, CVar.SERVERONLY);
+
+    /// <summary>
+    /// A turret mount to show off, e.g. "CMUJeepSentryMount": the dev kit also parks four gun jeeps
+    /// carrying it, one facing each way, for screenshots of its art. Empty for none.
+    /// </summary>
+    public static readonly CVarDef<string> DevTurret = CVarDef.Create("cmu.jeep.dev_turret", "", CVar.SERVERONLY);
+
+    /// <summary>
+    /// What goes on <see cref="DevTurret"/>'s mount, e.g. "RMCSentryMini". Empty to leave it bare.
+    /// </summary>
+    public static readonly CVarDef<string> DevTurretGun = CVarDef.Create("cmu.jeep.dev_turret_gun", "", CVar.SERVERONLY);
 }

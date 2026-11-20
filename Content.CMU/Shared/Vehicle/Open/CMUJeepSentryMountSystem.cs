@@ -7,9 +7,9 @@ using Content.Shared._RMC14.Weapons.Ranged.IFF;
 using Content.Shared._RMC14.Xenonids;
 using Content.Shared.Administration.Logs;
 using Content.Shared.Buckle;
-using Content.Shared.Database;
 using Content.Shared.Buckle.Components;
 using Content.Shared.Containers.ItemSlots;
+using Content.Shared.Database;
 using Content.Shared.Hands.EntitySystems;
 using Content.Shared.Interaction;
 using Content.Shared.Mobs.Components;
@@ -275,7 +275,7 @@ public sealed class CMUJeepSentryMountSystem : EntitySystem
             || !TryGetMount(vehicle, out var mount)
             || GetSentry(mount) is not { } sentry
             || !TryComp(sentry, out SentryComponent? sentryComp)
-            || sentryComp.MagazineTag is { } magazine && !_tags.HasTag(used, magazine))
+            || (sentryComp.MagazineTag is { } magazine && !_tags.HasTag(used, magazine)))
         {
             return false;
         }
@@ -362,7 +362,7 @@ public sealed class CMUJeepSentryMountSystem : EntitySystem
         ApplyRules(ent);
         var (user, pintle) = (ToPrettyString(args.Actor), ToPrettyString(ent));
         _adminLog.Add(LogType.Action, LogImpact.Low,
-            $"{user:user} set {pintle:pintle} to hold fire on {args.Faction}: {args.Friendly}");
+            $"{user:user} {(args.Friendly ? "held" : "lifted")} fire on {args.Faction} for {pintle:pintle}");
     }
 
     private void OnArmedMsg(Entity<CMUJeepSentryMountComponent> ent, ref CMUJeepSentryArmedMessage args)
@@ -379,7 +379,7 @@ public sealed class CMUJeepSentryMountSystem : EntitySystem
         ApplyRules(ent);
         var (user, pintle) = (ToPrettyString(args.Actor), ToPrettyString(ent));
         _adminLog.Add(LogType.Action, LogImpact.Low,
-            $"{user:user} set {pintle:pintle} to fire on armed {args.Faction}: {args.ArmedHostile}");
+            $"{user:user} {(args.ArmedHostile ? "set" : "cleared")} fire on armed {args.Faction} for {pintle:pintle}");
     }
 
     private void OnModeMsg(Entity<CMUJeepSentryMountComponent> ent, ref CMUJeepSentryModeMessage args)
@@ -390,6 +390,8 @@ public sealed class CMUJeepSentryMountSystem : EntitySystem
         ent.Comp.Mode = args.Mode;
         ent.Comp.NextRetarget = TimeSpan.Zero;
         Dirty(ent);
+        _adminLog.Add(LogType.Action, LogImpact.Low,
+            $"{ToPrettyString(args.Actor):user} set {ToPrettyString(ent):pintle} to target the {args.Mode} threat");
     }
 
     private void OnPowerMsg(Entity<CMUJeepSentryMountComponent> ent, ref CMUJeepSentryPowerMessage args)
@@ -442,7 +444,7 @@ public sealed class CMUJeepSentryMountSystem : EntitySystem
         foreach (var faction in member.Factions)
         {
             if (alliance.Contains(faction)
-                || _prototypes.TryIndex(faction, out NpcFactionPrototype? proto) && proto.SentryProtected)
+                || (_prototypes.TryIndex(faction, out NpcFactionPrototype? proto) && proto.SentryProtected))
             {
                 return true;
             }
@@ -646,7 +648,7 @@ public sealed class CMUJeepSentryMountSystem : EntitySystem
 
             var distance = DistanceSquared(candidate, origin);
             var threat = mount.Comp.Mode == CMUJeepSentryTargetMode.Biggest ? Threat(candidate) : 0f;
-            if (threat < bestThreat || threat == bestThreat && distance >= bestDistance)
+            if (threat < bestThreat || (threat == bestThreat && distance >= bestDistance))
                 continue;
 
             best = candidate;

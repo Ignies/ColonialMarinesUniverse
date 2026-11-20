@@ -215,6 +215,9 @@ public sealed class CMUJeepDevKitSystem : EntitySystem
             return false;
         }
 
+        if (!crates)
+            ParkTurretShowcase(grid, placed, pitch, footprint, spots);
+
         // The player stands by the first jeep with the tools; the crate and fuel tank go on their own
         // tiles. Those look for open sky only when the jeep is under it, so they stay next to it.
         var nearOpen = IsOpen(grid, placed[0]);
@@ -251,6 +254,70 @@ public sealed class CMUJeepDevKitSystem : EntitySystem
                  string.Join(", ", spots) + $"; player at {stand}.");
         error = null;
         return true;
+    }
+
+    /// <summary>
+    /// Parks four gun jeeps carrying <see cref="CMUJeepDevCVars.DevTurret"/>, with
+    /// <see cref="CMUJeepDevCVars.DevTurretGun"/> on it, one facing each way, beside the others.
+    /// </summary>
+    private void ParkTurretShowcase(
+        Entity<MapGridComponent> grid,
+        List<Vector2i> placed,
+        int pitch,
+        Func<Vector2i, IEnumerable<Vector2i>> footprint,
+        List<string> spots)
+    {
+        var turret = _cfg.GetCVar(CMUJeepDevCVars.DevTurret);
+        if (string.IsNullOrEmpty(turret) || !_prototypes.HasIndex<EntityPrototype>(turret))
+            return;
+
+        var gun = _cfg.GetCVar(CMUJeepDevCVars.DevTurretGun);
+        for (var turn = 0; turn < 4; turn++)
+        {
+            if (!TryFindTile(grid, placed[0], placed[^1] + new Vector2i(pitch, 0), footprint, out var tile))
+                return;
+
+            Reserve(grid, footprint(tile));
+            placed.Add(tile);
+            var coordinates = _map.GridTileToLocal(grid, grid.Comp, tile);
+            var jeep = SpawnAttachedTo("CMUVehicleJeepGunner", coordinates);
+            _transform.SetLocalRotation(jeep, Angle.FromDegrees(90 * turn));
+            LeaveKitKey(jeep);
+
+            if (_containers.TryGetContainer(jeep, "turret", out var slot))
+            {
+                foreach (var old in slot.ContainedEntities.ToArray())
+                {
+                    Del(old);
+                }
+            }
+
+            var mount = Spawn(turret, MapCoordinates.Nullspace);
+            if (!_itemSlots.TryInsert(jeep, "turret", mount, null))
+            {
+                Del(mount);
+                continue;
+            }
+
+            if (!string.IsNullOrEmpty(gun) && _prototypes.HasIndex<EntityPrototype>(gun))
+                FitGun(mount, Spawn(gun, MapCoordinates.Nullspace));
+
+            spots.Add($"{ToPrettyString(jeep)} with {turret} turned {90 * turn} at {coordinates.Position}");
+        }
+    }
+
+    private void FitGun(EntityUid mount, EntityUid gun)
+    {
+        if (TryComp(mount, out ItemSlotsComponent? slots))
+        {
+            foreach (var (id, _) in slots.Slots)
+            {
+                if (_itemSlots.TryInsert(mount, id, gun, null))
+                    return;
+            }
+        }
+
+        Del(gun);
     }
 
     /// <summary>
