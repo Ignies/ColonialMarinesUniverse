@@ -36,6 +36,7 @@ public sealed class CMUVehicleSeatSystem : EntitySystem
     [Dependency] private INetManager _net = default!;
     [Dependency] private SharedPopupSystem _popup = default!;
     [Dependency] private CMUVehicleSeatGunsSystem _seatGuns = default!;
+    [Dependency] private CMUJeepSentryMountSystem _sentryMount = default!;
     [Dependency] private SharedTransformSystem _transform = default!;
     [Dependency] private VehicleSystem _vehicles = default!;
     [Dependency] private IGameTiming _timing = default!;
@@ -118,7 +119,19 @@ public sealed class CMUVehicleSeatSystem : EntitySystem
     /// </summary>
     private void OnStrapAttempt(Entity<CMUVehicleSeatComponent> ent, ref StrapAttemptEvent args)
     {
-        if (args.Cancelled || args.User is not { } user || !args.Popup || !DoorBlocks(ent.Comp, args.Buckle))
+        if (args.Cancelled)
+            return;
+
+        // A sentry on the pintle runs itself: there's no gun for a gunner to man.
+        if (IsGunnerSeat(ent.Comp) && ent.Comp.Vehicle is { } vehicle && _sentryMount.HasSentry(vehicle))
+        {
+            args.Cancelled = true;
+            if (args.Popup && args.User is { } blocked)
+                _popup.PopupClient(Loc.GetString("cmu-jeep-sentry-gunner-seat"), blocked, blocked, PopupType.SmallCaution);
+            return;
+        }
+
+        if (args.User is not { } user || !args.Popup || !DoorBlocks(ent.Comp, args.Buckle))
             return;
 
         args.Cancelled = true;
@@ -512,6 +525,9 @@ public sealed class CMUVehicleSeatSystem : EntitySystem
             if (!IsFree(candidate) || TryComp(candidate, out CMUVehicleSeatComponent? seatComp) && !seatComp.AutoSeat)
                 continue;
 
+            if (seatComp != null && IsGunnerSeat(seatComp) && _sentryMount.HasSentry(ent))
+                continue;
+
             var distance = (_transform.GetWorldPosition(candidate) - userPos).LengthSquared();
             if (distance >= best)
                 continue;
@@ -526,6 +542,14 @@ public sealed class CMUVehicleSeatSystem : EntitySystem
     private bool IsFree(EntityUid seat)
     {
         return TryComp(seat, out StrapComponent? strap) && strap.BuckledEntities.Count == 0;
+    }
+
+    /// <summary>
+    /// Whether the seat is a gunner's: its rider's hands are on the vehicle's mounted gun.
+    /// </summary>
+    public static bool IsGunnerSeat(CMUVehicleSeatComponent seat)
+    {
+        return seat.Guns == CMUVehicleSeatGuns.None;
     }
 
     public bool IsSeatedIn(EntityUid user, EntityUid vehicle)

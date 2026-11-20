@@ -6,6 +6,8 @@ using Content.Shared._RMC14.Vehicle;
 using Content.Shared._RMC14.Weapons.Ranged;
 using Content.Shared._RMC14.Weapons.Ranged.IFF;
 using Content.Shared._RMC14.Xenonids;
+using Content.Shared.Buckle;
+using Content.Shared.Buckle.Components;
 using Content.Shared.Containers.ItemSlots;
 using Content.Shared.Hands.EntitySystems;
 using Content.Shared.Interaction;
@@ -35,6 +37,7 @@ namespace Content.Shared.CMU14.Vehicle.Open;
 /// </remarks>
 public sealed class CMUJeepSentryMountSystem : EntitySystem
 {
+    [Dependency] private SharedBuckleSystem _buckle = default!;
     [Dependency] private SharedContainerSystem _container = default!;
     [Dependency] private SharedGunSystem _guns = default!;
     [Dependency] private SharedHandsSystem _hands = default!;
@@ -99,6 +102,35 @@ public sealed class CMUJeepSentryMountSystem : EntitySystem
         ent.Comp.Target = null;
         Dirty(ent);
         ApplyRules(ent);
+
+        // The sentry takes the gunner's place: whoever sat there gets out.
+        if (_net.IsServer &&
+            _turret.TryGetVehicle(ent, out var vehicle) &&
+            TryComp(vehicle, out CMUVehicleSeatsComponent? seats))
+        {
+            foreach (var seat in seats.SeatEntities)
+            {
+                if (!TryComp(seat, out CMUVehicleSeatComponent? seatComp) ||
+                    !CMUVehicleSeatSystem.IsGunnerSeat(seatComp) ||
+                    !TryComp(seat, out StrapComponent? strap))
+                {
+                    continue;
+                }
+
+                foreach (var rider in strap.BuckledEntities.ToArray())
+                {
+                    _buckle.Unbuckle(rider, null);
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Whether the vehicle has a sentry on a pintle.
+    /// </summary>
+    public bool HasSentry(EntityUid vehicle)
+    {
+        return TryGetMount(vehicle, out var mount) && GetSentry(mount) != null;
     }
 
     private void OnSentryRemoved(Entity<CMUJeepSentryMountComponent> ent, ref EntRemovedFromContainerMessage args)

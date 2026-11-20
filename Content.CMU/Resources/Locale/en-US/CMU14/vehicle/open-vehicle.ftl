@@ -47,3 +47,4 @@ cmu-jeep-sentry-faction = Faction
 cmu-jeep-sentry-hold-fire = Hold fire
 cmu-jeep-sentry-fire-if-armed = Fire if armed
 cmu-jeep-sentry-help = It fires on anyone it doesn't hold fire on. "Fire if armed" fires on a faction it holds fire on once they hold a gun. With no faction ticked, it fires on no one.
+cmu-jeep-sentry-gunner-seat = The sentry on the pintle runs itself: there's no gun to man.

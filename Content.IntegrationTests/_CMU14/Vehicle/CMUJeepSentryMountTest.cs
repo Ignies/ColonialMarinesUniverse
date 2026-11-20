@@ -1,5 +1,7 @@
 using System.Linq;
 using Content.IntegrationTests.Fixtures;
+using Content.Shared._RMC14.Vehicle;
+using Content.Shared.Buckle.Components;
 using Content.Shared.CMU14.Vehicle.Open;
 using Content.Shared.Containers.ItemSlots;
 using Content.Shared.Damage.Systems;
@@ -41,6 +43,12 @@ public sealed class CMUJeepSentryMountTest : GameTest
         });
         await RunTicksSync(5);
 
+        var mount = await FitSentry(jeep);
+        return (map, jeep, mount);
+    }
+
+    private async Task<Entity<CMUJeepSentryMountComponent>> FitSentry(EntityUid jeep)
+    {
         Entity<CMUJeepSentryMountComponent> mount = default;
         await Server.WaitPost(() =>
         {
@@ -60,7 +68,13 @@ public sealed class CMUJeepSentryMountTest : GameTest
             mount = (pintle, SEntMan.GetComponent<CMUJeepSentryMountComponent>(pintle));
         });
         await RunTicksSync(5);
-        return (map, jeep, mount);
+        return mount;
+    }
+
+    private EntityUid GunnerSeat(EntityUid jeep)
+    {
+        return SEntMan.GetComponent<CMUVehicleSeatsComponent>(jeep).SeatEntities
+            .First(s => CMUVehicleSeatSystem.IsGunnerSeat(SEntMan.GetComponent<CMUVehicleSeatComponent>(s)));
     }
 
     private EntityUid Person(TestMapData map, float x, float y, string? faction, bool armed)
@@ -107,6 +121,67 @@ public sealed class CMUJeepSentryMountTest : GameTest
             system.SetRules(mount, [WeYu], []);
             Assert.That(system.IsTarget(mount, sentry, unarmedBureau), Is.True);
         });
+    }
+
+    [Test]
+    public async Task ItTurnsAllTheWayRoundToFire()
+    {
+        var (map, jeep, mount) = await SentryJeep();
+        EntityUid target = default;
+        await Server.WaitPost(() =>
+        {
+            SEntMan.System<CMUJeepSentryMountSystem>().SetRules(mount, [WeYu], []);
+            // Behind the jeep: the machine gun's arc never reaches here.
+            target = Person(map, 0.5f, 6.5f, null, armed: false);
+        });
+        await RunSeconds(4f);
+
+        await Server.WaitAssertion(() =>
+        {
+            var transform = SEntMan.System<SharedTransformSystem>();
+            var toTarget = transform.GetWorldPosition(target) - transform.GetWorldPosition(jeep);
+            var facing = SEntMan.GetComponent<VehicleTurretComponent>(mount).WorldRotation;
+            var off = Math.Abs(Angle.ShortestDistance(facing, toTarget.ToWorldAngle()).Degrees);
+            Assert.That(off, Is.LessThan(30), "The sentry should have turned round to face its target behind the jeep.");
+            Assert.That(SEntMan.System<DamageableSystem>().GetTotalDamage(target).Float(), Is.GreaterThan(0f),
+                "The sentry should fire on a target behind the jeep.");
+        });
+    }
+
+    [Test]
+    public async Task TheSentryTakesTheGunnersSeat()
+    {
+        var map = await Pair.CreateTestMap();
+        EntityUid jeep = default;
+        EntityUid gunner = default;
+        await Server.WaitPost(() =>
+        {
+            var maps = SEntMan.System<SharedMapSystem>();
+            for (var x = -4; x <= 4; x++)
+            {
+                for (var y = -4; y <= 4; y++)
+                {
+                    maps.SetTile(map.Grid.Owner, map.Grid.Comp, new Vector2i(x, y), map.Tile.Tile);
+                }
+            }
+
+            jeep = SEntMan.SpawnEntity("CMUVehicleJeepGunner", new EntityCoordinates(map.Grid, 0.5f, 0.5f));
+            gunner = SEntMan.SpawnEntity("CMMobHuman", new EntityCoordinates(map.Grid, 0.5f, 2.5f));
+        });
+        await RunTicksSync(5);
+        await Server.WaitPost(() => SEntMan.System<CMUVehicleSeatSystem>().ClickSeat(GunnerSeat(jeep), gunner));
+        await RunSeconds(3f);
+        await Server.WaitAssertion(() =>
+            Assert.That(SEntMan.GetComponent<BuckleComponent>(gunner).BuckledTo, Is.EqualTo(GunnerSeat(jeep)), "The gunner should sit at the machine gun."));
+
+        await FitSentry(jeep);
+        await Server.WaitAssertion(() =>
+            Assert.That(SEntMan.GetComponent<BuckleComponent>(gunner).Buckled, Is.False, "Fitting a sentry should put the gunner out of their seat."));
+
+        await Server.WaitPost(() => SEntMan.System<CMUVehicleSeatSystem>().ClickSeat(GunnerSeat(jeep), gunner));
+        await RunSeconds(3f);
+        await Server.WaitAssertion(() =>
+            Assert.That(SEntMan.GetComponent<BuckleComponent>(gunner).Buckled, Is.False, "With a sentry on the pintle, nobody should sit in the gunner's seat."));
     }
 
     [Test]
