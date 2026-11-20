@@ -123,11 +123,11 @@ public sealed class CMUVehicleSeatSystem : EntitySystem
             return;
 
         // A sentry on the pintle runs itself: there's no gun for a gunner to man.
-        if (IsGunnerSeat(ent.Comp) && ent.Comp.Vehicle is { } vehicle && _sentryMount.HasSentry(vehicle))
+        if (ent.Comp.Gunner && ent.Comp.Vehicle is { } vehicle && _sentryMount.HasSentry(vehicle))
         {
             args.Cancelled = true;
             if (args.Popup && args.User is { } blocked)
-                _popup.PopupClient(Loc.GetString("cmu-jeep-sentry-gunner-seat"), blocked, blocked, PopupType.SmallCaution);
+                _popup.PopupPredicted(Loc.GetString("cmu-jeep-sentry-gunner-seat"), blocked, blocked, PopupType.SmallCaution);
             return;
         }
 
@@ -235,6 +235,7 @@ public sealed class CMUVehicleSeatSystem : EntitySystem
             comp.Door = data.Door;
             comp.DoorSide = data.DoorSide;
             comp.Windshield = data.Windshield;
+            comp.Gunner = data.Gunner;
             comp.Exit = data.Exit;
             comp.Lift = data.Lift;
             comp.PixelOffsets = new Dictionary<Direction, Vector2>(data.PixelOffsets);
@@ -525,7 +526,7 @@ public sealed class CMUVehicleSeatSystem : EntitySystem
             if (!IsFree(candidate) || TryComp(candidate, out CMUVehicleSeatComponent? seatComp) && !seatComp.AutoSeat)
                 continue;
 
-            if (seatComp != null && IsGunnerSeat(seatComp) && _sentryMount.HasSentry(ent))
+            if (seatComp is { Gunner: true } && _sentryMount.HasSentry(ent))
                 continue;
 
             var distance = (_transform.GetWorldPosition(candidate) - userPos).LengthSquared();
@@ -544,13 +545,6 @@ public sealed class CMUVehicleSeatSystem : EntitySystem
         return TryComp(seat, out StrapComponent? strap) && strap.BuckledEntities.Count == 0;
     }
 
-    /// <summary>
-    /// Whether the seat is a gunner's: its rider's hands are on the vehicle's mounted gun.
-    /// </summary>
-    public static bool IsGunnerSeat(CMUVehicleSeatComponent seat)
-    {
-        return seat.Guns == CMUVehicleSeatGuns.None;
-    }
 
     public bool IsSeatedIn(EntityUid user, EntityUid vehicle)
     {

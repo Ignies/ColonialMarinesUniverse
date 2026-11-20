@@ -84,6 +84,12 @@ public sealed partial class CMUVehicleSeatData
     public bool Driver;
 
     /// <summary>
+    /// The seat of whoever mans the vehicle's mounted gun. Nobody sits here while a sentry runs the gun.
+    /// </summary>
+    [DataField]
+    public bool Gunner;
+
+    /// <summary>
     /// The hand guns a rider here can fire: by default only sidearms for the driver, any for the rest.
     /// </summary>
     [DataField]
@@ -161,6 +167,9 @@ public sealed partial class CMUVehicleSeatComponent : Component
 
     [DataField, AutoNetworkedField]
     public bool Driver;
+
+    [DataField, AutoNetworkedField]
+    public bool Gunner;
 
     [DataField, AutoNetworkedField]
     public CMUVehicleSeatGuns Guns;

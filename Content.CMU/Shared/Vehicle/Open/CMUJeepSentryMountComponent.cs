@@ -1,5 +1,6 @@
 using System.Numerics;
 using Robust.Shared.GameStates;
+using Robust.Shared.Prototypes;
 using Robust.Shared.Serialization;
 using Robust.Shared.Serialization.TypeSerializers.Implementations.Custom;
 
@@ -43,16 +44,43 @@ public sealed partial class CMUJeepSentryMountComponent : Component
     public HashSet<string> ArmedHostileFactions = new();
 
     /// <summary>
-    /// How far it looks for targets, in tiles.
+    /// How far it looks for targets, in tiles, for a sentry not listed in <see cref="SentryRanges"/>:
+    /// a standard sentry's sight.
     /// </summary>
     [DataField]
-    public float Range = 7f;
+    public float Range = 6f;
 
     /// <summary>
-    /// How long it swings onto a new target before it opens fire.
+    /// How far sentries that see further or less than a standard one look from the pintle, by their
+    /// prototype: a sniper sentry's long sight, a shotgun sentry's short one.
+    /// </summary>
+    [DataField]
+    public Dictionary<EntProtoId, float> SentryRanges = new();
+
+    /// <summary>
+    /// The least time it spends swinging onto a new target before it opens fire.
     /// </summary>
     [DataField]
     public TimeSpan AimTime = TimeSpan.FromSeconds(0.4);
+
+    /// <summary>
+    /// How far off its target the pintle may still be turned and fire, in degrees.
+    /// </summary>
+    [DataField]
+    public float AimTolerance = 10f;
+
+    /// <summary>
+    /// How much closer, as a share of the distance, another target has to be before it turns from the
+    /// one it has to that one, so it doesn't flick between two at much the same range.
+    /// </summary>
+    [DataField]
+    public float SwitchMargin = 0.75f;
+
+    /// <summary>
+    /// It only runs with the vehicle's key in the ignition: pull the key and it goes quiet.
+    /// </summary>
+    [DataField]
+    public bool NeedsKeyIn = true;
 
     /// <summary>
     /// How often it looks around for a better target.

@@ -7,6 +7,7 @@ using Content.Shared.Containers.ItemSlots;
 using Content.Shared.Damage.Systems;
 using Content.Shared.Hands.EntitySystems;
 using Content.Shared.NPC.Systems;
+using Content.Shared.Weapons.Ranged.Events;
 using Robust.Shared.Containers;
 using Robust.Shared.GameObjects;
 using Robust.Shared.Map;
@@ -23,6 +24,7 @@ public sealed class CMUJeepSentryMountTest : GameTest
 {
     private static readonly string Bureau = "Bureau";
     private static readonly string WeYu = "AUWeYu";
+    private static readonly string Provost = "PROVOST";
 
     private async Task<(TestMapData Map, EntityUid Jeep, Entity<CMUJeepSentryMountComponent> Mount)> SentryJeep()
     {
@@ -74,7 +76,7 @@ public sealed class CMUJeepSentryMountTest : GameTest
     private EntityUid GunnerSeat(EntityUid jeep)
     {
         return SEntMan.GetComponent<CMUVehicleSeatsComponent>(jeep).SeatEntities
-            .First(s => CMUVehicleSeatSystem.IsGunnerSeat(SEntMan.GetComponent<CMUVehicleSeatComponent>(s)));
+            .First(s => SEntMan.GetComponent<CMUVehicleSeatComponent>(s).Gunner);
     }
 
     private EntityUid Person(TestMapData map, float x, float y, string? faction, bool armed)
@@ -206,7 +208,7 @@ public sealed class CMUJeepSentryMountTest : GameTest
     [Test]
     public async Task BiggestThreatOverClosest()
     {
-        var (map, _, mount) = await SentryJeep();
+        var (map, jeep, mount) = await SentryJeep();
         EntityUid near = default;
         EntityUid far = default;
         await Server.WaitPost(() =>
@@ -220,10 +222,7 @@ public sealed class CMUJeepSentryMountTest : GameTest
             Assert.That(mount.Comp.Target, Is.EqualTo(near), "On closest threat, it should track the nearer target."));
 
         await Server.WaitPost(() =>
-        {
-            mount.Comp.Mode = CMUJeepSentryTargetMode.Biggest;
-            mount.Comp.NextRetarget = TimeSpan.Zero;
-        });
+            Send(mount, KeyHolder(map, mount), new CMUJeepSentryModeMessage(CMUJeepSentryTargetMode.Biggest)));
         await RunSeconds(1f);
         await Server.WaitAssertion(() =>
             Assert.That(mount.Comp.Target, Is.EqualTo(far), "On biggest threat, it should track the armed target over the unarmed one."));
@@ -249,5 +248,219 @@ public sealed class CMUJeepSentryMountTest : GameTest
             Assert.That(damageable.GetTotalDamage(target).Float(), Is.GreaterThan(0f), "The sentry should fire on its target.");
             Assert.That(damageable.GetTotalDamage(friend).Float(), Is.Zero, "The sentry should hold fire on a friendly.");
         });
+    }
+
+    /// <summary>
+    /// Someone off to the side holding a copy of the jeep's key, so the key stays in its ignition.
+    /// </summary>
+    private EntityUid KeyHolder(TestMapData map, EntityUid mount)
+    {
+        Assert.That(SEntMan.System<VehicleTurretSystem>().TryGetVehicle(mount, out var jeep), Is.True);
+        var holder = Person(map, -6.5f, -6.5f, WeYu, armed: false);
+        var key = SEntMan.SpawnEntity("CMUJeepKey", SEntMan.GetComponent<TransformComponent>(holder).Coordinates);
+        SEntMan.GetComponent<CMUVehicleKeyComponent>(key).Code = SEntMan.GetComponent<CMUVehicleIgnitionComponent>(jeep).KeyCode;
+        Assert.That(SEntMan.System<SharedHandsSystem>().TryPickupAnyHand(holder, key), Is.True);
+        return holder;
+    }
+
+    /// <summary>
+    /// The settings window's message, as its user sends it.
+    /// </summary>
+    private void Send(EntityUid mount, EntityUid actor, BoundUserInterfaceMessage message)
+    {
+        message.Actor = actor;
+        message.UiKey = CMUJeepSentryUiKey.Key;
+        SEntMan.EventBus.RaiseLocalEvent(mount, (object) message);
+    }
+
+    [Test]
+    public async Task OnlyTheKeyHolderChangesItsSettings()
+    {
+        var (map, _, mount) = await SentryJeep();
+        await Server.WaitAssertion(() =>
+        {
+            var holder = KeyHolder(map, mount);
+            var stranger = Person(map, -6.5f, 6.5f, null, armed: false);
+
+            Send(mount, stranger, new CMUJeepSentryFriendlyMessage("UPP", true));
+            Send(mount, stranger, new CMUJeepSentryPowerMessage(false));
+            Assert.That(mount.Comp.FriendlyFactions, Does.Not.Contain("UPP"), "Without the key, they shouldn't change who it holds fire on.");
+            Assert.That(mount.Comp.Powered, Is.True, "Without the key, they shouldn't switch it off.");
+
+            Send(mount, holder, new CMUJeepSentryFriendlyMessage("UPP", true));
+            Send(mount, holder, new CMUJeepSentryArmedMessage("UPP", true));
+            Send(mount, holder, new CMUJeepSentryModeMessage(CMUJeepSentryTargetMode.Biggest));
+            Send(mount, holder, new CMUJeepSentryPowerMessage(false));
+            Assert.Multiple(() =>
+            {
+                Assert.That(mount.Comp.FriendlyFactions, Does.Contain("UPP"));
+                Assert.That(mount.Comp.ArmedHostileFactions, Does.Contain("UPP"));
+                Assert.That(mount.Comp.Mode, Is.EqualTo(CMUJeepSentryTargetMode.Biggest));
+                Assert.That(mount.Comp.Powered, Is.False);
+            });
+
+            // Holding fire on a faction no longer, it fires on them armed or not: the armed rule goes too.
+            Send(mount, holder, new CMUJeepSentryFriendlyMessage("UPP", false));
+            Assert.That(mount.Comp.ArmedHostileFactions, Does.Not.Contain("UPP"));
+        });
+    }
+
+    [Test]
+    public async Task ItsOwnRidersAreNeverItsTargets()
+    {
+        var (map, jeep, mount) = await SentryJeep();
+        EntityUid passenger = default;
+        await Server.WaitPost(() =>
+        {
+            // Unconfigured, it fires on no one while they climb in.
+            SEntMan.System<CMUJeepSentryMountSystem>().SetRules(mount, [], []);
+            passenger = Person(map, -0.5f, 0.75f, null, armed: true);
+            var seat = SEntMan.GetComponent<CMUVehicleSeatsComponent>(jeep).SeatEntities
+                .First(s => SEntMan.GetComponent<CMUVehicleSeatComponent>(s) is { Driver: false, Gunner: false });
+            SEntMan.System<CMUVehicleSeatSystem>().ClickSeat(seat, passenger);
+        });
+        await RunSeconds(4f);
+        await Server.WaitPost(() => SEntMan.System<CMUJeepSentryMountSystem>().SetRules(mount, [WeYu], []));
+        await RunSeconds(3f);
+
+        await Server.WaitAssertion(() =>
+        {
+            Assert.That(SEntMan.GetComponent<BuckleComponent>(passenger).Buckled, Is.True, "The passenger should be seated.");
+            Assert.That(mount.Comp.Target, Is.Null, "An armed stranger riding the jeep shouldn't become its sentry's target.");
+            Assert.That(SEntMan.System<DamageableSystem>().GetTotalDamage(passenger).Float(), Is.Zero);
+        });
+    }
+
+    [Test]
+    public async Task FactionsNoSentryShootsStaySafeArmed()
+    {
+        var (map, _, mount) = await SentryJeep();
+        await Server.WaitAssertion(() =>
+        {
+            var system = SEntMan.System<CMUJeepSentryMountSystem>();
+            // Every faction it holds fire on, it fires on once armed.
+            system.SetRules(mount, [Bureau], [Bureau]);
+            var sentry = system.GetSentry(mount)!.Value;
+
+            var provost = Person(map, 4.5f, 0.5f, Provost, armed: true);
+            var bureau = Person(map, 4.5f, 2.5f, Bureau, armed: true);
+            Assert.That(system.IsTarget(mount, sentry, provost), Is.False, "No sentry should fire on the Provost, armed or not.");
+            Assert.That(system.IsTarget(mount, sentry, bureau), Is.True);
+        });
+    }
+
+    [Test]
+    public async Task ItGoesQuietWithTheKeyOutOrItsPintleBroken()
+    {
+        var (map, jeep, mount) = await SentryJeep();
+        EntityUid target = default;
+        await Server.WaitPost(() =>
+        {
+            SEntMan.System<CMUJeepSentryMountSystem>().SetRules(mount, [WeYu], []);
+            var holder = Person(map, -6.5f, -6.5f, WeYu, armed: false);
+            var slots = SEntMan.System<ItemSlotsSystem>();
+            Assert.That(slots.TryEjectToHands(jeep, SEntMan.GetComponent<CMUVehicleIgnitionComponent>(jeep).KeySlot, holder), Is.True);
+            target = Person(map, 0.5f, -4.5f, null, armed: false);
+        });
+        await RunSeconds(3f);
+        await Server.WaitAssertion(() =>
+        {
+            Assert.That(mount.Comp.Target, Is.Null, "With its key out, the jeep's sentry shouldn't run.");
+            Assert.That(SEntMan.System<DamageableSystem>().GetTotalDamage(target).Float(), Is.Zero);
+        });
+
+        await Server.WaitPost(() =>
+        {
+            var slots = SEntMan.System<ItemSlotsSystem>();
+            var key = SEntMan.EntityQuery<CMUVehicleKeyComponent>().Select(k => k.Owner).Single();
+            Assert.That(slots.TryInsert(jeep, SEntMan.GetComponent<CMUVehicleIgnitionComponent>(jeep).KeySlot, key, null), Is.True);
+            var hardpoints = SEntMan.System<HardpointSystem>();
+            hardpoints.DamageHardpoint(jeep, mount, SEntMan.GetComponent<HardpointIntegrityComponent>(mount).Integrity);
+        });
+        await RunSeconds(3f);
+        await Server.WaitAssertion(() =>
+        {
+            Assert.That(mount.Comp.Target, Is.Null, "With its pintle broken, the jeep's sentry shouldn't run.");
+            Assert.That(SEntMan.System<DamageableSystem>().GetTotalDamage(target).Float(), Is.Zero);
+        });
+    }
+
+    [Test]
+    public async Task AMagazineOnTheJeepLoadsItsSentry()
+    {
+        var (map, jeep, mount) = await SentryJeep();
+        EntityUid sentry = default;
+        await Server.WaitPost(() =>
+        {
+            sentry = SEntMan.System<CMUJeepSentryMountSystem>().GetSentry(mount)!.Value;
+            var containers = SEntMan.System<SharedContainerSystem>();
+            Assert.That(containers.TryGetContainer(sentry, "gun_magazine", out var magazineSlot), Is.True);
+            foreach (var spent in magazineSlot!.ContainedEntities.ToArray())
+            {
+                SEntMan.DeleteEntity(spent);
+            }
+
+            var loader = Person(map, 1.5f, -0.5f, WeYu, armed: false);
+            var magazine = SEntMan.SpawnEntity("RMCMagazineSentry", SEntMan.GetComponent<TransformComponent>(loader).Coordinates);
+            var gun = SEntMan.SpawnEntity("RMCWeaponPistolB92FS", SEntMan.GetComponent<TransformComponent>(loader).Coordinates);
+            var system = SEntMan.System<CMUJeepSentryMountSystem>();
+            var at = SEntMan.GetComponent<TransformComponent>(jeep).Coordinates;
+            Assert.That(system.TryLoadSentry(jeep, loader, gun, at), Is.False, "A gun isn't a sentry magazine.");
+            Assert.That(system.TryLoadSentry(jeep, loader, magazine, at), Is.True, "A sentry magazine used on the jeep should load its sentry.");
+        });
+        await RunSeconds(8f);
+
+        await Server.WaitAssertion(() =>
+        {
+            var ammo = new GetAmmoCountEvent();
+            SEntMan.EventBus.RaiseLocalEvent(sentry, ref ammo);
+            Assert.That(ammo.Count, Is.GreaterThan(0), "The sentry should be loaded.");
+        });
+    }
+
+    [Test]
+    public async Task ALoadedPintleTakesTheGunnersSeat()
+    {
+        var map = await Pair.CreateTestMap();
+        EntityUid jeep = default;
+        EntityUid gunner = default;
+        await Server.WaitPost(() =>
+        {
+            var maps = SEntMan.System<SharedMapSystem>();
+            for (var x = -4; x <= 4; x++)
+            {
+                for (var y = -4; y <= 4; y++)
+                {
+                    maps.SetTile(map.Grid.Owner, map.Grid.Comp, new Vector2i(x, y), map.Tile.Tile);
+                }
+            }
+
+            jeep = SEntMan.SpawnEntity("CMUVehicleJeepGunner", new EntityCoordinates(map.Grid, 0.5f, 0.5f));
+            gunner = SEntMan.SpawnEntity("CMMobHuman", new EntityCoordinates(map.Grid, 0.5f, 2.5f));
+        });
+        await RunTicksSync(5);
+        await Server.WaitPost(() => SEntMan.System<CMUVehicleSeatSystem>().ClickSeat(GunnerSeat(jeep), gunner));
+        await RunSeconds(3f);
+
+        await Server.WaitPost(() =>
+        {
+            Assert.That(SEntMan.GetComponent<BuckleComponent>(gunner).Buckled, Is.True);
+            var containers = SEntMan.System<SharedContainerSystem>();
+            var slots = SEntMan.System<ItemSlotsSystem>();
+            Assert.That(containers.TryGetContainer(jeep, "turret", out var turret), Is.True);
+            foreach (var old in turret!.ContainedEntities.ToArray())
+            {
+                SEntMan.DeleteEntity(old);
+            }
+
+            // The sentry goes on the pintle first, and the pintle on the jeep after.
+            var pintle = SEntMan.SpawnEntity("CMUJeepSentryMount", MapCoordinates.Nullspace);
+            var sentry = SEntMan.SpawnEntity("RMCSentry", MapCoordinates.Nullspace);
+            Assert.That(slots.TryInsert(pintle, "jeep-sentry", sentry, null), Is.True);
+            Assert.That(slots.TryInsert(jeep, "turret", pintle, null), Is.True);
+        });
+        await RunTicksSync(5);
+        await Server.WaitAssertion(() =>
+            Assert.That(SEntMan.GetComponent<BuckleComponent>(gunner).Buckled, Is.False, "Fitting a loaded pintle should put the gunner out of their seat."));
     }
 }

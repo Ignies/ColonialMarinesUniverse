@@ -1,9 +1,9 @@
 using System.Linq;
 using System.Numerics;
-using Content.Shared._RMC14.Sentry;
 using Content.Shared.CMU14.Vehicle.Open;
 using Robust.Client.UserInterface.Controls;
 using Robust.Client.UserInterface.CustomControls;
+using Robust.Shared.Utility;
 
 namespace Content.Client.CMU14.Vehicle;
 
@@ -24,7 +24,7 @@ public sealed class CMUJeepSentryWindow : DefaultWindow
     private readonly Button _power;
     private readonly Button _closest;
     private readonly Button _biggest;
-    private readonly Dictionary<string, (CheckBox Friendly, CheckBox Armed)> _factions = new();
+    private readonly List<(string[] Factions, CheckBox Friendly, CheckBox Armed)> _factions = new();
     private bool _updating;
 
     public CMUJeepSentryWindow()
@@ -62,33 +62,41 @@ public sealed class CMUJeepSentryWindow : DefaultWindow
         grid.AddChild(new Label { Text = Loc.GetString("cmu-jeep-sentry-faction") });
         grid.AddChild(new Label { Text = Loc.GetString("cmu-jeep-sentry-hold-fire") });
         grid.AddChild(new Label { Text = Loc.GetString("cmu-jeep-sentry-fire-if-armed") });
-        foreach (var faction in SharedSentryTargetingSystem.SentryAllowedFactions.OrderBy(f => f))
+        foreach (var (name, factions) in CMUJeepSentryMountSystem.FactionRows)
         {
             var friendly = new CheckBox();
             var armed = new CheckBox();
             friendly.OnToggled += args =>
             {
-                if (!_updating)
+                if (_updating)
+                    return;
+
+                foreach (var faction in factions)
+                {
                     OnFriendly?.Invoke(faction, args.Pressed);
+                }
             };
             armed.OnToggled += args =>
             {
-                if (!_updating)
+                if (_updating)
+                    return;
+
+                foreach (var faction in factions)
+                {
                     OnArmed?.Invoke(faction, args.Pressed);
+                }
             };
 
-            grid.AddChild(new Label { Text = faction });
+            grid.AddChild(new Label { Text = Loc.GetString(name) });
             grid.AddChild(friendly);
             grid.AddChild(armed);
-            _factions[faction] = (friendly, armed);
+            _factions.Add((factions, friendly, armed));
         }
 
         root.AddChild(grid);
-        root.AddChild(new Label
-        {
-            Text = Loc.GetString("cmu-jeep-sentry-help"),
-            FontColorOverride = Color.Gray,
-        });
+        var help = new RichTextLabel { MaxWidth = 380 };
+        help.SetMessage(FormattedMessage.FromMarkupOrThrow(Loc.GetString("cmu-jeep-sentry-help")), defaultColor: Color.Gray);
+        root.AddChild(help);
     }
 
     private Button ModeButton(ButtonGroup group, string text, CMUJeepSentryTargetMode mode)
@@ -117,11 +125,11 @@ public sealed class CMUJeepSentryWindow : DefaultWindow
         _closest.Pressed = mount.Mode == CMUJeepSentryTargetMode.Closest;
         _biggest.Pressed = mount.Mode == CMUJeepSentryTargetMode.Biggest;
 
-        foreach (var (faction, (friendly, armed)) in _factions)
+        foreach (var (factions, friendly, armed) in _factions)
         {
-            var isFriendly = mount.FriendlyFactions.Contains(faction);
+            var isFriendly = factions.All(mount.FriendlyFactions.Contains);
             friendly.Pressed = isFriendly;
-            armed.Pressed = mount.ArmedHostileFactions.Contains(faction);
+            armed.Pressed = factions.All(mount.ArmedHostileFactions.Contains);
             armed.Disabled = !isFriendly;
         }
 

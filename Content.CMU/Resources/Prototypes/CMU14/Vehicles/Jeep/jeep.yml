@@ -534,16 +534,18 @@
   - type: VehicleTurret
     rotateToCursor: true
     stabilizedRotation: false
-    rotationSpeed: 180
+    # Slow enough to be flanked.
+    rotationSpeed: 120
     cmuMaxYawDegrees: 180
     showOverlay: true
     useDirectionalOffsets: true
     overlayRsi: _RMC14/Objects/Weapons/Sentries/sentry.rsi
     overlayState: normal_uac_sentry_on
     pixelOffsetNorth: "0,-8"
-    pixelOffsetEast: "-20,18"
+    # The sentry's tripod sits on the pedestal's post in the side views, as the machine gun does.
+    pixelOffsetEast: "-14,12"
     pixelOffsetSouth: "0,24"
-    pixelOffsetWest: "20,18"
+    pixelOffsetWest: "14,12"
   - type: ItemSlots
     slots:
       jeep-sentry:
@@ -554,7 +556,14 @@
   - type: ContainerContainer
     containers:
       jeep-sentry: !type:ContainerSlot
+  # A sentry's sight from the pintle: a sniper sentry's long, a shotgun or omni sentry's short.
   - type: CMUJeepSentryMount
+    range: 6
+    sentryRanges:
+      RMCSentrySniper: 11
+      RMCSentrySniperFire: 11
+      RMCSentryOmni: 5
+      RMCSentryShotgun: 4
   - type: UserInterface
     interfaces:
       enum.CMUJeepSentryUiKey.Key:
@@ -564,8 +573,10 @@
   id: CMUJeepSentryMount
   result: CMUJeepSentryMount
   completetime: 10
+  # Twelve sheets of steel and four of plastic.
   materials:
-    CMSteel: 30000
+    CMSteel: 45000
+    RMCPlastic: 15000
 
 - type: entity
   abstract: true
@@ -1712,6 +1723,7 @@
       name: cmu-vehicle-seat-gunner
       prototype: CMUVehicleSeatGunner
       # Hands on the mounted gun.
+      gunner: true
       guns: None
       offset: 0,0.75
       exit: 0,1.55
