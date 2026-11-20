@@ -276,6 +276,10 @@
     about: cmu-jeep-manual-gun-about
     use: cmu-jeep-manual-gun-use
     repair: cmu-jeep-manual-gun-repair
+  - id: sentry
+    name: cmu-jeep-manual-sentry
+    about: cmu-jeep-manual-sentry-about
+    use: cmu-jeep-manual-sentry-use
   - id: cargo
     name: cmu-jeep-manual-cargo
     about: cmu-jeep-manual-cargo-about

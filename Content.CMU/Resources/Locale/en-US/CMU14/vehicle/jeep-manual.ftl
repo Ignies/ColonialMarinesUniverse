@@ -212,6 +212,12 @@ cmu-jeep-manual-gun-use =
 cmu-jeep-manual-gun-repair =
     Weld it like the hull.
     It comes off through vehicle maintenance with the jack: the gun before its mount.
+cmu-jeep-manual-sentry = Gun jeep: sentry pintle
+cmu-jeep-manual-sentry-about = A pintle, made at the autolathe, that takes the place of the machine gun mount and carries any engineer's sentry gun. The sentry fires by itself, all the way round, and its rounds pass the jeep's own riders by.
+cmu-jeep-manual-sentry-use =
+    Swap it for the gun mount through vehicle maintenance, then put a sentry on it. Load the sentry by using its magazine on the jeep.
+    Holding the jeep's key, use the Sentry settings verb on the jeep. Tick the factions it holds fire on; tick Fire if armed to have it fire on one of them anyway once they hold a gun. With no faction ticked, it fires on no one.
+    Closest threat goes for the nearest target; biggest threat for the biggest xeno, then armed people. It turns to follow its target even when it can't fire.
 cmu-jeep-manual-cargo = Cargo jeep: bed
 cmu-jeep-manual-cargo-about = The fastest jeep, with a bed that carries one crate.
 cmu-jeep-manual-cargo-use =

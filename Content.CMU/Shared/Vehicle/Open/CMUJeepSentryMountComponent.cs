@@ -1,0 +1,123 @@
+using System.Numerics;
+using Robust.Shared.GameStates;
+using Robust.Shared.Serialization;
+using Robust.Shared.Serialization.TypeSerializers.Implementations.Custom;
+
+namespace Content.Shared.CMU14.Vehicle.Open;
+
+/// <summary>
+/// A pintle on an open vehicle's turret mount that takes an engineer's sentry gun and fires it by
+/// itself. Whoever holds the vehicle's key sets who it shoots: the sentry laptop's friendly
+/// factions, which of those it still shoots once they hold a gun, and whether it goes for the
+/// closest threat or the biggest one. It swings to follow the target it picks whether or not it can
+/// fire on it.
+/// </summary>
+[RegisterComponent, NetworkedComponent, AutoGenerateComponentState(true), AutoGenerateComponentPause]
+public sealed partial class CMUJeepSentryMountComponent : Component
+{
+    /// <summary>
+    /// The item slot the sentry sits in.
+    /// </summary>
+    [DataField]
+    public string SlotId = "jeep-sentry";
+
+    /// <summary>
+    /// Whether the sentry is switched on: it looks for targets and fires.
+    /// </summary>
+    [DataField, AutoNetworkedField]
+    public bool Powered = true;
+
+    [DataField, AutoNetworkedField]
+    public CMUJeepSentryTargetMode Mode = CMUJeepSentryTargetMode.Closest;
+
+    /// <summary>
+    /// Factions it holds fire on, as the sentry laptop names them.
+    /// </summary>
+    [DataField, AutoNetworkedField]
+    public HashSet<string> FriendlyFactions = new();
+
+    /// <summary>
+    /// Friendly factions it shoots all the same once one of them holds a gun.
+    /// </summary>
+    [DataField, AutoNetworkedField]
+    public HashSet<string> ArmedHostileFactions = new();
+
+    /// <summary>
+    /// How far it looks for targets, in tiles.
+    /// </summary>
+    [DataField]
+    public float Range = 7f;
+
+    /// <summary>
+    /// How long it swings onto a new target before it opens fire.
+    /// </summary>
+    [DataField]
+    public TimeSpan AimTime = TimeSpan.FromSeconds(0.4);
+
+    /// <summary>
+    /// How often it looks around for a better target.
+    /// </summary>
+    [DataField]
+    public TimeSpan RetargetInterval = TimeSpan.FromSeconds(0.5);
+
+    /// <summary>
+    /// Where the sentry's shots start from: its pivot on the vehicle, in tiles with the vehicle facing
+    /// south, and its barrel's length. See <see cref="CMUVehicleGunOriginComponent"/>.
+    /// </summary>
+    [DataField]
+    public Vector2 SentryPivot = new(0f, 0.5f);
+
+    [DataField]
+    public float SentryBarrel = 0.5f;
+
+    [DataField, AutoNetworkedField]
+    public EntityUid? Target;
+
+    [DataField(customTypeSerializer: typeof(TimeOffsetSerializer)), AutoPausedField]
+    public TimeSpan NextRetarget;
+
+    [DataField(customTypeSerializer: typeof(TimeOffsetSerializer)), AutoPausedField]
+    public TimeSpan FireFrom;
+}
+
+[Serializable, NetSerializable]
+public enum CMUJeepSentryTargetMode : byte
+{
+    /// <summary>The nearest target.</summary>
+    Closest,
+
+    /// <summary>The most dangerous target: the biggest xeno, an armed person over an unarmed one.</summary>
+    Biggest,
+}
+
+[Serializable, NetSerializable]
+public enum CMUJeepSentryUiKey : byte
+{
+    Key,
+}
+
+[Serializable, NetSerializable]
+public sealed class CMUJeepSentryFriendlyMessage(string faction, bool friendly) : BoundUserInterfaceMessage
+{
+    public readonly string Faction = faction;
+    public readonly bool Friendly = friendly;
+}
+
+[Serializable, NetSerializable]
+public sealed class CMUJeepSentryArmedMessage(string faction, bool armedHostile) : BoundUserInterfaceMessage
+{
+    public readonly string Faction = faction;
+    public readonly bool ArmedHostile = armedHostile;
+}
+
+[Serializable, NetSerializable]
+public sealed class CMUJeepSentryModeMessage(CMUJeepSentryTargetMode mode) : BoundUserInterfaceMessage
+{
+    public readonly CMUJeepSentryTargetMode Mode = mode;
+}
+
+[Serializable, NetSerializable]
+public sealed class CMUJeepSentryPowerMessage(bool powered) : BoundUserInterfaceMessage
+{
+    public readonly bool Powered = powered;
+}

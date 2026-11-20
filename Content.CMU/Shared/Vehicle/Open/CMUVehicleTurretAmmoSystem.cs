@@ -18,6 +18,7 @@ public sealed class CMUVehicleTurretAmmoSystem : EntitySystem
     [Dependency] private SharedContainerSystem _container = default!;
     [Dependency] private SharedDoAfterSystem _doAfter = default!;
     [Dependency] private SharedPopupSystem _popup = default!;
+    [Dependency] private CMUJeepSentryMountSystem _sentryMount = default!;
     [Dependency] private VehicleTurretSystem _turret = default!;
 
     public override void Initialize()
@@ -42,8 +43,15 @@ public sealed class CMUVehicleTurretAmmoSystem : EntitySystem
 
     private void OnJeepInteractUsing(Entity<CMUOpenVehicleComponent> ent, ref InteractUsingEvent args)
     {
-        if (args.Handled || !HasComp<BulletBoxComponent>(args.Used))
+        if (args.Handled)
             return;
+
+        // A sentry on a pintle takes magazines, not ammo boxes.
+        if (!HasComp<BulletBoxComponent>(args.Used))
+        {
+            args.Handled = _sentryMount.TryLoadSentry(ent, args.User, args.Used, args.ClickLocation);
+            return;
+        }
 
         args.Handled = TryLoad(ent, args.User, args.Used);
     }

@@ -508,6 +508,65 @@
     pivot: "0,0.5"
     barrel: 0.65625
 
+# A pintle for the gun jeep's pedestal that takes any engineer's sentry gun and fires it by itself.
+# Whoever holds the jeep's key sets who it shoots from the jeep's "Sentry settings" verb.
+- type: entity
+  parent: CMUJeepHardpointBase
+  id: CMUJeepSentryMount
+  name: jeep sentry pintle
+  description: A pintle for the gun jeep's pedestal that takes an engineer's sentry gun and runs it from the jeep. Whoever holds the jeep's key sets who it shoots.
+  components:
+  - type: Sprite
+    sprite: _RMC14/Objects/Weapons/Sentries/sentry.rsi
+    state: defense_base_off
+  - type: Item
+    size: Huge
+  - type: HardpointItem
+    hardpointType: Turret
+    vehicleFamily: CMUJeep
+    slotType: Turret
+    damageMultiplier: 0.15
+    repairRate: 0.008
+  - type: HardpointIntegrity
+    maxIntegrity: 75
+    integrity: 75
+  # It turns all the way round: its rounds pass the jeep's own crew by.
+  - type: VehicleTurret
+    rotateToCursor: true
+    stabilizedRotation: false
+    rotationSpeed: 180
+    cmuMaxYawDegrees: 180
+    showOverlay: true
+    useDirectionalOffsets: true
+    overlayRsi: _RMC14/Objects/Weapons/Sentries/sentry.rsi
+    overlayState: normal_uac_sentry_on
+    pixelOffsetNorth: "0,-8"
+    pixelOffsetEast: "-20,18"
+    pixelOffsetSouth: "0,24"
+    pixelOffsetWest: "20,18"
+  - type: ItemSlots
+    slots:
+      jeep-sentry:
+        name: cmu-jeep-sentry-slot
+        whitelist:
+          tags:
+          - RMCSentry
+  - type: ContainerContainer
+    containers:
+      jeep-sentry: !type:ContainerSlot
+  - type: CMUJeepSentryMount
+  - type: UserInterface
+    interfaces:
+      enum.CMUJeepSentryUiKey.Key:
+        type: CMUJeepSentryBoundUserInterface
+
+- type: latheRecipe
+  id: CMUJeepSentryMount
+  result: CMUJeepSentryMount
+  completetime: 10
+  materials:
+    CMSteel: 30000
+
 - type: entity
   abstract: true
   parent: CMUOpenVehicleBase
@@ -2664,6 +2723,7 @@
   id: CMUVehicleLatheRecipes
   recipes:
   - CMUVehicleSprayPainter
+  - CMUJeepSentryMount
   - CMUJeepHood
   - CMUJeepDoor
   - CMUJeepTailgate
