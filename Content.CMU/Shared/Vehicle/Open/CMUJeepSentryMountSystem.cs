@@ -390,8 +390,9 @@ public sealed class CMUJeepSentryMountSystem : EntitySystem
         ent.Comp.Mode = args.Mode;
         ent.Comp.NextRetarget = TimeSpan.Zero;
         Dirty(ent);
+        var mode = args.Mode == CMUJeepSentryTargetMode.Closest ? "closest" : "biggest";
         _adminLog.Add(LogType.Action, LogImpact.Low,
-            $"{ToPrettyString(args.Actor):user} set {ToPrettyString(ent):pintle} to target the {(args.Mode == CMUJeepSentryTargetMode.Closest ? "closest" : "biggest")} threat");
+            $"{ToPrettyString(args.Actor):user} set {ToPrettyString(ent):pintle} to target the {mode} threat");
     }
 
     private void OnPowerMsg(Entity<CMUJeepSentryMountComponent> ent, ref CMUJeepSentryPowerMessage args)
