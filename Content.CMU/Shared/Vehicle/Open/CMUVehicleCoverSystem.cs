@@ -56,7 +56,7 @@ public sealed class CMUVehicleCoverSystem : EntitySystem
             seat.Vehicle is not { } vehicle ||
             !TryComp(vehicle, out CMUVehicleCoverComponent? cover) ||
             !TryComp(vehicle, out CMUOpenVehicleComponent? jeep) ||
-            IsAboard(args.Origin, vehicle) ||
+            _jeep.IsAboard(args.Origin, vehicle) ||
             ShotDirection(vehicle, args.Origin, args.Source) is not { } shot)
         {
             return;
@@ -146,22 +146,6 @@ public sealed class CMUVehicleCoverSystem : EntitySystem
     private bool WindshieldUp(EntityUid vehicle, CMUOpenVehicleComponent jeep)
     {
         return !jeep.WindshieldDown && _jeep.HasWindshield(vehicle, jeep);
-    }
-
-    private bool IsAboard(EntityUid? entity, EntityUid vehicle)
-    {
-        for (var i = 0; i < 5 && entity is { } current && current.IsValid(); i++)
-        {
-            if (current == vehicle)
-                return true;
-
-            if (!TryComp(current, out TransformComponent? xform))
-                break;
-
-            entity = xform.ParentUid;
-        }
-
-        return false;
     }
 
     public override void Update(float frameTime)

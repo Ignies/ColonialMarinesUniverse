@@ -172,7 +172,11 @@ public sealed partial class CMUOpenVehicleSystem : EntitySystem
             _passedThrough.Add((ent, args.OtherEntity));
     }
 
-    private bool IsAboard(EntityUid? entity, EntityUid vehicle)
+    /// <summary>
+    /// Whether the entity is the vehicle or rides somewhere on it: a part or gun fitted to it, a rider
+    /// in a seat, or a gun in a rider's hands.
+    /// </summary>
+    public bool IsAboard(EntityUid? entity, EntityUid vehicle)
     {
         for (var i = 0; i < 5 && entity is { } current && current.IsValid(); i++)
         {

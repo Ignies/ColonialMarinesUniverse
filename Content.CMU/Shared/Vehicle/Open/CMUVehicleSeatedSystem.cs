@@ -1,8 +1,12 @@
 using System.Numerics;
+using Content.Shared.Buckle.Components;
+using Content.Shared.Hands.Components;
 using Content.Shared.Movement.Pulling.Components;
 using Content.Shared.Movement.Pulling.Systems;
+using Content.Shared.Projectiles;
 using Content.Shared.Pulling.Events;
 using Content.Shared.Throwing;
+using Robust.Shared.Containers;
 using Robust.Shared.Physics.Components;
 using Robust.Shared.Physics.Events;
 using Robust.Shared.Physics.Systems;
@@ -16,10 +20,13 @@ namespace Content.Shared.CMU14.Vehicle.Open;
 /// and contact corrections to its local position, so any bump to a rider would throw them out.
 /// While seated, the rider's hard contacts are cancelled and their velocity is cleared around every
 /// step (see <see cref="CMUOpenVehiclePhysicsController"/>). Their body keeps its type, so tile fires,
-/// smoke and bullets still reach them, and knockbacks, throws and drags still pull them out.
+/// smoke and bullets still reach them, and knockbacks, throws and drags still pull them out. Rounds
+/// from their own vehicle's mounted gun pass them by.
 /// </summary>
 public sealed class CMUVehicleSeatedSystem : EntitySystem
 {
+    [Dependency] private SharedContainerSystem _container = default!;
+    [Dependency] private CMUOpenVehicleSystem _jeep = default!;
     [Dependency] private SharedPhysicsSystem _physics = default!;
     [Dependency] private PullingSystem _pulling = default!;
     [Dependency] private IGameTiming _timing = default!;
@@ -67,8 +74,33 @@ public sealed class CMUVehicleSeatedSystem : EntitySystem
 
     private void OnPreventCollide(Entity<CMUVehicleSeatedComponent> ent, ref PreventCollideEvent args)
     {
-        if (args.OurFixture.Hard && args.OtherFixture.Hard)
+        if (args.OurFixture.Hard && args.OtherFixture.Hard
+            || IsFromOwnMountedGun(ent, args.OtherEntity))
+        {
             args.Cancelled = true;
+        }
+    }
+
+    /// <summary>
+    /// Whether the shot came from a gun mounted on the vehicle the rider sits in. The crew sit in the
+    /// gunner's arc, and IFF only spares those sharing the shooter's faction, so without this the
+    /// mounted gun could hit its own driver and passengers. Guns in riders' hands get no such pass:
+    /// riders can still shoot each other.
+    /// </summary>
+    private bool IsFromOwnMountedGun(EntityUid rider, EntityUid shot)
+    {
+        return TryComp(shot, out ProjectileComponent? projectile)
+               && projectile.Weapon is { } weapon
+               && CompOrNull<BuckleComponent>(rider)?.BuckledTo is { } seat
+               && CompOrNull<CMUVehicleSeatComponent>(seat)?.Vehicle is { } vehicle
+               && _jeep.IsAboard(weapon, vehicle)
+               && !IsHeld(weapon);
+    }
+
+    private bool IsHeld(EntityUid weapon)
+    {
+        return _container.TryGetContainingContainer((weapon, null), out var container)
+               && HasComp<HandsComponent>(container.Owner);
     }
 
     /// <summary>
