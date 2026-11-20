@@ -1,5 +1,6 @@
 using System.Linq;
 using System.Numerics;
+using Content.Client.Stylesheets;
 using Content.Shared.CMU14.Vehicle.Open;
 using Robust.Client.UserInterface.Controls;
 using Robust.Client.UserInterface.CustomControls;
@@ -48,7 +49,11 @@ public sealed class CMUJeepSentryWindow : DefaultWindow
         };
         root.AddChild(_power);
 
-        var modes = new BoxContainer { Orientation = BoxContainer.LayoutOrientation.Horizontal, SeparationOverride = 2 };
+        var modes = new BoxContainer
+        {
+            Orientation = BoxContainer.LayoutOrientation.Horizontal,
+            SeparationOverride = 2,
+        };
         modes.AddChild(new Label { Text = Loc.GetString("cmu-jeep-sentry-mode") });
         var group = new ButtonGroup();
         _closest = ModeButton(group, "cmu-jeep-sentry-mode-closest", CMUJeepSentryTargetMode.Closest);
@@ -57,7 +62,11 @@ public sealed class CMUJeepSentryWindow : DefaultWindow
         modes.AddChild(_biggest);
         root.AddChild(modes);
 
-        root.AddChild(new Label { Text = Loc.GetString("cmu-jeep-sentry-factions"), FontColorOverride = Color.LightGray });
+        root.AddChild(new Label
+        {
+            Text = Loc.GetString("cmu-jeep-sentry-factions"),
+            StyleClasses = { StyleNano.StyleClassLabelHeading },
+        });
         var grid = new GridContainer { Columns = 3, HSeparationOverride = 12 };
         grid.AddChild(new Label { Text = Loc.GetString("cmu-jeep-sentry-faction") });
         grid.AddChild(new Label { Text = Loc.GetString("cmu-jeep-sentry-hold-fire") });
@@ -94,8 +103,8 @@ public sealed class CMUJeepSentryWindow : DefaultWindow
         }
 
         root.AddChild(grid);
-        var help = new RichTextLabel { MaxWidth = 380 };
-        help.SetMessage(FormattedMessage.FromMarkupOrThrow(Loc.GetString("cmu-jeep-sentry-help")), defaultColor: Color.Gray);
+        var help = new RichTextLabel { MaxWidth = 380, StyleClasses = { StyleNano.StyleClassLabelSubText } };
+        help.SetMessage(FormattedMessage.FromMarkupOrThrow(Loc.GetString("cmu-jeep-sentry-help")));
         root.AddChild(help);
     }
 
@@ -110,7 +119,7 @@ public sealed class CMUJeepSentryWindow : DefaultWindow
         return button;
     }
 
-    public void SetState(CMUJeepSentryMountComponent mount, string? sentryName, string? targetName)
+    public void SetState(CMUJeepSentryMountComponent mount, string? sentryName, string? targetName, bool locked)
     {
         _updating = true;
         _sentry.Text = sentryName == null
@@ -129,6 +138,7 @@ public sealed class CMUJeepSentryWindow : DefaultWindow
         {
             var isFriendly = factions.All(mount.FriendlyFactions.Contains);
             friendly.Pressed = isFriendly;
+            friendly.Disabled = locked;
             armed.Pressed = factions.All(mount.ArmedHostileFactions.Contains);
             armed.Disabled = !isFriendly;
         }

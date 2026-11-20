@@ -55,3 +55,4 @@ cmu-jeep-sentry-faction-bureau = Bureau
 cmu-jeep-sentry-faction-upp = UPP
 cmu-jeep-sentry-faction-weyu = Weyland-Yutani
 cmu-jeep-sentry-faction-prodigy = Prodigy
+cmu-jeep-sentry-locked = This sentry's IFF is locked: it holds fire on its own factions and no others.

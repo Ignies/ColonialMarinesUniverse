@@ -1,5 +1,6 @@
 using System.Linq;
 using Content.IntegrationTests.Fixtures;
+using Content.Shared._RMC14.Sentry;
 using Content.Shared._RMC14.Vehicle;
 using Content.Shared.Buckle.Components;
 using Content.Shared.CMU14.Vehicle.Open;
@@ -25,6 +26,7 @@ public sealed class CMUJeepSentryMountTest : GameTest
     private static readonly string Bureau = "Bureau";
     private static readonly string WeYu = "AUWeYu";
     private static readonly string Provost = "PROVOST";
+    private static readonly string Govfor = "GOVFOR";
 
     private async Task<(TestMapData Map, EntityUid Jeep, Entity<CMUJeepSentryMountComponent> Mount)> SentryJeep()
     {
@@ -462,5 +464,145 @@ public sealed class CMUJeepSentryMountTest : GameTest
         await RunTicksSync(5);
         await Server.WaitAssertion(() =>
             Assert.That(SEntMan.GetComponent<BuckleComponent>(gunner).Buckled, Is.False, "Fitting a loaded pintle should put the gunner out of their seat."));
+    }
+
+    [Test]
+    public async Task ItsAlliesFollowItsSide()
+    {
+        var (map, _, mount) = await SentryJeep();
+        await Server.WaitAssertion(() =>
+        {
+            var system = SEntMan.System<CMUJeepSentryMountSystem>();
+            var targeting = SEntMan.System<SharedSentryTargetingSystem>();
+            system.SetRules(mount, [Govfor], []);
+            var sentry = system.GetSentry(mount)!.Value;
+            var agent = Person(map, 4.5f, 0.5f, Bureau, armed: false);
+            Assert.That(system.IsTarget(mount, sentry, agent), Is.True);
+
+            // Government forces ally with the Bureau: a government-side sentry holds fire on them.
+            targeting.AddAllianceFriendlyFaction(Govfor, Bureau);
+            Assert.That(system.IsTarget(mount, sentry, agent), Is.False, "It should hold fire on its side's allies.");
+
+            // Switched to another side, the old side's allies are no longer its own.
+            system.SetRules(mount, ["UPP"], []);
+            Assert.That(system.IsTarget(mount, sentry, agent), Is.True, "Its old side's allies shouldn't stay its allies.");
+        });
+    }
+
+    [Test]
+    public async Task ItHoldsFireUntilItFacesItsTarget()
+    {
+        var (map, _, mount) = await SentryJeep();
+        EntityUid sentry = default;
+        var full = 0;
+        await Server.WaitPost(() =>
+        {
+            sentry = SEntMan.System<CMUJeepSentryMountSystem>().GetSentry(mount)!.Value;
+            full = Ammo(sentry);
+            SEntMan.System<CMUJeepSentryMountSystem>().SetRules(mount, [WeYu], []);
+            // Behind the jeep: half a turn away from where the pintle starts.
+            Person(map, 0.5f, 6.5f, null, armed: false);
+        });
+        await RunSeconds(0.7f);
+        await Server.WaitAssertion(() =>
+        {
+            Assert.That(mount.Comp.Target, Is.Not.Null, "It should have picked its target.");
+            Assert.That(Ammo(sentry), Is.EqualTo(full), "Still turning round, it shouldn't have fired yet.");
+        });
+        await RunSeconds(3f);
+        await Server.WaitAssertion(() =>
+            Assert.That(Ammo(sentry), Is.LessThan(full), "Facing its target, it should fire."));
+    }
+
+    [Test]
+    public async Task ItKeepsItsTargetUnlessAnotherIsClearlyCloser()
+    {
+        var (map, _, mount) = await SentryJeep();
+        EntityUid first = default;
+        await Server.WaitPost(() =>
+        {
+            SEntMan.System<CMUJeepSentryMountSystem>().SetRules(mount, [WeYu], []);
+            first = Person(map, 4.5f, 0.5f, null, armed: false);
+        });
+        await RunSeconds(1f);
+        await Server.WaitAssertion(() => Assert.That(mount.Comp.Target, Is.EqualTo(first)));
+
+        EntityUid much = default;
+        await Server.WaitPost(() =>
+        {
+            // A little closer than the first: not enough to turn to.
+            Person(map, 0.5f, -3f, null, armed: false);
+        });
+        await RunSeconds(1f);
+        await Server.WaitAssertion(() =>
+            Assert.That(mount.Comp.Target, Is.EqualTo(first), "It shouldn't turn to a target only a little closer."));
+
+        await Server.WaitPost(() => much = Person(map, -1.5f, 0.5f, null, armed: false));
+        await RunSeconds(1f);
+        await Server.WaitAssertion(() =>
+            Assert.That(mount.Comp.Target, Is.EqualTo(much), "It should turn to a target much closer."));
+    }
+
+    [Test]
+    public async Task ItGoesQuietOnAWrittenOffJeep()
+    {
+        var (map, jeep, mount) = await SentryJeep();
+        EntityUid target = default;
+        await Server.WaitPost(() =>
+        {
+            SEntMan.System<CMUJeepSentryMountSystem>().SetRules(mount, [WeYu], []);
+            SEntMan.AddComponent<VehicleTotaledComponent>(jeep);
+            target = Person(map, 0.5f, -4.5f, null, armed: false);
+        });
+        await RunSeconds(3f);
+        await Server.WaitAssertion(() =>
+        {
+            Assert.That(mount.Comp.Target, Is.Null, "On a written-off jeep, the sentry shouldn't run.");
+            Assert.That(SEntMan.System<DamageableSystem>().GetTotalDamage(target).Float(), Is.Zero);
+        });
+    }
+
+    [Test]
+    public async Task TakingTheSentryOffFreesTheGunnersSeat()
+    {
+        var (map, jeep, mount) = await SentryJeep();
+        EntityUid gunner = default;
+        await Server.WaitPost(() =>
+        {
+            var slots = SEntMan.System<ItemSlotsSystem>();
+            Assert.That(slots.TryEject(mount.Owner, "jeep-sentry", null, out _), Is.True);
+            Assert.That(SEntMan.System<CMUJeepSentryMountSystem>().HasSentry(jeep), Is.False);
+            gunner = Person(map, 0.5f, 2.5f, null, armed: false);
+            SEntMan.System<CMUVehicleSeatSystem>().ClickSeat(GunnerSeat(jeep), gunner);
+        });
+        await RunSeconds(3f);
+        await Server.WaitAssertion(() =>
+            Assert.That(SEntMan.GetComponent<BuckleComponent>(gunner).Buckled, Is.True,
+                "With the sentry off the pintle, the gunner's seat should be free again."));
+    }
+
+    [Test]
+    public async Task WeylandYutaniSentriesFitToo()
+    {
+        var (map, _, mount) = await SentryJeep();
+        await Server.WaitAssertion(() =>
+        {
+            var slots = SEntMan.System<ItemSlotsSystem>();
+            Assert.That(slots.TryEject(mount.Owner, "jeep-sentry", null, out _), Is.True);
+            var sentry = SEntMan.SpawnEntity("AU14SentryOmniWeYu", MapCoordinates.Nullspace);
+            Assert.That(slots.TryInsert(mount.Owner, "jeep-sentry", sentry, null), Is.True, "A Weyland-Yutani sentry should sit on the pintle.");
+
+            // Its corporate IFF is locked: it keeps its factions, and the window can't change them.
+            Assert.That(mount.Comp.FriendlyFactions, Does.Contain(WeYu));
+            Send(mount, KeyHolder(map, mount), new CMUJeepSentryFriendlyMessage("UPP", true));
+            Assert.That(mount.Comp.FriendlyFactions, Does.Not.Contain("UPP"), "A locked sentry's factions shouldn't change.");
+        });
+    }
+
+    private int Ammo(EntityUid sentry)
+    {
+        var ammo = new GetAmmoCountEvent();
+        SEntMan.EventBus.RaiseLocalEvent(sentry, ref ammo);
+        return ammo.Count;
     }
 }

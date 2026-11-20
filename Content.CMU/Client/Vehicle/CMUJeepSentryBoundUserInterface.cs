@@ -25,12 +25,13 @@ public sealed class CMUJeepSentryBoundUserInterface(EntityUid owner, Enum uiKey)
         if (_window == null || !EntMan.TryGetComponent(Owner, out CMUJeepSentryMountComponent? mount))
             return;
 
-        var sentry = EntMan.System<CMUJeepSentryMountSystem>().GetSentry((Owner, mount));
+        var system = EntMan.System<CMUJeepSentryMountSystem>();
+        var sentry = system.GetSentry((Owner, mount));
         var sentryName = sentry is { } fitted ? EntMan.GetComponent<MetaDataComponent>(fitted).EntityName : null;
         var targetName = mount.Target is { } target && EntMan.TryGetComponent(target, out MetaDataComponent? meta)
             ? meta.EntityName
             : null;
 
-        _window.SetState(mount, sentryName, targetName);
+        _window.SetState(mount, sentryName, targetName, system.IsLocked((Owner, mount)));
     }
 }

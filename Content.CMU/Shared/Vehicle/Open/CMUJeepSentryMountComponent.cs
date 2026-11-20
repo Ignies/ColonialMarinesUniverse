@@ -52,7 +52,9 @@ public sealed partial class CMUJeepSentryMountComponent : Component
 
     /// <summary>
     /// How far sentries that see further or less than a standard one look from the pintle, by their
-    /// prototype: a sniper sentry's long sight, a shotgun sentry's short one.
+    /// prototype: a sniper sentry's long sight, a shotgun sentry's short one. Keep these to the
+    /// sentries' own VisionRadius in their HTN blackboards (sentries.yml), which only the server's NPC
+    /// code can read.
     /// </summary>
     [DataField]
     public Dictionary<EntProtoId, float> SentryRanges = new();
@@ -75,6 +77,12 @@ public sealed partial class CMUJeepSentryMountComponent : Component
     /// </summary>
     [DataField]
     public float SwitchMargin = 0.75f;
+
+    /// <summary>
+    /// The turret overlay's state, in its RSI, while no sentry is on: the bare pintle.
+    /// </summary>
+    [DataField]
+    public string EmptyState = "defense_base_off";
 
     /// <summary>
     /// It only runs with the vehicle's key in the ignition: pull the key and it goes quiet.

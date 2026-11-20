@@ -127,7 +127,11 @@ public sealed class CMUVehicleSeatSystem : EntitySystem
         {
             args.Cancelled = true;
             if (args.Popup && args.User is { } blocked)
-                _popup.PopupPredicted(Loc.GetString("cmu-jeep-sentry-gunner-seat"), blocked, blocked, PopupType.SmallCaution);
+            {
+                var message = Loc.GetString("cmu-jeep-sentry-gunner-seat");
+                _popup.PopupPredicted(message, blocked, blocked, PopupType.SmallCaution);
+            }
+
             return;
         }
 
@@ -544,7 +548,6 @@ public sealed class CMUVehicleSeatSystem : EntitySystem
     {
         return TryComp(seat, out StrapComponent? strap) && strap.BuckledEntities.Count == 0;
     }
-
 
     public bool IsSeatedIn(EntityUid user, EntityUid vehicle)
     {

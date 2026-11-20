@@ -550,9 +550,11 @@
     slots:
       jeep-sentry:
         name: cmu-jeep-sentry-slot
+        # Any engineer's sentry, the Weyland-Yutani ones included.
         whitelist:
           tags:
           - RMCSentry
+          - RMCSentryWeYa
   - type: ContainerContainer
     containers:
       jeep-sentry: !type:ContainerSlot

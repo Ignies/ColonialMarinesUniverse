@@ -168,9 +168,9 @@ public sealed class CMUJeepSentryMountSystem : EntitySystem
 
         foreach (var seat in seats.SeatEntities)
         {
-            if (!TryComp(seat, out CMUVehicleSeatComponent? seatComp) ||
-                !seatComp.Gunner ||
-                !TryComp(seat, out StrapComponent? strap))
+            if (!TryComp(seat, out CMUVehicleSeatComponent? seatComp)
+                || !seatComp.Gunner
+                || !TryComp(seat, out StrapComponent? strap))
             {
                 continue;
             }
@@ -185,9 +185,14 @@ public sealed class CMUJeepSentryMountSystem : EntitySystem
     /// <summary>
     /// Sets who the pintle's sentry holds fire on, and which of those it fires on anyway once armed.
     /// </summary>
-    public void SetRules(Entity<CMUJeepSentryMountComponent> ent, IEnumerable<string> friendly, IEnumerable<string> armedHostile)
+    public void SetRules(
+        Entity<CMUJeepSentryMountComponent> ent,
+        IEnumerable<string> friendly,
+        IEnumerable<string> armedHostile)
     {
-        ent.Comp.FriendlyFactions = friendly.Where(SharedSentryTargetingSystem.SentryAllowedFactions.Contains).ToHashSet();
+        ent.Comp.FriendlyFactions = friendly
+            .Where(SharedSentryTargetingSystem.SentryAllowedFactions.Contains)
+            .ToHashSet();
         ent.Comp.ArmedHostileFactions = armedHostile.Where(ent.Comp.FriendlyFactions.Contains).ToHashSet();
         Dirty(ent);
         ApplyRules(ent);
@@ -203,19 +208,33 @@ public sealed class CMUJeepSentryMountSystem : EntitySystem
             return;
 
         if (GetSentry(ent) is { } sentry && TryComp(sentry, out SentryTargetingComponent? sentryTargeting))
+        {
             _targeting.SetFriendlyFactions((sentry, sentryTargeting), ent.Comp.FriendlyFactions);
+            AssignedFactions(sentry);
+        }
 
         var unarmedOnly = new HashSet<string>(ent.Comp.FriendlyFactions);
         unarmedOnly.ExceptWith(ent.Comp.ArmedHostileFactions);
         _targeting.SetFriendlyFactions((ent, EnsureComp<SentryTargetingComponent>(ent)), unarmedOnly);
+        AssignedFactions(ent);
+    }
+
+    /// <summary>
+    /// Tells the sentry its side may have changed, so the alliance console's allies for its new side
+    /// replace the old side's, as when an engineer sets a turret's faction with a multitool.
+    /// </summary>
+    private void AssignedFactions(EntityUid targeting)
+    {
+        var ev = new SentryFactionAssignedEvent(targeting);
+        RaiseLocalEvent(targeting, ref ev);
     }
 
     private void OnGetVerbs(Entity<CMUOpenVehicleComponent> ent, ref GetVerbsEvent<Verb> args)
     {
-        if (!args.CanAccess ||
-            !args.CanInteract ||
-            !TryGetMount(ent, out var mount) ||
-            !HoldsKey(args.User, ent))
+        if (!args.CanAccess
+            || !args.CanInteract
+            || !TryGetMount(ent, out var mount)
+            || !HoldsKey(args.User, ent))
         {
             return;
         }
@@ -229,17 +248,27 @@ public sealed class CMUJeepSentryMountSystem : EntitySystem
     }
 
     /// <summary>
+    /// Whether the sentry on the pintle has locked IFF: its friendly factions can't be changed.
+    /// </summary>
+    public bool IsLocked(Entity<CMUJeepSentryMountComponent> mount)
+    {
+        return GetSentry(mount) is { } sentry
+               && TryComp(sentry, out SentryTargetingComponent? targeting)
+               && targeting.LockedFriendlyFactions.Count > 0;
+    }
+
+    /// <summary>
     /// Loads a sentry magazine into the sentry on the vehicle's pintle, as if it were used on the
     /// sentry. False if it isn't a magazine that sentry takes, or the vehicle has no sentry on.
     /// </summary>
     public bool TryLoadSentry(EntityUid vehicle, EntityUid user, EntityUid used, EntityCoordinates clickLocation)
     {
-        if (!HasComp<BallisticAmmoProviderComponent>(used) ||
-            HasComp<GunComponent>(used) ||
-            !TryGetMount(vehicle, out var mount) ||
-            GetSentry(mount) is not { } sentry ||
-            !TryComp(sentry, out SentryComponent? sentryComp) ||
-            sentryComp.MagazineTag is { } magazine && !_tags.HasTag(used, magazine))
+        if (!HasComp<BallisticAmmoProviderComponent>(used)
+            || HasComp<GunComponent>(used)
+            || !TryGetMount(vehicle, out var mount)
+            || GetSentry(mount) is not { } sentry
+            || !TryComp(sentry, out SentryComponent? sentryComp)
+            || sentryComp.MagazineTag is { } magazine && !_tags.HasTag(used, magazine))
         {
             return false;
         }
@@ -305,6 +334,13 @@ public sealed class CMUJeepSentryMountSystem : EntitySystem
         if (!SharedSentryTargetingSystem.SentryAllowedFactions.Contains(args.Faction) || !CanConfigure(ent, args.Actor))
             return;
 
+        // A sentry with locked IFF, like a corporate one, holds fire on its own factions and no others.
+        if (IsLocked(ent))
+        {
+            _popup.PopupEntity(Loc.GetString("cmu-jeep-sentry-locked"), args.Actor, args.Actor, PopupType.SmallCaution);
+            return;
+        }
+
         if (args.Friendly)
         {
             ent.Comp.FriendlyFactions.Add(args.Faction);
@@ -349,7 +385,7 @@ public sealed class CMUJeepSentryMountSystem : EntitySystem
             return;
 
         ent.Comp.Powered = args.Powered;
-        SetTarget(ent, null);
+        ent.Comp.Target = null;
         Dirty(ent);
     }
 
@@ -374,8 +410,8 @@ public sealed class CMUJeepSentryMountSystem : EntitySystem
         if (mount.Comp.ArmedHostileFactions.IsSupersetOf(mount.Comp.FriendlyFactions))
             return HasComp<UserIFFComponent>(target) || HasComp<NpcFactionMemberComponent>(target);
 
-        return TryComp(mount, out SentryTargetingComponent? unarmedOnly) &&
-               _targeting.IsValidTarget((mount, unarmedOnly), target);
+        return TryComp(mount, out SentryTargetingComponent? unarmedOnly)
+               && _targeting.IsValidTarget((mount, unarmedOnly), target);
     }
 
     /// <summary>
@@ -390,8 +426,8 @@ public sealed class CMUJeepSentryMountSystem : EntitySystem
         var alliance = sentry.AllianceFriendlyNpcFactions;
         foreach (var faction in member.Factions)
         {
-            if (alliance.Contains(faction) ||
-                _prototypes.TryIndex(faction, out NpcFactionPrototype? proto) && proto.SentryProtected)
+            if (alliance.Contains(faction)
+                || _prototypes.TryIndex(faction, out NpcFactionPrototype? proto) && proto.SentryProtected)
             {
                 return true;
             }
@@ -437,7 +473,8 @@ public sealed class CMUJeepSentryMountSystem : EntitySystem
     /// </summary>
     public float GetRange(Entity<CMUJeepSentryMountComponent> mount, EntityUid sentry)
     {
-        return MetaData(sentry).EntityPrototype is { } proto && mount.Comp.SentryRanges.TryGetValue(proto.ID, out var range)
+        return MetaData(sentry).EntityPrototype is { } proto
+               && mount.Comp.SentryRanges.TryGetValue(proto.ID, out var range)
             ? range
             : mount.Comp.Range;
     }
@@ -448,13 +485,17 @@ public sealed class CMUJeepSentryMountSystem : EntitySystem
     /// </summary>
     public bool CanRun(Entity<CMUJeepSentryMountComponent> mount, EntityUid vehicle)
     {
-        return mount.Comp.Powered &&
-               (!mount.Comp.NeedsKeyIn ||
-                TryComp(vehicle, out CMUVehicleIgnitionComponent? ignition) && ignition.KeySlot.HasItem) &&
-               _hardpoints.IsHardpointFunctional(mount) &&
-               !_jeep.IsHullWrecked(vehicle) &&
-               !HasComp<VehicleTotaledComponent>(vehicle) &&
-               !(TryComp(vehicle, out VehicleMaintenanceComponent? maintenance) && maintenance.ControlsLocked);
+        return mount.Comp.Powered
+               && (!mount.Comp.NeedsKeyIn || KeyIn(vehicle))
+               && _hardpoints.IsHardpointFunctional(mount)
+               && !_jeep.IsHullWrecked(vehicle)
+               && !HasComp<VehicleTotaledComponent>(vehicle)
+               && !(TryComp(vehicle, out VehicleMaintenanceComponent? maintenance) && maintenance.ControlsLocked);
+    }
+
+    private bool KeyIn(EntityUid vehicle)
+    {
+        return TryComp(vehicle, out CMUVehicleIgnitionComponent? ignition) && ignition.KeySlot.HasItem;
     }
 
     public override void Update(float frameTime)
@@ -467,11 +508,11 @@ public sealed class CMUJeepSentryMountSystem : EntitySystem
         while (query.MoveNext(out var uid, out var mount, out var turret))
         {
             var ent = (uid, mount);
-            if (GetSentry(ent) is not { } sentry ||
-                !TryComp(sentry, out GunComponent? gun) ||
-                !_turret.TryGetVehicle(uid, out var vehicle) ||
-                !CanRun(ent, vehicle) ||
-                !_turret.TryGetTurretOrigin(uid, out var originCoords))
+            if (GetSentry(ent) is not { } sentry
+                || !TryComp(sentry, out GunComponent? gun)
+                || !_turret.TryGetVehicle(uid, out var vehicle)
+                || !CanRun(ent, vehicle)
+                || !_turret.TryGetTurretOrigin(uid, out var originCoords))
             {
                 SetTarget(ent, null);
                 continue;
@@ -495,8 +536,8 @@ public sealed class CMUJeepSentryMountSystem : EntitySystem
 
             // It fires once it has had time to swing round and faces its target.
             var toTarget = _transform.ToMapCoordinates(targetCoords).Position - origin.Position;
-            if (now < mount.FireFrom ||
-                Math.Abs(Angle.ShortestDistance(turret.WorldRotation, toTarget.ToWorldAngle()).Degrees) > mount.AimTolerance)
+            var off = Angle.ShortestDistance(turret.WorldRotation, toTarget.ToWorldAngle()).Degrees;
+            if (now < mount.FireFrom || Math.Abs(off) > mount.AimTolerance)
             {
                 continue;
             }
@@ -559,8 +600,8 @@ public sealed class CMUJeepSentryMountSystem : EntitySystem
             return false;
 
         var targetMap = _transform.GetMapCoordinates(target);
-        return targetMap.MapId == origin.MapId &&
-               _interaction.InRangeUnobstructed(origin, targetMap, range);
+        return targetMap.MapId == origin.MapId
+               && _interaction.InRangeUnobstructed(origin, targetMap, range);
     }
 
     private EntityUid? PickTarget(
