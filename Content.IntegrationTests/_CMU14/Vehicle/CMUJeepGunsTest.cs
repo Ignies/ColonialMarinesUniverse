@@ -1,3 +1,4 @@
+using System.Linq;
 using Content.IntegrationTests.Fixtures;
 using Content.Shared.Buckle.Components;
 using Content.Shared.CMU14.Vehicle.Open;
@@ -11,7 +12,6 @@ using Robust.Shared.Containers;
 using Robust.Shared.GameObjects;
 using Robust.Shared.Map;
 using Robust.Shared.Prototypes;
-using System.Linq;
 
 namespace Content.IntegrationTests.CMU14.Vehicle;
 
