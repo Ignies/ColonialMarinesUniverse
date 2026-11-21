@@ -6,8 +6,9 @@ namespace Content.Client.CMU14.Vehicle;
 
 /// <summary>
 /// Draws a vehicle's turret overlay as the gun fitted to its mount: the machine gun, the grenade
-/// launcher, the rocket pod or a pintle adapter's clamped gun, or the bare mount with none on; damaged while the gun or its mount
-/// is too damaged to fire. The overlay otherwise only ever shows the mount prototype's one state.
+/// launcher, the rocket pod or a pintle adapter's clamped gun, or the bare mount with none on;
+/// damaged while the gun or its mount is too damaged to fire. The overlay otherwise only ever shows
+/// the mount prototype's one state.
 /// </summary>
 /// <remarks>
 /// The overlay entity is the vehicle turret system's, redrawn only when it first appears; nothing is
