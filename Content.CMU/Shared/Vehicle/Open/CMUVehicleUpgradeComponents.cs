@@ -74,10 +74,13 @@ public sealed partial class CMUVehicleUpgradeComponent : Component
     public bool CrashProof;
 
     /// <summary>
-    /// As a shut door: it stops shots at the chest of the rider beside it, as well as below.
+    /// As a shut door: it stops shots at the chest of the rider beside it, as well as below, this often.
     /// </summary>
     [DataField]
     public bool CoversChest;
+
+    [DataField]
+    public float ChestChance = 0.6f;
 
     /// <summary>
     /// As a shut tailgate: it stops shots from behind at the legs of riders who get in over it.

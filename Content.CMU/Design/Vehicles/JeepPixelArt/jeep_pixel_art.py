@@ -1932,25 +1932,24 @@ def build_skid_plate():
 
 
 def build_snorkel():
-    """A snorkel: a tall intake pipe with its rain cap."""
+    """A snorkel: a fat intake pipe with its mounting bracket and a rain cap."""
     m = Model()
-    m.box(0, 1, 0, 1, 0, 14, "black", "kit")
-    m.box(-2, 1, -1, 2, 15, 16, "gun", "kit")
-    m.box(2, 4, 0, 1, 0, 1, "black", "kit")
+    m.box(-1, 1, -1, 1, 0, 16, "black", "kit")
+    m.box(-3, 3, -2, 2, 17, 19, "gun", "kit")
+    m.box(2, 5, -1, 1, 4, 6, "steel", "kit")
     return m
 
 
 def build_roll_cage():
-    """A roll cage: two hoops of tubing joined along the top."""
+    """A roll cage: two hoops of heavy tubing joined along the top, braced across."""
     m = Model()
-    for f0 in (-6, 5):
-        m.box(f0, f0, -7, -7, 0, 9, "steel", "kit")
-        m.box(f0, f0, 7, 7, 0, 9, "steel", "kit")
-        m.box(f0, f0, -7, 7, 10, 10, "steel", "kit")
-    for r0 in (-7, 7):
-        m.box(-6, 5, r0, r0, 10, 10, "steel", "kit")
-    m.box(-6, 5, -7, -7, 5, 5, "black", "kit")
-    m.box(-6, 5, 7, 7, 5, 5, "black", "kit")
+    for f0 in (-7, 5):
+        for r0 in (-8, 7):
+            m.box(f0, f0 + 1, r0, r0 + 1, 0, 11, "steel", "kit")
+        m.box(f0, f0 + 1, -8, 8, 11, 12, "steel", "kit")
+    for r0 in (-8, 7):
+        m.box(-7, 6, r0, r0 + 1, 11, 12, "steel", "kit")
+        m.box(-7, 6, r0, r0 + 1, 5, 5, "black", "kit")
     return m
 
 
@@ -2926,7 +2925,7 @@ def icon_images():
         "bull_bar": centred(build_bull_bar(), "S", ICON),
         "skid_plate": centred(build_skid_plate(), "S", ICON),
         "snorkel": centred(build_snorkel(), "S", ICON),
-        "roll_cage": centred(build_roll_cage(), "S", ICON),
+        "roll_cage": centred(build_roll_cage(), "E", ICON),
         "windshield": centred(small_shield, "S", ICON),
         "searchlight": centred(scaled(searchlight("left")(), 2), "E", ICON),
         "engine": centred(engine(), "S", ICON),

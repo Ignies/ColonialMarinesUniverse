@@ -81,3 +81,4 @@ cmu-vehicle-upgrade-remove-verb = Remove {$upgrade}
 cmu-vehicle-upgrade-examine-kit = It has {INDEFINITE($upgrade)} [color=cyan]{$upgrade}[/color] bolted on.
 cmu-vehicle-upgrade-examine-load = It carries its upgrades easily: [color=green]{$load}%[/color] of its most.
 cmu-vehicle-upgrade-examine-heavy = It sits low under its upgrades: [color=yellow]{$load}%[/color] of its most, and slower for it.
+cmu-vehicle-upgrade-examine-item = A jeep upgrade weighing [color=yellow]{$weight}[/color]. Only an engineer can fit it, and only within the jeep's most load.

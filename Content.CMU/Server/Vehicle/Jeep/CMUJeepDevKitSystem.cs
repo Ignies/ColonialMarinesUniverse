@@ -374,10 +374,6 @@ public sealed class CMUJeepDevKitSystem : EntitySystem
     }
 
     /// <summary>
-    /// A test jeep's key comes out of the ignition and lies on the ground by the driver's door, to be
-    /// put in before driving off.
-    /// </summary>
-    /// <summary>
     /// Bolts <see cref="CMUJeepDevCVars.DevUpgrades"/> onto the jeep, for screenshots of their art.
     /// </summary>
     private void FitUpgrades(EntityUid jeep)
@@ -395,6 +391,10 @@ public sealed class CMUJeepDevKitSystem : EntitySystem
         }
     }
 
+    /// <summary>
+    /// A test jeep's key comes out of the ignition and lies on the ground by the driver's door, to be
+    /// put in before driving off.
+    /// </summary>
     private void LeaveKitKey(EntityUid jeep)
     {
         if (!TryComp(jeep, out CMUVehicleIgnitionComponent? ignition) ||

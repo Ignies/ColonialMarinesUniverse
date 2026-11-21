@@ -2259,9 +2259,6 @@
     - map: [ bull_bar ]
       state: bull_bar_overlay_0
       visible: false
-    - map: [ skid_plate ]
-      state: skid_plate_overlay_0
-      visible: false
     - map: [ snorkel ]
       state: snorkel_overlay_0
       visible: false
@@ -2466,9 +2463,6 @@
       state: jack_overlay_0
     - map: [ bull_bar ]
       state: bull_bar_overlay_0
-      visible: false
-    - map: [ skid_plate ]
-      state: skid_plate_overlay_0
       visible: false
     - map: [ snorkel ]
       state: snorkel_overlay_0

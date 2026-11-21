@@ -823,9 +823,6 @@ public sealed partial class CMUOpenVehicleSystem : EntitySystem
     }
 
     /// <summary>
-    /// Whether the jeep has a panel on its hinges. One its parts list gives no slot can't come off.
-    /// </summary>
-    /// <summary>
     /// The part fitted for a panel, like a door, if it has a slot and something's in it.
     /// </summary>
     public EntityUid? PanelItem(EntityUid vehicle, CMUOpenVehicleComponent jeep, string part)
@@ -854,6 +851,9 @@ public sealed partial class CMUOpenVehicleSystem : EntitySystem
         return null;
     }
 
+    /// <summary>
+    /// Whether the jeep has a panel on its hinges. One its parts list gives no slot can't come off.
+    /// </summary>
     public bool IsPanelFitted(EntityUid vehicle, CMUOpenVehicleComponent jeep, string part)
     {
         if (jeep.Parts.Find(p => p.Id == part) is not { } data)

@@ -250,11 +250,11 @@ cmu-jeep-manual-cradle-use =
 cmu-jeep-manual-armor = Armor and run-flats
 cmu-jeep-manual-armor-about =
     Heavier parts in place of the stock ones, made at the autolathe or bought from requisitions:
-    • Armored doors: shield the rider beside them at the chest as well as the legs.
+    • Armored doors: shield the rider beside them at the legs, and most often at the chest too.
     • Armored tailgate: shut, it shields the legs of riders in the back from behind.
     • Armored hood: keeps most hits off the engine, onto the hull instead.
     • Ballistic windshield: catches most shots from ahead and wears slowly. A mesh one is light, catches few and barely wears.
-    • Run-flat wheels: take half the damage, a little slower everywhere.
+    • Run-flat wheels: take a quarter less damage, but they're heavy and a tenth slower everywhere.
     Every upgrade adds weight. A jeep carries some free; past that it slows, and it takes none past its most. Examine it to see its load.
 cmu-jeep-manual-armor-use = Only an engineer can fit one. Take off the stock part as usual, then fit the upgrade in its place.
 cmu-jeep-manual-kits = Bolt-on kits

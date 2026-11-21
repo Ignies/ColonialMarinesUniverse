@@ -92,12 +92,13 @@
     windshieldChance: 0.3
     windshieldWear: 0.05
 
-# Run-flat wheels: they shrug off most of what's thrown at them, a little slower everywhere.
+# Run-flat wheels: they shrug off a quarter of what's thrown at them, heavier and slower everywhere.
+# The wheel set is most jeeps' whole hull, so they come at a real cost.
 - type: entity
   parent: CMUJeepWheel
   id: CMUJeepWheelRunFlat
   name: jeep run-flat wheel set
-  description: A set of jeep wheels on run-flat tyres. They keep rolling through damage that would shred ordinary tyres, a little slower.
+  description: A set of jeep wheels on run-flat tyres. They take punishment that would shred ordinary tyres, at the cost of weight and speed.
   components:
   - type: Sprite
     state: tires
@@ -107,12 +108,12 @@
     hardpointType: Wheel
     vehicleFamily: CMUJeep
     slotType: Wheel
-    damageMultiplier: 0.075
+    damageMultiplier: 0.11
     repairRate: 0.0165
   - type: CMUVehicleTyre
     tyre: CMUTyreRunFlat
   - type: CMUVehicleUpgrade
-    weight: 15
+    weight: 40
 
 - type: entity
   abstract: true

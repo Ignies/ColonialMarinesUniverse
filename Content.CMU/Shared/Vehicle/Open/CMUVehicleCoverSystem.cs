@@ -66,13 +66,14 @@ public sealed class CMUVehicleCoverSystem : EntitySystem
         // legs of the riders who climb in over it.
         var reach = -MathF.Cos(MathHelper.DegreesToRadians(cover.CoverAngle));
         var doorArmor = seat.Door is { } fitted ? Armor(vehicle, jeep, fitted) : null;
-        if (seat.Door is { } door &&
-            (BelowChest(args) || (doorArmor is { CoversChest: true } && Chest(args))) &&
-            DoorFaces(seat, doorArmor, shot, reach) &&
-            !CMUOpenVehicleSystem.GetPanelFlag(jeep, door) &&
-            _jeep.IsPanelFitted(vehicle, jeep, door) &&
-            !_jeep.IsPanelBroken(vehicle, jeep, door) &&
-            !_jeep.IsHullWrecked(vehicle))
+        var shotSeed = GetNetEntity(args.Source ?? args.Origin);
+        if (seat.Door is { } door
+            && (BelowChest(args) || ChestCovered(doorArmor, args, GetNetEntity(ent), shotSeed))
+            && DoorFaces(seat, doorArmor, shot, reach)
+            && !CMUOpenVehicleSystem.GetPanelFlag(jeep, door)
+            && _jeep.IsPanelFitted(vehicle, jeep, door)
+            && !_jeep.IsPanelBroken(vehicle, jeep, door)
+            && !_jeep.IsHullWrecked(vehicle))
         {
             args.Cancelled = true;
             if (_net.IsServer)
@@ -85,7 +86,9 @@ public sealed class CMUVehicleCoverSystem : EntitySystem
         }
 
         // A ballistic windshield catches more and wears less; a mesh one catches less but barely wears.
-        var glass = _jeep.WindshieldItem(vehicle, jeep) is { } windshield ? CompOrNull<CMUVehicleUpgradeComponent>(windshield) : null;
+        var glass = _jeep.WindshieldItem(vehicle, jeep) is { } windshield
+            ? CompOrNull<CMUVehicleUpgradeComponent>(windshield)
+            : null;
         var chance = glass?.WindshieldChance ?? cover.WindshieldChance;
         var wear = glass?.WindshieldWear ?? cover.WindshieldWear;
         if (seat.Windshield &&
@@ -127,7 +130,11 @@ public sealed class CMUVehicleCoverSystem : EntitySystem
     /// Whether the seat's door, shut, faces the shot: from its side, or from behind for a rider who
     /// gets in over an armored tailgate.
     /// </summary>
-    private static bool DoorFaces(CMUVehicleSeatComponent seat, CMUVehicleUpgradeComponent? armor, Vector2 shot, float reach)
+    private static bool DoorFaces(
+        CMUVehicleSeatComponent seat,
+        CMUVehicleUpgradeComponent? armor,
+        Vector2 shot,
+        float reach)
     {
         if (seat.DoorSide is { } side)
             return Vector2.Dot(shot, side.ToVec()) <= reach;
@@ -142,6 +149,21 @@ public sealed class CMUVehicleCoverSystem : EntitySystem
     private CMUVehicleUpgradeComponent? Armor(EntityUid vehicle, CMUOpenVehicleComponent jeep, string panel)
     {
         return _jeep.PanelItem(vehicle, jeep, panel) is { } item ? CompOrNull<CMUVehicleUpgradeComponent>(item) : null;
+    }
+
+    /// <summary>
+    /// Whether an armored door's plate catches a shot at the chest of the rider beside it: often, not
+    /// always, since the rider sits up over its top.
+    /// </summary>
+    private bool ChestCovered(
+        CMUVehicleUpgradeComponent? armor,
+        BeforeDamageChangedEvent args,
+        NetEntity rider,
+        NetEntity? shot)
+    {
+        return armor is { CoversChest: true }
+            && Chest(args)
+            && SharedRandomExtensions.PredictedProb(_timing, armor.ChestChance, rider, shot);
     }
 
     private static bool Chest(BeforeDamageChangedEvent args)

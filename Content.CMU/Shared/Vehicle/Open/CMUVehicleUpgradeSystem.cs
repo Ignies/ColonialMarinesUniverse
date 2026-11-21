@@ -2,6 +2,7 @@ using Content.Shared._RMC14.Marines.Skills;
 using Content.Shared.Containers.ItemSlots;
 using Content.Shared.DoAfter;
 using Content.Shared.Examine;
+using Content.Shared.Hands.Components;
 using Content.Shared.Hands.EntitySystems;
 using Content.Shared.Interaction;
 using Content.Shared.Popups;
@@ -21,6 +22,7 @@ public sealed class CMUVehicleUpgradeSystem : EntitySystem
     [Dependency] private SharedContainerSystem _container = default!;
     [Dependency] private SharedDoAfterSystem _doAfter = default!;
     [Dependency] private SharedHandsSystem _hands = default!;
+    [Dependency] private CMUOpenVehicleSystem _jeep = default!;
     [Dependency] private INetManager _net = default!;
     [Dependency] private SharedPopupSystem _popup = default!;
     [Dependency] private SkillsSystem _skills = default!;
@@ -36,6 +38,12 @@ public sealed class CMUVehicleUpgradeSystem : EntitySystem
         SubscribeLocalEvent<CMUVehicleUpgradesComponent, GetVerbsEvent<Verb>>(OnGetVerbs);
         SubscribeLocalEvent<CMUVehicleUpgradesComponent, CMUVehicleKitDoAfterEvent>(OnKitDoAfter);
         SubscribeLocalEvent<CMUVehicleUpgradesComponent, ExaminedEvent>(OnExamined);
+        SubscribeLocalEvent<CMUVehicleUpgradeComponent, ExaminedEvent>(OnUpgradeExamined);
+    }
+
+    private void OnUpgradeExamined(Entity<CMUVehicleUpgradeComponent> ent, ref ExaminedEvent args)
+    {
+        args.PushMarkup(Loc.GetString("cmu-vehicle-upgrade-examine-item", ("weight", (int) ent.Comp.Weight)));
     }
 
     /// <summary>
@@ -50,38 +58,54 @@ public sealed class CMUVehicleUpgradeSystem : EntitySystem
         return MathF.Max(0f, 1f - over * upgrades.SpeedLossPerWeight);
     }
 
+    // A wrecked hull's kits do nothing for it; its weight still sits on it.
     public float CrashDamage(EntityUid vehicle)
     {
-        return CompOrNull<CMUVehicleUpgradesComponent>(vehicle)?.CrashDamage ?? 1f;
+        return Working(vehicle)?.CrashDamage ?? 1f;
     }
 
     public float CrashWheelDamage(EntityUid vehicle)
     {
-        return CompOrNull<CMUVehicleUpgradesComponent>(vehicle)?.CrashWheelDamage ?? 1f;
-    }
-
-    public float EngineShare(EntityUid vehicle)
-    {
-        return CompOrNull<CMUVehicleUpgradesComponent>(vehicle)?.EngineShare ?? 1f;
+        return Working(vehicle)?.CrashWheelDamage ?? 1f;
     }
 
     public float WaterDrag(EntityUid vehicle)
     {
-        return CompOrNull<CMUVehicleUpgradesComponent>(vehicle)?.WaterDrag ?? 1f;
+        return Working(vehicle)?.WaterDrag ?? 1f;
     }
 
     public bool IsCrashProof(EntityUid vehicle)
     {
-        return CompOrNull<CMUVehicleUpgradesComponent>(vehicle)?.CrashProof ?? false;
+        return Working(vehicle)?.CrashProof ?? false;
     }
 
     /// <summary>
-    /// The upgrade fitted in one of the vehicle's slots, like an armored door, if it is one.
+    /// The engine's share of each hit: less behind an armored hood, while it's shut and whole.
     /// </summary>
-    public CMUVehicleUpgradeComponent? InSlot(EntityUid vehicle, string slot)
+    public float EngineShare(EntityUid vehicle)
     {
-        return _container.TryGetContainer(vehicle, slot, out var container) && container.ContainedEntities.Count > 0
-            ? CompOrNull<CMUVehicleUpgradeComponent>(container.ContainedEntities[0])
+        if (Working(vehicle) is not { } upgrades || !TryComp(vehicle, out CMUOpenVehicleComponent? jeep))
+            return 1f;
+
+        var share = upgrades.EngineShare;
+        foreach (var part in jeep.Parts)
+        {
+            if (_jeep.PanelItem(vehicle, jeep, part.Id) is { } item
+                && TryComp(item, out CMUVehicleUpgradeComponent? armor)
+                && !CMUOpenVehicleSystem.GetPanelFlag(jeep, part.Id)
+                && !_jeep.IsPanelBroken(vehicle, jeep, part.Id))
+            {
+                share *= armor.EngineShare;
+            }
+        }
+
+        return share;
+    }
+
+    private CMUVehicleUpgradesComponent? Working(EntityUid vehicle)
+    {
+        return TryComp(vehicle, out CMUVehicleUpgradesComponent? upgrades) && !_jeep.IsHullWrecked(vehicle)
+            ? upgrades
             : null;
     }
 
@@ -121,7 +145,8 @@ public sealed class CMUVehicleUpgradeSystem : EntitySystem
             comp.Weight += upgrade.Weight;
             comp.CrashDamage *= upgrade.CrashDamage;
             comp.CrashWheelDamage *= upgrade.CrashWheelDamage;
-            comp.EngineShare *= upgrade.EngineShare;
+            if (upgrade.Kit)
+                comp.EngineShare *= upgrade.EngineShare;
             comp.WaterDrag *= upgrade.WaterDrag;
             comp.CrashProof |= upgrade.CrashProof;
         }
@@ -143,24 +168,26 @@ public sealed class CMUVehicleUpgradeSystem : EntitySystem
     }
 
     /// <summary>
-    /// Whether <paramref name="user"/> can fit the upgrade: an engineer, and within the vehicle's most
-    /// weight. Says why not if they can't.
+    /// Why <paramref name="user"/> can't fit the upgrade, if they can't: only an engineer can, and only
+    /// within the vehicle's most weight. A machine fitting it, like a power loader, has no hands to check.
     /// </summary>
-    private bool CanFit(Entity<CMUVehicleUpgradesComponent> ent, EntityUid upgradeUid, CMUVehicleUpgradeComponent upgrade, EntityUid? user, float replacing = 0f)
+    private string? CantFit(
+        Entity<CMUVehicleUpgradesComponent> ent,
+        CMUVehicleUpgradeComponent upgrade,
+        EntityUid? user,
+        float replacing = 0f)
     {
-        string? why = null;
-        if (user != null && !_skills.HasSkill(user.Value, upgrade.Skill, upgrade.SkillLevel))
-            why = "cmu-vehicle-upgrade-unskilled";
-        else if (ent.Comp.Weight - replacing + upgrade.Weight > ent.Comp.MaxWeight)
-            why = "cmu-vehicle-upgrade-too-heavy";
+        if (user is { } fitter
+            && HasComp<HandsComponent>(fitter)
+            && !_skills.HasSkill(fitter, upgrade.Skill, upgrade.SkillLevel))
+        {
+            return "cmu-vehicle-upgrade-unskilled";
+        }
 
-        if (why == null)
-            return true;
+        if (ent.Comp.Weight - replacing + upgrade.Weight > ent.Comp.MaxWeight)
+            return "cmu-vehicle-upgrade-too-heavy";
 
-        if (user != null)
-            _popup.PopupClient(Loc.GetString(why, ("upgrade", upgradeUid)), ent, user.Value, PopupType.SmallCaution);
-
-        return false;
+        return null;
     }
 
     private void OnSlotInsertAttempt(Entity<CMUVehicleUpgradesComponent> ent, ref ItemSlotInsertAttemptEvent args)
@@ -173,7 +200,9 @@ public sealed class CMUVehicleUpgradeSystem : EntitySystem
             ? oldUpgrade.Weight
             : 0f;
 
-        if (!CanFit(ent, args.Item, upgrade, args.User, replacing))
+        // Asked while building the context menu too, so this says nothing: the part's examine text
+        // tells what it takes.
+        if (CantFit(ent, upgrade, args.User, replacing) != null)
             args.Cancelled = true;
     }
 
@@ -189,8 +218,11 @@ public sealed class CMUVehicleUpgradeSystem : EntitySystem
             return;
         }
 
-        if (!CanFit(ent, args.Used, upgrade, args.User))
+        if (CantFit(ent, upgrade, args.User) is { } why)
+        {
+            _popup.PopupClient(Loc.GetString(why, ("upgrade", args.Used)), ent, args.User, PopupType.SmallCaution);
             return;
+        }
 
         var doAfter = new DoAfterArgs(EntityManager, args.User, upgrade.Delay,
             new CMUVehicleKitDoAfterEvent(true, GetNetEntity(args.Used)), ent, ent, args.Used)
@@ -240,7 +272,8 @@ public sealed class CMUVehicleUpgradeSystem : EntitySystem
                 {
                     if (!_skills.HasSkill(user, upgrade.Skill, upgrade.SkillLevel))
                     {
-                        _popup.PopupClient(Loc.GetString("cmu-vehicle-upgrade-unskilled", ("upgrade", kit)), ent, user, PopupType.SmallCaution);
+                        var message = Loc.GetString("cmu-vehicle-upgrade-unskilled", ("upgrade", kit));
+                        _popup.PopupClient(message, ent, user, PopupType.SmallCaution);
                         return;
                     }
 
@@ -265,9 +298,14 @@ public sealed class CMUVehicleUpgradeSystem : EntitySystem
             // The kit can change hands, or another be fitted, while the do-after runs.
             if (!TryComp(kit, out CMUVehicleUpgradeComponent? upgrade)
                 || !_hands.IsHolding(args.User, kit)
-                || HasKit(ent, MetaData(kit.Value).EntityPrototype?.ID)
-                || !CanFit(ent, kit.Value, upgrade, args.User))
+                || HasKit(ent, MetaData(kit.Value).EntityPrototype?.ID))
             {
+                return;
+            }
+
+            if (CantFit(ent, upgrade, args.User) is { } why)
+            {
+                _popup.PopupEntity(Loc.GetString(why, ("upgrade", kit.Value)), ent, args.User, PopupType.SmallCaution);
                 return;
             }
 
@@ -300,7 +338,9 @@ public sealed class CMUVehicleUpgradeSystem : EntitySystem
             }
 
             var load = (int) MathF.Round(ent.Comp.Weight / ent.Comp.MaxWeight * 100f);
-            var message = ent.Comp.Weight > ent.Comp.FreeWeight ? "cmu-vehicle-upgrade-examine-heavy" : "cmu-vehicle-upgrade-examine-load";
+            var message = ent.Comp.Weight > ent.Comp.FreeWeight
+                ? "cmu-vehicle-upgrade-examine-heavy"
+                : "cmu-vehicle-upgrade-examine-load";
             args.PushMarkup(Loc.GetString(message, ("load", load)));
         }
     }

@@ -173,6 +173,11 @@ public sealed class CMUJeepUpgradeTest : GameTest
 
             Assert.That(upgrades.EngineShare(jeep), Is.LessThan(1f),
                 "Engine bay armor should keep hits off the engine.");
+
+            // Raised, the hood shields nothing.
+            SEntMan.System<CMUOpenVehicleSystem>()
+                .SetPanel((jeep, SEntMan.GetComponent<CMUOpenVehicleComponent>(jeep)), CMUOpenVehicleSystem.Hood, true);
+            Assert.That(upgrades.EngineShare(jeep), Is.EqualTo(1f), "A raised armored hood shouldn't shield the engine.");
         });
     }
 }
