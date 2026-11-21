@@ -1789,6 +1789,11 @@ def build_rl(damaged=False):
         m.box(-8, -7, r0 + 1, r0 + 2, 1, 2, "steel", "mg")
         m.box(5, 6, r0, r0 + 3, 4, 4, "yellow", "mg")
     m.box(-2, 3, -1, 0, 0, 2, "steel", "mg")
+    # The saddle the tubes are strapped into, on the pintle: a dark plate under them, with cheeks.
+    m.box(-3, 2, -5, 4, -1, -1, "black", "mg")
+    m.box(-3, 2, -6, -6, -1, 1, "gun", "mg")
+    m.box(-3, 2, 5, 5, -1, 1, "gun", "mg")
+    m.box(-1, 0, -1, 0, -2, -2, "gun", "mg")
     # A sight box on the left tube, forward.
     m.box(2, 4, -5, -4, 4, 5, "gun", "mg")
     if damaged:
