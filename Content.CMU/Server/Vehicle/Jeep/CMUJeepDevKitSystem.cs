@@ -6,6 +6,7 @@ using Content.Server.Station.Components;
 using Content.Server.Station.Systems;
 using Content.Shared._NC14.DayNightCycle;
 using Content.Shared._RMC14.Areas;
+using Content.Shared._RMC14.Marines.Skills;
 using Content.Shared._RMC14.SupplyDrop;
 using Content.Shared.CMU14.Vehicle.Open;
 using Content.Shared.Containers.ItemSlots;
@@ -42,6 +43,7 @@ public sealed class CMUJeepDevKitSystem : EntitySystem
     [Dependency] private SharedMapSystem _map = default!;
     [Dependency] private IPrototypeManager _prototypes = default!;
     [Dependency] private CMUVehicleSeatSystem _seats = default!;
+    [Dependency] private SkillsSystem _skills = default!;
     [Dependency] private StationJobsSystem _stationJobs = default!;
     [Dependency] private SharedSupplyDropSystem _supplyDrop = default!;
     [Dependency] private GameTicker _ticker = default!;
@@ -68,6 +70,24 @@ public sealed class CMUJeepDevKitSystem : EntitySystem
         "VehicleAmmoBoxCupola", "CMUFlareJeepDropCLF", "CMUFlareJeepDropCLF", "CMUFlareJeepDropCLF",
     };
     private static readonly EntProtoId[] Props = { "RMCCrateGreen", "RMCTankReagentFuel" };
+
+    // Everything the jeep upgrades add, laid out a tile each beside the jeeps to try: the gun jeep's
+    // other guns and its sentry pintle, the technical and pintle adapters with a rifle to clamp, the
+    // armor and mobility parts and kits, the utility kits, and a wreck to winch.
+    private static readonly EntProtoId[] Upgrades =
+    {
+        "CMUJeepGrenadeLauncher", "VehicleAmmoBoxGrenadeLauncher", "CMUJeepRocketPod", "CMUJeepRocketBox",
+        "CMUJeepSentryMount", "RMCSentryMini",
+        "CMUJeepTechnicalFrame", "CMUJeepGunCradle", "CMUJeepGunCradleStabilized", "RMCWeaponRifleL24",
+        "RMCMagazineRifleL24",
+        "CMUJeepDoorArmored", "CMUJeepDoorArmored", "CMUJeepTailgateArmored", "CMUJeepHoodArmored",
+        "CMUJeepWindshieldBallistic", "CMUJeepWindshieldMesh", "CMUJeepWheelRunFlat",
+        "CMUJeepBullBar", "CMUJeepSkidPlate", "CMUJeepSnorkel", "CMUJeepRollCage",
+        "CMUJeepRoofRack", "CMUJeepAuxTank", "CMUJeepSmokeDischargers", "CMUJeepSmokeCanister",
+        "CMUJeepSmokeCanister", "CMUJeepWinch", "CMUJeepTowHitch", "CMUJeepCamoNet", "CMUJeepWreckCargo",
+    };
+
+    private static readonly EntProtoId<SkillDefinitionComponent> EngineerSkill = "RMCSkillEngineer";
 
     private const CollisionGroup Blockers = CollisionGroup.Impassable | CollisionGroup.MidImpassable |
                                             CollisionGroup.HighImpassable | CollisionGroup.LowImpassable |
@@ -221,8 +241,8 @@ public sealed class CMUJeepDevKitSystem : EntitySystem
             return false;
         }
 
-        if (!crates)
-            ParkTurretShowcase(grid, placed, pitch, footprint, spots);
+        // Parked as jeeps either way, beside the crates when they're dropped.
+        ParkTurretShowcase(grid, placed, Pitch, JeepTiles, spots);
 
         // The player stands by the first jeep with the tools; the crate and fuel tank go on their own
         // tiles. Those look for open sky only when the jeep is under it, so they stay next to it.
@@ -255,6 +275,25 @@ public sealed class CMUJeepDevKitSystem : EntitySystem
             Reserve(grid, SingleTile(propTile));
             SpawnAttachedTo(prop, _map.GridTileToLocal(gridUid, gridComp, propTile));
         }
+
+        if (_cfg.GetCVar(CMUJeepDevCVars.DevItems))
+        {
+            foreach (var item in Upgrades)
+            {
+                if (!_prototypes.HasIndex<EntityPrototype>(item)
+                    || !TryFindTile(grid, placed[0], null, SingleTile, out var itemTile, nearOpen))
+                {
+                    continue;
+                }
+
+                Reserve(grid, SingleTile(itemTile));
+                SpawnAttachedTo(item, _map.GridTileToLocal(gridUid, gridComp, itemTile));
+            }
+        }
+
+        // Kits and armor take an engineer to fit.
+        if (_cfg.GetCVar(CMUJeepDevCVars.DevEngineer))
+            _skills.SetSkill(player, EngineerSkill, 2);
 
         Log.Info($"Jeep dev kit for {ToPrettyString(player)} on {ToPrettyString(gridUid)}: " +
                  string.Join(", ", spots) + $"; player at {stand}.");

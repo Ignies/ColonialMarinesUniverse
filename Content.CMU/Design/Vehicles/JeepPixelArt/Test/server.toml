@@ -25,13 +25,18 @@ role_timers = false
 role_whitelist = false
 
 # Content.CMU/Server/Vehicle/Jeep/CMUJeepDevCVars.cs: every joining player spawns as a colonist
-# (Stable Garrison has no Passenger slot) and gets the jeep crates dropped by parachute, CLF jeep drop
-# flares and a test kit on open ground beside them, starting at midday.
+# (Stable Garrison has no Passenger slot) with engineer skill, beside a jeep built as a technical with
+# a rifle cradle, the jeep crates dropped by parachute, CLF jeep drop flares, a test kit and every jeep
+# upgrade laid out on open ground, starting at midday.
 [cmu.jeep]
 dev_kit = true
 dev_kit_crates = true
 dev_job = "AU14JobCivilianColonist"
 dev_daylight = true
+dev_turret = "CMUJeepTechnicalFrame"
+dev_turret_gun = "CMUJeepGunCradle"
+dev_items = true
+dev_engineer = true
 
 [events]
 enabled = false

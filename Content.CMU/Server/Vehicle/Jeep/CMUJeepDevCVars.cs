@@ -49,4 +49,15 @@ public sealed class CMUJeepDevCVars
     /// Empty for none.
     /// </summary>
     public static readonly CVarDef<string> DevUpgrades = CVarDef.Create("cmu.jeep.dev_upgrades", "", CVar.SERVERONLY);
+
+    /// <summary>
+    /// Lays every jeep upgrade out a tile each beside the dev kit's jeeps, to try: guns, the
+    /// technical and pintle adapters, armor, mobility and utility kits.
+    /// </summary>
+    public static readonly CVarDef<bool> DevItems = CVarDef.Create("cmu.jeep.dev_items", false, CVar.SERVERONLY);
+
+    /// <summary>
+    /// Makes the dev kit's player an engineer, who can fit the kits and armor.
+    /// </summary>
+    public static readonly CVarDef<bool> DevEngineer = CVarDef.Create("cmu.jeep.dev_engineer", false, CVar.SERVERONLY);
 }

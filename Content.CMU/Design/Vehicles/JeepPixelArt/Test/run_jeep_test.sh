@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Local jeep test on Linux, as run_jeep_test.ps1: a localhost server on the jeep test map and a
-# client that joins it, spawning by the jeeps and a test kit (cmu.jeep.* in server.toml). Build
-# Content.Server and Content.Client first. Logs go to bin/jeep-test-run.
+# client that joins it, spawning by the jeeps, a test kit and every jeep upgrade (cmu.jeep.* in
+# server.toml). It builds Content.Server and Content.Client first; pass --no-build after the user name
+# to skip that. Logs go to bin/jeep-test-run.
 #
 # Without a display, run it under Xvfb (DISPLAY=:99 after `Xvfb :99 -screen 0 1600x1000x24 &`):
 # SDL then needs EGL for a desktop OpenGL context, set below. To show off a turret mount, add e.g.
@@ -15,6 +16,11 @@ mkdir -p "$run"
 stamp="$(date +%H%M%S)"
 
 pkill -f "bin/Content.Server/Content.Server" || true
+
+if [ "${2:-}" != "--no-build" ]; then
+    dotnet build "$repo/Content.Server" -c Debug
+    dotnet build "$repo/Content.Client" -c Debug
+fi
 "$repo/bin/Content.Server/Content.Server" --mount-dir "$repo/Content.CMU/Resources" \
     --config-file "$here/server.toml" --data-dir "$run/data" > "$run/server-$stamp.log" 2>&1 &
 

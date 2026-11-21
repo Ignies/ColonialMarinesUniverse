@@ -1,10 +1,11 @@
 <#
   Local jeep test: starts a localhost server on Stable Garrison (no lobby) and a client that joins
-  it. The client spawns as a colonist with the three jeeps and a test kit parked on open ground beside
-  it (cmu.jeep.* in server.toml). The map takes about a minute to load. Build Content.Server and
-  Content.Client first. Logs go to bin/jeep-test-run.
+  it. The client spawns as a colonist engineer with the three jeeps, a test kit and every jeep upgrade
+  laid out on open ground beside it (cmu.jeep.* in server.toml). It builds Content.Server and
+  Content.Client first; -NoBuild skips that. The map takes about a minute to load. Logs go to
+  bin/jeep-test-run.
 #>
-param([string] $Username = 'JeepTester')
+param([string] $Username = 'JeepTester', [switch] $NoBuild)
 $ErrorActionPreference = 'Stop'
 $repo = (Resolve-Path (Join-Path $PSScriptRoot '..\..\..\..\..')).Path
 $overlay = Join-Path $repo 'Content.CMU\Resources'
@@ -17,6 +18,13 @@ $stamp = Get-Date -Format 'HHmmss'
 Get-CimInstance Win32_Process | Where-Object {
     ($_.ExecutablePath -eq $serverExe) -or ($_.ExecutablePath -eq $clientExe -and $_.CommandLine -like '*127.0.0.1:1222*') } |
     ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+
+if (-not $NoBuild) {
+    foreach ($project in 'Content.Server', 'Content.Client') {
+        dotnet build (Join-Path $repo $project) -c Debug
+        if ($LASTEXITCODE -ne 0) { throw "$project failed to build" }
+    }
+}
 
 $srv = Start-Process -FilePath $serverExe -WorkingDirectory $repo -WindowStyle Hidden -PassThru `
     -ArgumentList @('--mount-dir', "`"$overlay`"", '--config-file', "`"$(Join-Path $PSScriptRoot 'server.toml')`"",
