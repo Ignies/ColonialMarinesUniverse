@@ -1,5 +1,6 @@
 using System.Linq;
 using Content.IntegrationTests.Fixtures;
+using Content.Shared.Buckle.Components;
 using Content.Shared.CMU14.Vehicle.Open;
 using Content.Shared.Damage.Systems;
 using Content.Shared.Stunnable;
@@ -125,6 +126,41 @@ public sealed class CMUJeepGunsTest : GameTest
                 "The backblast should scorch whoever stands behind the pod.");
             Assert.That(SEntMan.HasComponent<KnockedDownComponent>(aside), Is.False,
                 "Someone off to the side is clear of the backblast.");
+        });
+    }
+
+    [Test]
+    public async Task TheBackblastSparesTheJeepsRiders()
+    {
+        var (map, jeep, pod) = await GunJeep("CMUJeepRocketPod");
+        EntityUid rider = default;
+        await Server.WaitPost(() =>
+        {
+            // By the passenger's door; climbing in over it takes a moment.
+            rider = SEntMan.SpawnEntity("CMMobHuman", new EntityCoordinates(map.Grid, -0.45f, 0.75f));
+            var seats = SEntMan.GetComponent<CMUVehicleSeatsComponent>(jeep).SeatEntities;
+            var passenger = seats.First(s => SEntMan.GetComponent<CMUVehicleSeatComponent>(s) is { Driver: false, Gunner: false });
+            SEntMan.System<CMUVehicleSeatSystem>().ClickSeat(passenger, rider);
+        });
+        await RunSeconds(4f);
+        await Server.WaitAssertion(() =>
+        {
+            Assert.That(SEntMan.GetComponent<BuckleComponent>(rider).Buckled, Is.True, "The rider should be seated.");
+
+            // A blast thrown straight back at the rider's seat from a pace in front of it.
+            var guns = SEntMan.System<CMUJeepGunSystem>();
+            var xforms = SEntMan.System<SharedTransformSystem>();
+            var seat = xforms.GetMapCoordinates(rider);
+            var muzzle = seat.Offset(new System.Numerics.Vector2(0f, -1f));
+            var aim = muzzle.Position - seat.Position;
+            var blast = (pod, SEntMan.GetComponent<CMUGunBackblastComponent>(pod));
+            var caught = new List<EntityUid>();
+
+            guns.InBackblast(blast, muzzle, aim, EntityUid.Invalid, null, caught);
+            Assert.That(caught, Does.Contain(rider), "Out of the jeep, the rider would stand in the blast.");
+
+            guns.InBackblast(blast, muzzle, aim, EntityUid.Invalid, jeep, caught);
+            Assert.That(caught, Does.Not.Contain(rider), "The jeep's bodywork should shield its rider.");
         });
     }
 

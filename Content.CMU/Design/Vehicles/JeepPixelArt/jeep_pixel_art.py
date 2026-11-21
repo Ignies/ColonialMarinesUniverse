@@ -1766,10 +1766,11 @@ def build_gl(damaged=False):
         m.box(5, 8, -2, 2, 0, 3, "gun", "mg")
         m.box(8, 9, -1, 1, 1, 2, "char", "mg")
     else:
-        # A short, wide barrel with a flared muzzle.
-        m.box(5, 9, -2, 2, 0, 3, "gun", "mg")
-        m.box(10, 11, -2, 2, 0, 3, "black", "mg")
-        m.paint(lambda f, r, z: 5 <= f <= 9 and z == 3 and f % 2 == 1, "black")
+        # A wide barrel with a cooling jacket and a flared muzzle, its bore open.
+        m.box(5, 10, -1, 1, 0, 2, "gun", "mg")
+        m.paint(lambda f, r, z: 5 <= f <= 10 and z == 2 and f % 2 == 1, "black")
+        m.box(11, 12, -2, 2, -1, 3, "gun", "mg")
+        m.box(12, 12, -1, 1, 0, 2, "black", "mg")
     if damaged:
         m.paint(lambda f, r, z: r <= -3 and (f + z) % 2 == 0, "char")
         m.paint(lambda f, r, z: -5 <= f <= 4 and z == 3 and (f + r) % 3 == 0, "char")
@@ -1780,18 +1781,21 @@ def build_rl(damaged=False):
     """Pintle-mounted two-tube rocket pod; pivot at the origin, tubes towards +f."""
     m = Model()
     m.box(-1, 0, -1, 0, -3, -1, "steel", "mg_mount")
-    # Two fat tubes side by side on a cradle, each wider than the pintle.
+    # Two fat tubes side by side: open, dark mouths in front, narrow venturis out the back.
     for r0 in (-5, 1):
-        m.box(-7, 8, r0, r0 + 3, 0, 3, "od", "mg")
+        m.box(-6, 8, r0, r0 + 3, 0, 3, "od", "mg")
         m.box(9, 10, r0, r0 + 3, 0, 3, "gun", "mg")
-        m.box(10, 10, r0 + 1, r0 + 2, 1, 2, "black", "mg")
-        m.box(-8, -8, r0, r0 + 3, 0, 3, "steel", "mg")
-        m.box(-1, 2, r0, r0 + 3, 4, 4, "yellow", "mg")
+        m.box(9, 10, r0 + 1, r0 + 2, 1, 2, "black", "mg")
+        m.box(-8, -7, r0 + 1, r0 + 2, 1, 2, "steel", "mg")
+        m.box(5, 6, r0, r0 + 3, 4, 4, "yellow", "mg")
     m.box(-2, 3, -1, 0, 0, 2, "steel", "mg")
+    # A sight box on the left tube, forward.
+    m.box(2, 4, -5, -4, 4, 5, "gun", "mg")
     if damaged:
         m.paint(lambda f, r, z: (f + r + z) % 3 == 0 and z >= 2, "char")
         m.remove(lambda f, r, z: f >= 7 and r >= 1)
     return m
+
 
 def build_pedestal(damaged=False):
     """The gun jeep's pedestal with no gun on it: the pintle post and its empty cradle."""

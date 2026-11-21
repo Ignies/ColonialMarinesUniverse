@@ -45,6 +45,9 @@
         stockReplenishDelay: 3600
       - cost: 1500
         crate: CMUCrateJeepRockets
+        maxStock: 2
+        startingStock: 2
+        stockReplenishDelay: 900
 
 # The colony's ASRS console only gets the cargo and medical jeeps, on the same one-at-a-time,
 # restock-to-two footing as the platoons'.

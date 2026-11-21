@@ -4,6 +4,7 @@ using Content.Shared.Damage;
 using Content.Shared.Damage.Systems;
 using Content.Shared.Interaction;
 using Content.Shared.Mobs.Components;
+using Content.Shared.Mobs.Systems;
 using Content.Shared.Popups;
 using Content.Shared.Stunnable;
 using Content.Shared.Weapons.Ranged.Systems;
@@ -22,6 +23,7 @@ public sealed class CMUJeepGunSystem : EntitySystem
     [Dependency] private SharedInteractionSystem _interaction = default!;
     [Dependency] private CMUOpenVehicleSystem _jeep = default!;
     [Dependency] private EntityLookupSystem _lookup = default!;
+    [Dependency] private MobStateSystem _mobState = default!;
     [Dependency] private INetManager _net = default!;
     [Dependency] private SharedPopupSystem _popup = default!;
     [Dependency] private SharedStunSystem _stun = default!;
@@ -77,8 +79,8 @@ public sealed class CMUJeepGunSystem : EntitySystem
     }
 
     /// <summary>
-    /// Fills <paramref name="caught"/> with everyone the blast behind the muzzle reaches: in its cone,
-    /// in the open from the muzzle, and neither the gunner nor riding the vehicle, whose bodywork
+    /// Fills <paramref name="caught"/> with everyone living the blast behind the muzzle reaches: in its
+    /// cone, in the open from the muzzle, and neither the gunner nor riding the vehicle, whose bodywork
     /// shields them.
     /// </summary>
     public void InBackblast(
@@ -96,8 +98,12 @@ public sealed class CMUJeepGunSystem : EntitySystem
         _lookup.GetEntitiesInRange(muzzle, gun.Comp.Range, _nearby);
         foreach (var mob in _nearby)
         {
-            if (mob.Owner == gunner || (vehicle is { } aboard && _jeep.IsAboard(mob.Owner, aboard)))
+            if (mob.Owner == gunner
+                || _mobState.IsDead(mob.Owner, mob.Comp)
+                || (vehicle is { } aboard && _jeep.IsAboard(mob.Owner, aboard)))
+            {
                 continue;
+            }
 
             var at = _transform.GetMapCoordinates(mob);
             var offset = at.Position - muzzle.Position;

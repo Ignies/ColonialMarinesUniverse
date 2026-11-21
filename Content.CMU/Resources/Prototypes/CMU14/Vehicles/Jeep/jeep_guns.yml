@@ -74,7 +74,7 @@
     damagedState: glturret_1
 
 # A two-tube pod of light rockets: enough to make an APC's crew think twice or knock a tank's gear
-# about, not to kill either. It fires slower than the tank's own launcher, carries two, and reloads
+# about, not to kill either. It fires no faster than the tank's own launcher, carries two, and reloads
 # from its own rocket crates. Its backblast knocks down and scorches anyone standing behind it.
 - type: entity
   parent: CMUJeepHardpointBase
@@ -171,8 +171,8 @@
 - type: entity
   parent: RMCCrateBase
   id: CMUCrateJeepRockets
-  name: jeep rocket crate
-  description: Two crates of light rockets for the gun jeep's rocket pod.
+  name: jeep rocket supply crate
+  description: Two jeep rocket crates for the gun jeep's rocket pod, four light rockets in each.
   components:
   - type: StorageFill
     contents:
