@@ -1,37 +1,56 @@
 using System.Numerics;
 using Content.Shared._RMC14.Stealth;
+using Content.Shared._RMC14.Vehicle;
+using Content.Shared.Buckle.Components;
 using Content.Shared.Chemistry.EntitySystems;
+using Content.Shared.Containers.ItemSlots;
 using Content.Shared.DoAfter;
+using Content.Shared.Hands.EntitySystems;
 using Content.Shared.Interaction;
 using Content.Shared.Popups;
+using Content.Shared.Storage;
 using Content.Shared.Storage.EntitySystems;
 using Content.Shared.Vehicle.Components;
 using Content.Shared.Verbs;
+using Content.Shared.Weapons.Ranged.Components;
 using Content.Shared.Whitelist;
 using Robust.Shared.Containers;
+using Robust.Shared.Map;
 using Robust.Shared.Network;
+using Robust.Shared.Timing;
 
 namespace Content.Shared.CMU14.Vehicle.Open;
 
 /// <summary>
 /// What the utility kits bolted onto a vehicle do: a roof rack to stow gear on, an auxiliary fuel
-/// tank, smoke dischargers, a winch, a tow hitch and a camo net.
+/// tank, smoke dischargers, a winch, a tow hitch and a camo net. None of them work on a wrecked hull.
 /// </summary>
+/// <remarks>
+/// A towed load is moved by the server after its vehicle each tick: clients see it follow a tick
+/// behind. It comes loose when the way to the hitch is blocked.
+/// </remarks>
 public sealed class CMUVehicleUtilitySystem : EntitySystem
 {
     [Dependency] private SharedContainerSystem _container = default!;
     [Dependency] private SharedDoAfterSystem _doAfter = default!;
+    [Dependency] private SharedHandsSystem _hands = default!;
     [Dependency] private SharedInteractionSystem _interaction = default!;
+    [Dependency] private ItemSlotsSystem _itemSlots = default!;
     [Dependency] private CMUOpenVehicleSystem _jeep = default!;
     [Dependency] private EntityLookupSystem _lookup = default!;
     [Dependency] private INetManager _net = default!;
     [Dependency] private SharedPopupSystem _popup = default!;
     [Dependency] private SharedSolutionContainerSystem _solutions = default!;
     [Dependency] private SharedStorageSystem _storage = default!;
+    [Dependency] private IGameTiming _timing = default!;
     [Dependency] private SharedTransformSystem _transform = default!;
+    [Dependency] private VehicleTurretSystem _turret = default!;
     [Dependency] private EntityWhitelistSystem _whitelist = default!;
 
-    private readonly HashSet<EntityUid> _nearby = new();
+    private static readonly Vector2[] Corners =
+    [
+        new(-0.7071f, -0.7071f), new(0.7071f, -0.7071f), new(-0.7071f, 0.7071f), new(0.7071f, 0.7071f),
+    ];
 
     public override void Initialize()
     {
@@ -40,14 +59,17 @@ public sealed class CMUVehicleUtilitySystem : EntitySystem
         SubscribeLocalEvent<CMUVehicleUpgradesComponent, CMUVehicleWinchDoAfterEvent>(OnWinch);
         SubscribeLocalEvent<CMUVehicleUpgradesComponent, CMUVehicleHitchDoAfterEvent>(OnHitch);
         SubscribeLocalEvent<CMUVehicleUpgradesComponent, CMUVehicleCamoNetDoAfterEvent>(OnCamoNet);
+        SubscribeLocalEvent<CMUVehicleRoofRackComponent, StorageInteractAttemptEvent>(OnRackInteractAttempt);
     }
 
     /// <summary>
-    /// The kit with <typeparamref name="T"/> bolted onto the vehicle, if there is one.
+    /// The kit with <typeparamref name="T"/> bolted onto the vehicle, if there is one and the vehicle's
+    /// hull isn't wrecked.
     /// </summary>
     public Entity<T>? Kit<T>(EntityUid vehicle) where T : IComponent
     {
         if (!TryComp(vehicle, out CMUVehicleUpgradesComponent? upgrades)
+            || _jeep.IsHullWrecked(vehicle)
             || !_container.TryGetContainer(vehicle, upgrades.Container, out var kits))
         {
             return null;
@@ -74,8 +96,8 @@ public sealed class CMUVehicleUtilitySystem : EntitySystem
     }
 
     /// <summary>
-    /// A kit went on or came off the vehicle. An auxiliary tank grows or shrinks its fuel tank, fuel
-    /// past the smaller tank spilling; a hitch taken off lets its load go, and a camo net comes down.
+    /// A kit went on or came off the vehicle. An auxiliary tank grows or shrinks its fuel tank, the fuel
+    /// that no longer fits being lost; a hitch taken off lets its load go, and a camo net comes down.
     /// </summary>
     public void KitChanged(EntityUid vehicle, EntityUid kit, bool fitted)
     {
@@ -83,7 +105,7 @@ public sealed class CMUVehicleUtilitySystem : EntitySystem
             Unhitch(vehicle);
 
         if (!fitted && HasComp<CMUVehicleCamoNetComponent>(kit))
-            SetCamouflaged(vehicle, null);
+            TakeDownNet(vehicle);
 
         if (_net.IsClient
             || !TryComp(kit, out CMUVehicleAuxTankComponent? aux)
@@ -98,6 +120,17 @@ public sealed class CMUVehicleUtilitySystem : EntitySystem
             _solutions.SplitSolution(tank.Value, solution.Volume - capacity);
 
         _solutions.SetCapacity(tank.Value, capacity);
+    }
+
+    private void OnRackInteractAttempt(Entity<CMUVehicleRoofRackComponent> ent, ref StorageInteractAttemptEvent args)
+    {
+        // A rack is gear lashed to a jeep, not a crate to carry about: it only opens bolted on.
+        if (!_container.TryGetContainingContainer((ent, null, null), out var container)
+            || !TryComp(container.Owner, out CMUVehicleUpgradesComponent? upgrades)
+            || container.ID != upgrades.Container)
+        {
+            args.Cancelled = true;
+        }
     }
 
     private void OnGetVerbs(Entity<CMUVehicleUpgradesComponent> ent, ref GetVerbsEvent<InteractionVerb> args)
@@ -122,7 +155,7 @@ public sealed class CMUVehicleUtilitySystem : EntitySystem
             args.Verbs.Add(new InteractionVerb
             {
                 Text = Loc.GetString("cmu-vehicle-smoke-verb", ("charges", smoke.Comp.Charges)),
-                Disabled = smoke.Comp.Charges <= 0,
+                Disabled = smoke.Comp.Charges <= 0 || smoke.Comp.NextFire > _timing.CurTime,
                 Act = () => TryFireSmoke(vehicle, user),
             });
         }
@@ -156,25 +189,29 @@ public sealed class CMUVehicleUtilitySystem : EntitySystem
     }
 
     /// <summary>
-    /// Fires the vehicle's smoke dischargers, if it has them loaded.
+    /// Fires the vehicle's smoke dischargers, if it has them loaded and ready.
     /// </summary>
     public bool TryFireSmoke(EntityUid vehicle, EntityUid user)
     {
-        if (Kit<CMUVehicleSmokeDischargerComponent>(vehicle) is not { } smoke || smoke.Comp.Charges <= 0)
+        if (Kit<CMUVehicleSmokeDischargerComponent>(vehicle) is not { } smoke
+            || smoke.Comp.Charges <= 0
+            || smoke.Comp.NextFire > _timing.CurTime)
+        {
             return false;
+        }
 
         smoke.Comp.Charges--;
+        smoke.Comp.NextFire = _timing.CurTime + smoke.Comp.Cooldown;
         Dirty(smoke);
         _popup.PopupPredicted(Loc.GetString("cmu-vehicle-smoke-fired"), vehicle, user, PopupType.Medium);
         if (_net.IsClient)
             return true;
 
         // A burst off each corner, screening the vehicle from every side.
-        foreach (var corner in new[] { new Vector2(-1, -1), new Vector2(1, -1), new Vector2(-1, 1), new Vector2(1, 1) })
+        foreach (var corner in Corners)
         {
-            var at = _transform.ToMapCoordinates(new Robust.Shared.Map.EntityCoordinates(vehicle,
-                Vector2.Normalize(corner) * smoke.Comp.Distance));
-            Spawn(smoke.Comp.Smoke, at);
+            var at = new EntityCoordinates(vehicle, corner * smoke.Comp.Distance);
+            Spawn(smoke.Comp.Smoke, _transform.ToMapCoordinates(at));
         }
 
         return true;
@@ -204,7 +241,9 @@ public sealed class CMUVehicleUtilitySystem : EntitySystem
 
     private void OnSmokeReload(Entity<CMUVehicleUpgradesComponent> ent, ref CMUVehicleSmokeReloadDoAfterEvent args)
     {
-        if (args.Cancelled || args.Handled || args.Used is not { } used
+        if (args.Cancelled
+            || args.Handled
+            || args.Used is not { } used
             || Kit<CMUVehicleSmokeDischargerComponent>(ent) is not { } smoke
             || smoke.Comp.Charges >= smoke.Comp.MaxCharges)
         {
@@ -220,36 +259,38 @@ public sealed class CMUVehicleUtilitySystem : EntitySystem
     }
 
     /// <summary>
-    /// What the winch or hitch can take hold of near <paramref name="at"/>: not the vehicle itself,
-    /// nor anything anchored for good, contained or already towed.
+    /// Whether the winch or hitch can take hold of the load: a crate, a wreck or a jeep nobody's driving,
+    /// in the open from the vehicle and within reach, not anchored but for a wreck, and in nobody's tow.
+    /// A tank or APC is far too heavy.
     /// </summary>
-    private void Loads(EntityUid vehicle, Robust.Shared.Map.MapCoordinates at, float range, EntityWhitelist? whitelist)
+    private bool CanTake(EntityUid vehicle, EntityUid load, float range, EntityWhitelist? whitelist)
     {
-        _nearby.Clear();
-        foreach (var near in _lookup.GetEntitiesInRange(at, range, LookupFlags.Dynamic | LookupFlags.Static))
+        if (load == vehicle
+            || _container.IsEntityInContainer(load)
+            || !_whitelist.IsWhitelistPass(whitelist, load)
+            || (Transform(load).Anchored && !HasComp<CMUVehiclePermanentWreckComponent>(load))
+            || CompOrNull<VehicleComponent>(load)?.Operator != null
+            || CompOrNull<CMUVehicleTowedComponent>(load)?.Tower != null
+            || CompOrNull<CMUVehicleTowingComponent>(load)?.Towed != null
+            || CompOrNull<CMUVehicleTowedComponent>(vehicle)?.Tower == load)
         {
-            if (near == vehicle
-                || _container.IsEntityInContainer(near)
-                || !_whitelist.IsWhitelistPass(whitelist, near)
-                || IsTowed(near))
-            {
-                continue;
-            }
-
-            _nearby.Add(near);
+            return false;
         }
+
+        return _interaction.InRangeUnobstructed(vehicle, load, range,
+            predicate: uid => uid == vehicle || uid == load);
     }
 
-    private bool IsTowed(EntityUid uid)
+    private List<EntityUid> Loads(EntityUid vehicle, MapCoordinates at, float range, EntityWhitelist? whitelist)
     {
-        var query = EntityQueryEnumerator<CMUVehicleTowingComponent>();
-        while (query.MoveNext(out _, out var towing))
+        var loads = new List<EntityUid>();
+        foreach (var near in _lookup.GetEntitiesInRange(at, range, LookupFlags.Dynamic | LookupFlags.Static))
         {
-            if (towing.Towed == uid)
-                return true;
+            if (CanTake(vehicle, near, range + 2f, whitelist))
+                loads.Add(near);
         }
 
-        return false;
+        return loads;
     }
 
     private void AddWinchVerbs(
@@ -258,14 +299,13 @@ public sealed class CMUVehicleUtilitySystem : EntitySystem
         EntityUid user,
         SortedSet<InteractionVerb> verbs)
     {
-        Loads(vehicle, _transform.GetMapCoordinates(vehicle), winch.Comp.Range, winch.Comp.Whitelist);
-        foreach (var load in _nearby)
+        var from = _transform.GetMapCoordinates(vehicle);
+        foreach (var load in Loads(vehicle, from, winch.Comp.Range, winch.Comp.Whitelist))
         {
-            var target = load;
             verbs.Add(new InteractionVerb
             {
-                Text = Loc.GetString("cmu-vehicle-winch-verb", ("load", target)),
-                Act = () => StartDoAfter(user, vehicle, winch.Comp.Delay, new CMUVehicleWinchDoAfterEvent(), target),
+                Text = Loc.GetString("cmu-vehicle-winch-verb", ("load", load)),
+                Act = () => StartDoAfter(user, vehicle, winch.Comp.Delay, new CMUVehicleWinchDoAfterEvent(), load),
             });
         }
     }
@@ -281,14 +321,17 @@ public sealed class CMUVehicleUtilitySystem : EntitySystem
     }
 
     /// <summary>
-    /// Hauls the load up behind the vehicle on its winch, if the way is clear.
+    /// Hauls the load up behind the vehicle on its winch, if it's still within reach and the way is clear.
     /// </summary>
     public bool TryWinch(EntityUid vehicle, EntityUid load, EntityUid? user = null)
     {
-        if (Kit<CMUVehicleWinchComponent>(vehicle) is not { } winch)
+        if (Kit<CMUVehicleWinchComponent>(vehicle) is not { } winch
+            || !CanTake(vehicle, load, winch.Comp.Range, winch.Comp.Whitelist))
+        {
             return false;
+        }
 
-        var drop = new Robust.Shared.Map.EntityCoordinates(vehicle, winch.Comp.Offset);
+        var drop = new EntityCoordinates(vehicle, winch.Comp.Offset);
         if (!_interaction.InRangeUnobstructed(vehicle, _transform.ToMapCoordinates(drop),
                 range: winch.Comp.Offset.Length() + 0.5f,
                 predicate: uid => uid == load))
@@ -324,15 +367,13 @@ public sealed class CMUVehicleUtilitySystem : EntitySystem
             return;
         }
 
-        var behind = _transform.ToMapCoordinates(new Robust.Shared.Map.EntityCoordinates(vehicle, hitch.Comp.Offset));
-        Loads(vehicle, behind, hitch.Comp.Reach, hitch.Comp.Whitelist);
-        foreach (var load in _nearby)
+        var behind = _transform.ToMapCoordinates(new EntityCoordinates(vehicle, hitch.Comp.Offset));
+        foreach (var load in Loads(vehicle, behind, hitch.Comp.Reach, hitch.Comp.Whitelist))
         {
-            var target = load;
             verbs.Add(new InteractionVerb
             {
-                Text = Loc.GetString("cmu-vehicle-hitch-verb", ("load", target)),
-                Act = () => StartDoAfter(user, vehicle, hitch.Comp.Delay, new CMUVehicleHitchDoAfterEvent(), target),
+                Text = Loc.GetString("cmu-vehicle-hitch-verb", ("load", load)),
+                Act = () => StartDoAfter(user, vehicle, hitch.Comp.Delay, new CMUVehicleHitchDoAfterEvent(), load),
             });
         }
     }
@@ -348,13 +389,13 @@ public sealed class CMUVehicleUtilitySystem : EntitySystem
     }
 
     /// <summary>
-    /// Hitches the load behind the vehicle, if it has a hitch free and the load isn't towed already.
+    /// Hitches the load behind the vehicle, if it has a hitch free and can take the load.
     /// </summary>
     public bool TryHitch(EntityUid vehicle, EntityUid load)
     {
-        if (Kit<CMUVehicleTowHitchComponent>(vehicle) is null
+        if (Kit<CMUVehicleTowHitchComponent>(vehicle) is not { } hitch
             || CompOrNull<CMUVehicleTowingComponent>(vehicle)?.Towed != null
-            || IsTowed(load))
+            || !CanTake(vehicle, load, hitch.Comp.Offset.Length() + hitch.Comp.Reach, hitch.Comp.Whitelist))
         {
             return false;
         }
@@ -363,16 +404,20 @@ public sealed class CMUVehicleUtilitySystem : EntitySystem
         var towing = EnsureComp<CMUVehicleTowingComponent>(vehicle);
         towing.Towed = load;
         Dirty(vehicle, towing);
+        var towed = EnsureComp<CMUVehicleTowedComponent>(load);
+        towed.Tower = vehicle;
+        Dirty(load, towed);
         return true;
     }
 
     public void Unhitch(EntityUid vehicle)
     {
-        if (!TryComp(vehicle, out CMUVehicleTowingComponent? towing) || towing.Towed == null)
+        if (!TryComp(vehicle, out CMUVehicleTowingComponent? towing) || towing.Towed is not { } load)
             return;
 
         towing.Towed = null;
         Dirty(vehicle, towing);
+        RemComp<CMUVehicleTowedComponent>(load);
     }
 
     private void Unanchor(EntityUid load)
@@ -401,7 +446,7 @@ public sealed class CMUVehicleUtilitySystem : EntitySystem
 
         if (HasComp<CMUVehicleCamouflagedComponent>(vehicle))
         {
-            SetCamouflaged(vehicle, null);
+            TakeDownNet(vehicle);
             return true;
         }
 
@@ -413,59 +458,116 @@ public sealed class CMUVehicleUtilitySystem : EntitySystem
             return false;
         }
 
-        SetCamouflaged(vehicle, net.Comp.Opacity);
+        var camouflaged = EnsureComp<CMUVehicleCamouflagedComponent>(vehicle);
+        camouflaged.LastShot = LastShot(vehicle);
+        camouflaged.Hidden.Clear();
+        if (CompOrNull<CMUVehicleOverlayComponent>(vehicle)?.Overlay is { } overlay)
+            camouflaged.Hidden.Add(overlay);
+
+        // The guns' own overlays, drawn over the vehicle.
+        var turrets = EntityQueryEnumerator<VehicleTurretVisualComponent>();
+        while (turrets.MoveNext(out var uid, out var visual))
+        {
+            if (TryGetEntity(visual.Turret, out var turret)
+                && _turret.TryGetVehicle(turret.Value, out var owner)
+                && owner == vehicle)
+            {
+                camouflaged.Hidden.Add(uid);
+            }
+        }
+
+        Hide(vehicle, net.Comp.Opacity);
+        foreach (var hidden in camouflaged.Hidden)
+        {
+            Hide(hidden, net.Comp.Opacity);
+        }
+
+        Dirty(vehicle, camouflaged);
         return true;
     }
 
-    /// <summary>
-    /// Spreads the camo net over the vehicle and its overlay, or takes it down with no opacity.
-    /// </summary>
-    private void SetCamouflaged(EntityUid vehicle, float? opacity)
+    private void Hide(EntityUid uid, float opacity)
     {
-        var overlay = CompOrNull<CMUVehicleOverlayComponent>(vehicle)?.Overlay;
-        if (opacity is not { } seen)
-        {
-            RemComp<CMUVehicleCamouflagedComponent>(vehicle);
-            RemComp<EntityActiveInvisibleComponent>(vehicle);
-            if (overlay != null)
-                RemComp<EntityActiveInvisibleComponent>(overlay.Value);
+        var invisible = EnsureComp<EntityActiveInvisibleComponent>(uid);
+        invisible.Opacity = opacity;
+        Dirty(uid, invisible);
+    }
 
+    private void TakeDownNet(EntityUid vehicle)
+    {
+        if (!TryComp(vehicle, out CMUVehicleCamouflagedComponent? camouflaged))
             return;
+
+        foreach (var hidden in camouflaged.Hidden)
+        {
+            if (!TerminatingOrDeleted(hidden))
+                RemComp<EntityActiveInvisibleComponent>(hidden);
         }
 
-        EnsureComp<CMUVehicleCamouflagedComponent>(vehicle);
-        foreach (var uid in new[] { vehicle, overlay })
+        RemComp<EntityActiveInvisibleComponent>(vehicle);
+        RemComp<CMUVehicleCamouflagedComponent>(vehicle);
+    }
+
+    /// <summary>
+    /// The latest time any gun aboard can next fire: mounted on the vehicle, or in its riders' hands.
+    /// A gun that fires pushes it on.
+    /// </summary>
+    private TimeSpan LastShot(EntityUid vehicle)
+    {
+        var last = TimeSpan.Zero;
+        if (_itemSlots.GetItemOrNull(vehicle, CMUOpenVehicleSystem.TurretSlot) is { } mount
+            && TryComp(mount, out ItemSlotsComponent? mounted))
         {
-            if (uid == null)
+            foreach (var slot in mounted.Slots.Values)
+            {
+                if (TryComp(slot.Item, out GunComponent? gun) && gun.NextFire > last)
+                    last = gun.NextFire;
+            }
+        }
+
+        if (!TryComp(vehicle, out CMUVehicleSeatsComponent? seats))
+            return last;
+
+        foreach (var seat in seats.SeatEntities)
+        {
+            if (!TryComp(seat, out StrapComponent? strap))
                 continue;
 
-            var invisible = EnsureComp<EntityActiveInvisibleComponent>(uid.Value);
-            invisible.Opacity = seen;
-            Dirty(uid.Value, invisible);
+            foreach (var rider in strap.BuckledEntities)
+            {
+                foreach (var held in _hands.EnumerateHeld(rider))
+                {
+                    if (TryComp(held, out GunComponent? gun) && gun.NextFire > last)
+                        last = gun.NextFire;
+                }
+            }
         }
+
+        return last;
     }
 
     private bool Moving(EntityUid vehicle)
     {
-        return TryComp(vehicle, out GridVehicleMoverComponent? mover) && MathF.Abs(mover.CurrentSpeed) > 0.05f;
+        return CompOrNull<CMUVehicleTowedComponent>(vehicle)?.Tower != null
+            || (TryComp(vehicle, out GridVehicleMoverComponent? mover) && MathF.Abs(mover.CurrentSpeed) > 0.05f);
     }
 
     public override void Update(float frameTime)
     {
-        // The net comes off the moment the vehicle moves off.
+        // The net comes off the moment the vehicle moves, or anything aboard fires.
         var camouflaged = EntityQueryEnumerator<CMUVehicleCamouflagedComponent>();
-        while (camouflaged.MoveNext(out var uid, out _))
+        while (camouflaged.MoveNext(out var uid, out var net))
         {
-            if (Moving(uid))
-                SetCamouflaged(uid, null);
+            if (Moving(uid) || LastShot(uid) > net.LastShot || Kit<CMUVehicleCamoNetComponent>(uid) == null)
+                TakeDownNet(uid);
         }
 
         if (_net.IsClient)
             return;
 
         // The towed load follows the hitch, and comes loose when something holds it back.
-        var towing = EntityQueryEnumerator<CMUVehicleTowingComponent, TransformComponent>();
-        while (towing.MoveNext(out var uid, out var comp, out var xform))
+        var towing = EntityQueryEnumerator<CMUVehicleTowingComponent>();
+        while (towing.MoveNext(out var uid, out var comp))
         {
             if (comp.Towed is not { } towed)
                 continue;
@@ -479,8 +581,18 @@ public sealed class CMUVehicleUtilitySystem : EntitySystem
                 continue;
             }
 
-            var (position, rotation) = _transform.GetWorldPositionRotation(xform);
-            _transform.SetWorldPositionRotation(towed, position + rotation.RotateVec(hitch.Comp.Offset), rotation);
+            var hitchPoint = new EntityCoordinates(uid, hitch.Comp.Offset);
+            if (!_interaction.InRangeUnobstructed(uid, _transform.ToMapCoordinates(hitchPoint),
+                    range: hitch.Comp.Offset.Length() + 0.5f,
+                    predicate: other => other == towed))
+            {
+                Unhitch(uid);
+                continue;
+            }
+
+            _transform.SetCoordinates(towed, hitchPoint);
+            _transform.AttachToGridOrMap(towed);
+            _transform.SetWorldRotation(towed, _transform.GetWorldRotation(uid));
         }
     }
 }

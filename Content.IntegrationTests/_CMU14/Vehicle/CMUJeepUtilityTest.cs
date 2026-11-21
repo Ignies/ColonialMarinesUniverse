@@ -4,6 +4,8 @@ using Content.Shared._RMC14.Stealth;
 using Content.Shared.Chemistry.EntitySystems;
 using Content.Shared.CMU14.Vehicle.Open;
 using Content.Shared.FixedPoint;
+using Content.Shared.Storage;
+using Content.Shared.Storage.EntitySystems;
 using Robust.Shared.Containers;
 using Robust.Shared.GameObjects;
 using Robust.Shared.Map;
@@ -86,8 +88,7 @@ public sealed class CMUJeepUtilityTest : GameTest
                     .Count(m => m.EntityPrototype?.ID == "RMCSmoke"),
                 Is.GreaterThan(0), "The dischargers should throw smoke around the jeep.");
 
-            Assert.That(utility.TryFireSmoke(jeep, user), Is.True);
-            Assert.That(utility.TryFireSmoke(jeep, user), Is.False, "Spent, they shouldn't fire.");
+            Assert.That(utility.TryFireSmoke(jeep, user), Is.False, "They shouldn't fire again straight away.");
         });
     }
 
@@ -102,7 +103,7 @@ public sealed class CMUJeepUtilityTest : GameTest
             var transforms = SEntMan.System<SharedTransformSystem>();
             Bolt(jeep, "CMUJeepWinch");
             Bolt(jeep, "CMUJeepTowHitch");
-            crate = SEntMan.SpawnEntity("RMCCrateGreen", new EntityCoordinates(map.Grid, 4.5f, 5.5f));
+            crate = SEntMan.SpawnEntity("RMCCrateGreen", new EntityCoordinates(map.Grid, 3.5f, 4.5f));
 
             Assert.That(utility.TryWinch(jeep, crate), Is.True, "The winch should haul the crate in.");
             var behind = transforms.GetWorldPosition(crate) - transforms.GetWorldPosition(jeep);
@@ -122,6 +123,42 @@ public sealed class CMUJeepUtilityTest : GameTest
             var behind = transforms.GetWorldPosition(crate) - transforms.GetWorldPosition(jeep);
             Assert.That(MathF.Abs(behind.X), Is.LessThan(0.5f), "The towed crate should follow the jeep.");
             Assert.That(behind.Y, Is.GreaterThan(1.5f));
+        });
+    }
+
+    [Test]
+    public async Task JeepsCantTowEachOtherInACircle()
+    {
+        var (map, jeep) = await Jeep();
+        await Server.WaitAssertion(() =>
+        {
+            var utility = SEntMan.System<CMUVehicleUtilitySystem>();
+            Bolt(jeep, "CMUJeepTowHitch");
+            var other = SEntMan.SpawnEntity("CMUVehicleJeepCargo", new EntityCoordinates(map.Grid, 0.5f, 3f));
+            Bolt(other, "CMUJeepTowHitch");
+
+            Assert.That(utility.TryHitch(jeep, other), Is.True, "A jeep should tow another nobody's driving.");
+            Assert.That(utility.TryHitch(other, jeep), Is.False, "The towed jeep shouldn't tow its tower back.");
+        });
+    }
+
+    [Test]
+    public async Task TheRoofRackOnlyOpensBoltedOn()
+    {
+        var (map, jeep) = await Jeep();
+        await Server.WaitAssertion(() =>
+        {
+            var storage = SEntMan.System<SharedStorageSystem>();
+            var user = SEntMan.SpawnEntity("CMMobHuman", new EntityCoordinates(map.Grid, 1.6f, 0.5f));
+            var rack = SEntMan.SpawnEntity("CMUJeepRoofRack", new EntityCoordinates(map.Grid, 1.6f, 1.5f));
+            var rackStorage = SEntMan.GetComponent<StorageComponent>(rack);
+            Assert.That(storage.CanInteract(user, (rack, rackStorage)), Is.False,
+                "A loose rack shouldn't open like a crate.");
+
+            var containers = SEntMan.System<SharedContainerSystem>();
+            Assert.That(containers.Insert(rack, containers.GetContainer(jeep, "vehicle-upgrades")), Is.True);
+            Assert.That(storage.CanInteract(user, (rack, rackStorage)), Is.True,
+                "Bolted on, the rack should open from the jeep.");
         });
     }
 

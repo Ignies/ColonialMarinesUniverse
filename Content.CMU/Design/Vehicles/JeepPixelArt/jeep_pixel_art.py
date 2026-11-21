@@ -190,6 +190,10 @@ ATTACHMENTS = {
     "skid_plate": "",
     "snorkel": "SE",
     "roll_cage": "N",
+    "roof_rack": "N",
+    "winch": "S",
+    "smoke_dischargers": "S",
+    "tow_hitch": "N",
 }
 # The six lamps, each fitted on its own: the headlights, the turn signals on the front fenders and
 # the tail lights (with the rear turn signals) on the rear corners. Left is the driver's side, r < 0.
@@ -1758,11 +1762,68 @@ def roll_cage_kit(damaged=False):
     return m
 
 
+def roof_rack_kit(damaged=False):
+    """A rack over the rear deck: rails along each side and crossbars, with a strapped bundle."""
+    m = Model()
+    z = HOOD + 3
+    for r0 in (-18, 17):
+        m.box(-30, -16, r0, r0, z, z, "black", "roof_rack")
+        m.box(-30, -30, r0, r0, z - 3, z, "black", "roof_rack")
+        m.box(-16, -16, r0, r0, z - 3, z, "black", "roof_rack")
+    for f0 in (-29, -23, -17):
+        m.box(f0, f0, -18, 17, z, z, "gun", "roof_rack")
+    m.box(-27, -20, -8, 7, z + 1, z + 3, "canvas", "roof_rack")
+    m.paint(lambda f, r, z1: f == -24 and z1 > z, "canvas_seam")
+    if damaged:
+        m.paint(lambda f, r, z1: (f + r) % 3 == 0, "char")
+    return m
+
+
+def winch_kit(damaged=False):
+    """A winch on the front bumper: a cable drum between its cheeks, a hook on the fairlead."""
+    m = Model()
+    m.box(34, 36, -6, -5, 3, 8, "steel", "winch")
+    m.box(34, 36, 4, 5, 3, 8, "steel", "winch")
+    m.box(34, 36, -4, 3, 4, 7, "black", "winch")
+    m.paint(lambda f, r, z: (r + z) % 2 == 0, "gun")
+    m.box(37, 37, -1, 0, 4, 5, "yellow", "winch")
+    if damaged:
+        m.paint(lambda f, r, z: (f + z) % 3 == 0, "char")
+    return m
+
+
+def smoke_dischargers_kit(damaged=False):
+    """Smoke mortars on each front fender, angled out and up."""
+    m = Model()
+    for r0 in (-20, 17):
+        m.box(22, 25, r0, r0 + 2, HOOD, HOOD + 1, "od", "smoke_dischargers")
+        m.box(23, 24, r0, r0 + 2, HOOD + 2, HOOD + 4, "gun", "smoke_dischargers")
+        m.box(23, 24, r0 + 1, r0 + 1, HOOD + 4, HOOD + 4, "black", "smoke_dischargers")
+    if damaged:
+        m.paint(lambda f, r, z: (f + r + z) % 2 == 0, "char")
+    return m
+
+
+def tow_hitch_kit(damaged=False):
+    """A tow hitch under the rear bumper: a receiver bar with a ball."""
+    m = Model()
+    m.box(-36, -31, -1, 0, 2, 3, "black", "tow_hitch")
+    m.box(-37, -37, -1, 0, 4, 4, "steel", "tow_hitch")
+    m.box(-33, -33, -2, 1, 3, 3, "yellow", "tow_hitch")
+    if damaged:
+        m.paint(lambda f, r, z: f == -37, "char")
+    return m
+
+
 UPGRADE_KITS = {
     "bull_bar": bull_bar_kit,
     "skid_plate": skid_plate_kit,
     "snorkel": snorkel_kit,
     "roll_cage": roll_cage_kit,
+    "roof_rack": roof_rack_kit,
+    "winch": winch_kit,
+    "smoke_dischargers": smoke_dischargers_kit,
+    "tow_hitch": tow_hitch_kit,
 }
 
 HARDPOINTS = {

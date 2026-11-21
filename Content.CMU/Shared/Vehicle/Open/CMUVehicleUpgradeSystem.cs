@@ -233,7 +233,7 @@ public sealed class CMUVehicleUpgradeSystem : EntitySystem
 
         if (!TryComp(args.Used, out CMUVehicleUpgradeComponent? upgrade) || !upgrade.Kit)
         {
-            // Smoke grenades reload the smoke dischargers.
+            // Smoke canisters reload the smoke dischargers.
             args.Handled = _utility.TryReloadSmoke(ent, args.User, args.Used);
             return;
         }

@@ -4,7 +4,7 @@
 - type: Tag
   id: CMUJeepSmokeCanister
 
-# Roof rack: a frame to lash gear to, opened from the jeep once it's bolted on.
+# Roof rack: a frame to lash gear to, opened from the jeep once it's bolted on, and only then.
 - type: entity
   parent: CMUJeepKitBase
   id: CMUJeepRoofRack
@@ -15,6 +15,7 @@
     state: roof_rack
   - type: CMUVehicleUpgrade
     kit: true
+    layer: roof_rack
     weight: 15
   - type: CMUVehicleRoofRack
   - type: Storage
@@ -29,7 +30,8 @@
     containers:
       storagebase: !type:Container
 
-# Auxiliary fuel tank: another 40 units of fuel, for long runs between refills.
+# Auxiliary fuel tank: another 40 units of fuel, for long runs between refills. Taken off, the fuel
+# that won't fit in the jeep's own tank is lost.
 - type: entity
   parent: CMUJeepKitBase
   id: CMUJeepAuxTank
@@ -58,6 +60,7 @@
     state: smoke_dischargers
   - type: CMUVehicleUpgrade
     kit: true
+    layer: smoke_dischargers
     weight: 10
   - type: CMUVehicleSmokeDischarger
     reload:
@@ -79,31 +82,34 @@
     tags:
     - CMUJeepSmokeCanister
 
-# Winch: hauls a stuck vehicle, a wreck or a crate up behind the jeep from six tiles off.
+# Winch: hauls a jeep nobody's driving, a wreck or a crate up behind the jeep from six tiles off,
+# in the open. Tanks and APCs are far too heavy for it.
 - type: entity
   parent: CMUJeepKitBase
   id: CMUJeepWinch
   name: jeep winch
-  description: A cable winch for a jeep's bumper. It hauls a stuck vehicle, a wreck or a crate up behind the jeep.
+  description: A cable winch for a jeep's bumper. It hauls another jeep, a wreck or a crate up behind it.
   components:
   - type: Sprite
     state: winch
   - type: CMUVehicleUpgrade
     kit: true
+    layer: winch
     weight: 20
   - type: CMUVehicleWinch
     whitelist:
       components:
       - EntityStorage
-      - GridVehicleMover
+      - CMUOpenVehicle
       - CMUVehiclePermanentWreck
 
-# Tow hitch: tows a vehicle, wreck or crate behind the jeep, at a little over half its speed.
+# Tow hitch: tows a jeep nobody's driving, a wreck or a crate behind the jeep, at a little over half
+# its speed. It comes loose if the load snags.
 - type: entity
   parent: CMUJeepKitBase
   id: CMUJeepTowHitch
   name: jeep tow hitch
-  description: A towing hitch and bar for a jeep. It tows a vehicle, a wreck or a crate behind it, slowly.
+  description: A towing hitch and bar for a jeep. It tows another jeep, a wreck or a crate behind it, slowly.
   components:
   - type: Item
     size: Large
@@ -111,15 +117,16 @@
     state: tow_hitch
   - type: CMUVehicleUpgrade
     kit: true
+    layer: tow_hitch
     weight: 10
   - type: CMUVehicleTowHitch
     whitelist:
       components:
       - EntityStorage
-      - GridVehicleMover
+      - CMUOpenVehicle
       - CMUVehiclePermanentWreck
 
-# Camo net: spread over a parked jeep, it is hard to see until it moves off.
+# Camo net: spread over a parked jeep, it is hard to see until it moves off or anything aboard fires.
 - type: entity
   parent: CMUJeepKitBase
   id: CMUJeepCamoNet

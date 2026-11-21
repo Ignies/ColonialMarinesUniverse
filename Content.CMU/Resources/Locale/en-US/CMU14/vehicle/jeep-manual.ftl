@@ -268,13 +268,13 @@ cmu-jeep-manual-kits-about =
 cmu-jeep-manual-kits-use = An engineer uses the kit on the jeep (6 s). To take one off, hold a wrench and use the jeep's remove verb for it.
 cmu-jeep-manual-utility = Utility kits
 cmu-jeep-manual-utility-about =
-    More kits bolted on like the others, made at the autolathe:
-    • Roof rack: room for a load of gear, opened from the jeep.
-    • Auxiliary fuel tank: two thirds more fuel. Taken off, the fuel past the jeep's own tank spills.
-    • Smoke dischargers: its riders fire a ring of smoke around the jeep, twice before reloading.
-    • Winch: hauls a stuck vehicle, a wreck or a crate up behind the jeep from six tiles off (8 s).
-    • Tow hitch: tows a vehicle, wreck or crate hitched behind it, at six tenths of its speed.
-    • Camo net: spread over the parked jeep (10 s), it is hard to see until it moves off.
+    More kits bolted on like the others, made at the autolathe. None work on a wrecked jeep:
+    • Roof rack: room for a load of gear, opened from the jeep. It only opens bolted on.
+    • Auxiliary fuel tank: two thirds more fuel. Taken off, the fuel past the jeep's own tank is lost.
+    • Smoke dischargers: its riders fire a ring of smoke around the jeep, eight seconds apart, twice before reloading.
+    • Winch: hauls a jeep nobody's driving, a wreck or a crate up behind the jeep from six tiles off, in the open (8 s). Tanks and APCs are far too heavy.
+    • Tow hitch: tows a jeep nobody's driving, a wreck or a crate hitched behind it, at six tenths of its speed. A load that snags comes loose.
+    • Camo net: spread over the parked jeep (10 s), it is hard to see until it moves off or anything aboard fires.
 cmu-jeep-manual-utility-use = Use them from the jeep's verbs. Reload the smoke dischargers by using smoke canisters, made at the autolathe, on the jeep (2 s).
 cmu-jeep-manual-medical = Medical jeep: bed
 cmu-jeep-manual-medical-about = A surgical bed in the back that works as an operating table, with the medic's seat facing it.

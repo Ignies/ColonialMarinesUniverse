@@ -4245,6 +4245,70 @@
         {
             "name": "roll_cage_overlay_1",
             "directions": 4
+        },
+        {
+            "name": "roof_rack_0",
+            "directions": 4
+        },
+        {
+            "name": "roof_rack_overlay_0",
+            "directions": 4
+        },
+        {
+            "name": "roof_rack_1",
+            "directions": 4
+        },
+        {
+            "name": "roof_rack_overlay_1",
+            "directions": 4
+        },
+        {
+            "name": "winch_0",
+            "directions": 4
+        },
+        {
+            "name": "winch_overlay_0",
+            "directions": 4
+        },
+        {
+            "name": "winch_1",
+            "directions": 4
+        },
+        {
+            "name": "winch_overlay_1",
+            "directions": 4
+        },
+        {
+            "name": "smoke_dischargers_0",
+            "directions": 4
+        },
+        {
+            "name": "smoke_dischargers_overlay_0",
+            "directions": 4
+        },
+        {
+            "name": "smoke_dischargers_1",
+            "directions": 4
+        },
+        {
+            "name": "smoke_dischargers_overlay_1",
+            "directions": 4
+        },
+        {
+            "name": "tow_hitch_0",
+            "directions": 4
+        },
+        {
+            "name": "tow_hitch_overlay_0",
+            "directions": 4
+        },
+        {
+            "name": "tow_hitch_1",
+            "directions": 4
+        },
+        {
+            "name": "tow_hitch_overlay_1",
+            "directions": 4
         }
     ]
 }

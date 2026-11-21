@@ -1,9 +1,11 @@
+using System.Numerics;
 using Content.Shared.DoAfter;
 using Content.Shared.FixedPoint;
 using Content.Shared.Whitelist;
 using Robust.Shared.GameStates;
 using Robust.Shared.Prototypes;
 using Robust.Shared.Serialization;
+using Robust.Shared.Serialization.TypeSerializers.Implementations.Custom;
 
 namespace Content.Shared.CMU14.Vehicle.Open;
 
@@ -14,7 +16,7 @@ namespace Content.Shared.CMU14.Vehicle.Open;
 public sealed partial class CMUVehicleAuxTankComponent : Component
 {
     [DataField]
-    public FixedPoint2 Capacity = 50;
+    public FixedPoint2 Capacity = 40;
 }
 
 /// <summary>
@@ -25,9 +27,9 @@ public sealed partial class CMUVehicleRoofRackComponent : Component;
 
 /// <summary>
 /// Smoke dischargers: the riders fire a ring of smoke around the vehicle, a few times before they
-/// want reloading with smoke grenades.
+/// want reloading with smoke canisters.
 /// </summary>
-[RegisterComponent, NetworkedComponent, AutoGenerateComponentState]
+[RegisterComponent, NetworkedComponent, AutoGenerateComponentState, AutoGenerateComponentPause]
 [Access(typeof(CMUVehicleUtilitySystem))]
 public sealed partial class CMUVehicleSmokeDischargerComponent : Component
 {
@@ -54,6 +56,15 @@ public sealed partial class CMUVehicleSmokeDischargerComponent : Component
 
     [DataField]
     public TimeSpan ReloadDelay = TimeSpan.FromSeconds(2);
+
+    /// <summary>
+    /// How long the dischargers take to fire again.
+    /// </summary>
+    [DataField]
+    public TimeSpan Cooldown = TimeSpan.FromSeconds(8);
+
+    [DataField(customTypeSerializer: typeof(TimeOffsetSerializer)), AutoNetworkedField, AutoPausedField]
+    public TimeSpan NextFire;
 }
 
 /// <summary>
@@ -75,7 +86,7 @@ public sealed partial class CMUVehicleWinchComponent : Component
     /// Where the hauled load ends up, in vehicle space with the vehicle facing south.
     /// </summary>
     [DataField]
-    public System.Numerics.Vector2 Offset = new(0f, 2.2f);
+    public Vector2 Offset = new(0f, 2.2f);
 
     [DataField]
     public EntityWhitelist? Whitelist;
@@ -91,7 +102,7 @@ public sealed partial class CMUVehicleTowHitchComponent : Component
     /// Where the towed load rides, in vehicle space with the vehicle facing south.
     /// </summary>
     [DataField]
-    public System.Numerics.Vector2 Offset = new(0f, 2.4f);
+    public Vector2 Offset = new(0f, 2.4f);
 
     /// <summary>
     /// How near behind the vehicle a load has to be to hitch it.
@@ -110,6 +121,17 @@ public sealed partial class CMUVehicleTowHitchComponent : Component
 
     [DataField]
     public EntityWhitelist? Whitelist;
+}
+
+/// <summary>
+/// A load in tow behind a vehicle.
+/// </summary>
+[RegisterComponent, NetworkedComponent, AutoGenerateComponentState]
+[Access(typeof(CMUVehicleUtilitySystem))]
+public sealed partial class CMUVehicleTowedComponent : Component
+{
+    [DataField, AutoNetworkedField]
+    public EntityUid? Tower;
 }
 
 /// <summary>
@@ -137,11 +159,24 @@ public sealed partial class CMUVehicleCamoNetComponent : Component
 }
 
 /// <summary>
-/// A vehicle under its spread camo net.
+/// A vehicle under its spread camo net. The net comes off when it moves, or any gun aboard fires.
 /// </summary>
-[RegisterComponent, NetworkedComponent]
+[RegisterComponent, NetworkedComponent, AutoGenerateComponentState]
 [Access(typeof(CMUVehicleUtilitySystem))]
-public sealed partial class CMUVehicleCamouflagedComponent : Component;
+public sealed partial class CMUVehicleCamouflagedComponent : Component
+{
+    /// <summary>
+    /// The latest time any gun aboard could next fire when the net went up: a gun past it has fired.
+    /// </summary>
+    [DataField, AutoNetworkedField]
+    public TimeSpan LastShot;
+
+    /// <summary>
+    /// The entities hidden under the net with the vehicle: its overlay and gun overlays.
+    /// </summary>
+    [DataField, AutoNetworkedField]
+    public List<EntityUid> Hidden = new();
+}
 
 [Serializable, NetSerializable]
 public sealed partial class CMUVehicleSmokeReloadDoAfterEvent : SimpleDoAfterEvent;

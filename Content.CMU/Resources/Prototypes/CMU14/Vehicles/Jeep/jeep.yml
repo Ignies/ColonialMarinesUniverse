@@ -1259,6 +1259,18 @@
     - map: [ roll_cage ]
       state: roll_cage_0
       visible: false
+    - map: [ roof_rack ]
+      state: roof_rack_0
+      visible: false
+    - map: [ winch ]
+      state: winch_0
+      visible: false
+    - map: [ smoke_dischargers ]
+      state: smoke_dischargers_0
+      visible: false
+    - map: [ tow_hitch ]
+      state: tow_hitch_0
+      visible: false
     - map: [ rmc-wheels ]
       state: wheels_1
     - map: [ rims ]
@@ -2265,6 +2277,18 @@
     - map: [ roll_cage ]
       state: roll_cage_overlay_0
       visible: false
+    - map: [ roof_rack ]
+      state: roof_rack_overlay_0
+      visible: false
+    - map: [ winch ]
+      state: winch_overlay_0
+      visible: false
+    - map: [ smoke_dischargers ]
+      state: smoke_dischargers_overlay_0
+      visible: false
+    - map: [ tow_hitch ]
+      state: tow_hitch_overlay_0
+      visible: false
     # The hood raised or swinging; shut, it is the hood layer under the windshield.
     - map: [ hood_raised ]
       state: hood_open_overlay
@@ -2469,6 +2493,18 @@
       visible: false
     - map: [ roll_cage ]
       state: roll_cage_overlay_0
+      visible: false
+    - map: [ roof_rack ]
+      state: roof_rack_overlay_0
+      visible: false
+    - map: [ winch ]
+      state: winch_overlay_0
+      visible: false
+    - map: [ smoke_dischargers ]
+      state: smoke_dischargers_overlay_0
+      visible: false
+    - map: [ tow_hitch ]
+      state: tow_hitch_overlay_0
       visible: false
     # The hood raised or swinging; shut, it is the hood layer under the windshield.
     - map: [ hood_raised ]
