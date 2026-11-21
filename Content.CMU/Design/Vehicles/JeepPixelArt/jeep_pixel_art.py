@@ -1953,6 +1953,89 @@ def build_roll_cage():
     return m
 
 
+def build_roof_rack():
+    """A roof rack: a steel frame with crossbars and a strap."""
+    m = Model()
+    for r0 in (-9, 8):
+        m.box(-10, 10, r0, r0 + 1, 0, 1, "steel", "kit")
+    for f0 in (-10, -3, 4, 9):
+        m.box(f0, f0 + 1, -9, 9, 1, 1, "black", "kit")
+    m.box(-1, 0, -9, 9, 2, 2, "canvas", "kit")
+    return m
+
+
+def build_aux_tank():
+    """An auxiliary fuel tank: a ribbed drum with a filler cap and a fuel line."""
+    m = Model()
+    m.box(-8, 8, -5, 5, 0, 9, "od", "kit")
+    m.paint(lambda f, r, z: f in (-4, 0, 4), "od_seam")
+    m.box(-2, 1, -2, 1, 10, 11, "black", "kit")
+    m.box(8, 11, 0, 1, 2, 3, "black", "kit")
+    return m
+
+
+def build_smoke_dischargers():
+    """Smoke dischargers: a pair of short angled tubes on a bracket."""
+    m = Model()
+    m.box(-6, 6, -3, 3, 0, 2, "od", "kit")
+    for r0 in (-5, 2):
+        m.box(-2, 2, r0, r0 + 3, 3, 9, "gun", "kit")
+        m.box(-1, 1, r0 + 1, r0 + 2, 9, 9, "black", "kit")
+    return m
+
+
+def build_smoke_canister():
+    """A smoke canister: a short olive can with a yellow band."""
+    m = Model()
+    m.box(-3, 3, -3, 3, 0, 9, "od", "kit")
+    m.box(-3, 3, -3, 3, 6, 6, "yellow", "kit")
+    m.box(-1, 1, -1, 1, 10, 10, "black", "kit")
+    return m
+
+
+def build_winch():
+    """A winch: a cable drum between its cheeks, with a hook."""
+    m = Model()
+    m.box(-6, 6, -8, -7, 0, 9, "steel", "kit")
+    m.box(-6, 6, 7, 8, 0, 9, "steel", "kit")
+    m.box(-4, 4, -6, 6, 2, 7, "black", "kit")
+    m.paint(lambda f, r, z: (r + z) % 2 == 0, "gun")
+    m.box(7, 10, -1, 0, 3, 4, "yellow", "kit")
+    return m
+
+
+def build_tow_hitch():
+    """A tow hitch: a receiver bar with a ball and a pin."""
+    m = Model()
+    m.box(-10, 6, -1, 1, 0, 2, "black", "kit")
+    m.box(7, 9, -2, 2, 0, 3, "steel", "kit")
+    m.box(8, 8, -1, 1, 4, 5, "steel", "kit")
+    m.box(-4, -4, -3, 3, 1, 1, "yellow", "kit")
+    return m
+
+
+def build_camo_net():
+    """A camo net: a rolled bundle of mottled netting with its poles."""
+    m = Model()
+    m.box(-9, 9, -4, 4, 0, 6, "od", "kit")
+    m.paint(lambda f, r, z: (f * 3 + r * 5 + z) % 4 == 0, "canvas")
+    m.paint(lambda f, r, z: (f + r * 2) % 5 == 0, "od_seam")
+    for r0 in (-6, 5):
+        m.box(-10, 10, r0, r0, 1, 1, "wood", "kit")
+    return m
+
+
+UTILITY_ICONS = {
+    "roof_rack": build_roof_rack,
+    "aux_tank": build_aux_tank,
+    "smoke_dischargers": build_smoke_dischargers,
+    "smoke_canister": build_smoke_canister,
+    "winch": build_winch,
+    "tow_hitch": build_tow_hitch,
+    "camo_net": build_camo_net,
+}
+
+
 # ---------------------------------------------------------------- rendering
 
 def to_world(view, f, r):
@@ -2926,6 +3009,7 @@ def icon_images():
         "skid_plate": centred(build_skid_plate(), "S", ICON),
         "snorkel": centred(build_snorkel(), "S", ICON),
         "roll_cage": centred(build_roll_cage(), "E", ICON),
+        **{name: centred(build(), "S", ICON) for name, build in UTILITY_ICONS.items()},
         "windshield": centred(small_shield, "S", ICON),
         "searchlight": centred(scaled(searchlight("left")(), 2), "E", ICON),
         "engine": centred(engine(), "S", ICON),

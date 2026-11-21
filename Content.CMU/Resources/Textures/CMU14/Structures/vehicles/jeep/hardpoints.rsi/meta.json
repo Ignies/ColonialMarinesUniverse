@@ -66,6 +66,27 @@
         },
         {
             "name": "roll_cage"
+        },
+        {
+            "name": "roof_rack"
+        },
+        {
+            "name": "aux_tank"
+        },
+        {
+            "name": "smoke_dischargers"
+        },
+        {
+            "name": "smoke_canister"
+        },
+        {
+            "name": "winch"
+        },
+        {
+            "name": "tow_hitch"
+        },
+        {
+            "name": "camo_net"
         }
     ]
 }

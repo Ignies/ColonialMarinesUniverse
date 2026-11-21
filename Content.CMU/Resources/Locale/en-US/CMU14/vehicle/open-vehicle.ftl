@@ -82,3 +82,18 @@ cmu-vehicle-upgrade-examine-kit = It has {INDEFINITE($upgrade)} [color=cyan]{$up
 cmu-vehicle-upgrade-examine-load = It carries its upgrades easily: [color=green]{$load}%[/color] of its most.
 cmu-vehicle-upgrade-examine-heavy = It sits low under its upgrades: [color=yellow]{$load}%[/color] of its most, and slower for it.
 cmu-vehicle-upgrade-examine-item = A jeep upgrade weighing [color=yellow]{$weight}[/color]. Only an engineer can fit it, and only within the jeep's most load.
+
+cmu-vehicle-roof-rack-verb = Open roof rack
+cmu-vehicle-smoke-verb = Fire smoke dischargers ({$charges} left)
+cmu-vehicle-smoke-fired = The smoke dischargers thump, and smoke billows up around the jeep!
+cmu-vehicle-smoke-full = The smoke dischargers are already loaded.
+cmu-vehicle-smoke-reloaded = You load the smoke dischargers: {$charges} ready.
+cmu-vehicle-winch-verb = Winch in {THE($load)}
+cmu-vehicle-winch-blocked = Something's in the way behind the jeep.
+cmu-vehicle-winch-done = The winch hauls {THE($load)} up behind the jeep.
+cmu-vehicle-hitch-verb = Hitch {THE($load)}
+cmu-vehicle-unhitch-verb = Unhitch {THE($load)}
+cmu-vehicle-hitched = You hitch {THE($load)} behind the jeep.
+cmu-vehicle-camo-up-verb = Spread camo net
+cmu-vehicle-camo-down-verb = Take down camo net
+cmu-vehicle-camo-moving = Stop the jeep before spreading the net.

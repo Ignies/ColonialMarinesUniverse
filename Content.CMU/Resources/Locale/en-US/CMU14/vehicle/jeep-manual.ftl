@@ -266,6 +266,16 @@ cmu-jeep-manual-kits-about =
     • Roll cage: no crash knocks the riders out.
     Each adds weight like the armor, and a jeep takes one of each.
 cmu-jeep-manual-kits-use = An engineer uses the kit on the jeep (6 s). To take one off, hold a wrench and use the jeep's remove verb for it.
+cmu-jeep-manual-utility = Utility kits
+cmu-jeep-manual-utility-about =
+    More kits bolted on like the others, made at the autolathe:
+    • Roof rack: room for a load of gear, opened from the jeep.
+    • Auxiliary fuel tank: two thirds more fuel. Taken off, the fuel past the jeep's own tank spills.
+    • Smoke dischargers: its riders fire a ring of smoke around the jeep, twice before reloading.
+    • Winch: hauls a stuck vehicle, a wreck or a crate up behind the jeep from six tiles off (8 s).
+    • Tow hitch: tows a vehicle, wreck or crate hitched behind it, at six tenths of its speed.
+    • Camo net: spread over the parked jeep (10 s), it is hard to see until it moves off.
+cmu-jeep-manual-utility-use = Use them from the jeep's verbs. Reload the smoke dischargers by using smoke canisters, made at the autolathe, on the jeep (2 s).
 cmu-jeep-manual-medical = Medical jeep: bed
 cmu-jeep-manual-medical-about = A surgical bed in the back that works as an operating table, with the medic's seat facing it.
 cmu-jeep-manual-medical-use = Use the lie on verb, or lay a patient on it. The tailgate is its door.

@@ -308,6 +308,10 @@
     name: cmu-jeep-manual-kits
     about: cmu-jeep-manual-kits-about
     use: cmu-jeep-manual-kits-use
+  - id: utility
+    name: cmu-jeep-manual-utility
+    about: cmu-jeep-manual-utility-about
+    use: cmu-jeep-manual-utility-use
   - id: medical
     name: cmu-jeep-manual-medical
     about: cmu-jeep-manual-medical-about

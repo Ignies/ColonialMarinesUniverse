@@ -10,6 +10,7 @@ using Content.Shared.Tools.Systems;
 using Content.Shared.Verbs;
 using Robust.Shared.Containers;
 using Robust.Shared.Network;
+using Robust.Shared.Timing;
 
 namespace Content.Shared.CMU14.Vehicle.Open;
 
@@ -26,7 +27,9 @@ public sealed class CMUVehicleUpgradeSystem : EntitySystem
     [Dependency] private INetManager _net = default!;
     [Dependency] private SharedPopupSystem _popup = default!;
     [Dependency] private SkillsSystem _skills = default!;
+    [Dependency] private IGameTiming _timing = default!;
     [Dependency] private SharedToolSystem _tool = default!;
+    [Dependency] private CMUVehicleUtilitySystem _utility = default!;
 
     public override void Initialize()
     {
@@ -117,14 +120,22 @@ public sealed class CMUVehicleUpgradeSystem : EntitySystem
 
     private void OnInserted(Entity<CMUVehicleUpgradesComponent> ent, ref EntInsertedIntoContainerMessage args)
     {
-        if (HasComp<CMUVehicleUpgradeComponent>(args.Entity))
-            Recalculate(ent);
+        if (!HasComp<CMUVehicleUpgradeComponent>(args.Entity))
+            return;
+
+        Recalculate(ent);
+        if (args.Container.ID == ent.Comp.Container && !_timing.ApplyingState)
+            _utility.KitChanged(ent, args.Entity, true);
     }
 
     private void OnRemoved(Entity<CMUVehicleUpgradesComponent> ent, ref EntRemovedFromContainerMessage args)
     {
-        if (HasComp<CMUVehicleUpgradeComponent>(args.Entity))
-            Recalculate(ent);
+        if (!HasComp<CMUVehicleUpgradeComponent>(args.Entity))
+            return;
+
+        Recalculate(ent);
+        if (args.Container.ID == ent.Comp.Container && !_timing.ApplyingState)
+            _utility.KitChanged(ent, args.Entity, false);
     }
 
     /// <summary>
@@ -208,8 +219,15 @@ public sealed class CMUVehicleUpgradeSystem : EntitySystem
 
     private void OnInteractUsing(Entity<CMUVehicleUpgradesComponent> ent, ref InteractUsingEvent args)
     {
-        if (args.Handled || !TryComp(args.Used, out CMUVehicleUpgradeComponent? upgrade) || !upgrade.Kit)
+        if (args.Handled)
             return;
+
+        if (!TryComp(args.Used, out CMUVehicleUpgradeComponent? upgrade) || !upgrade.Kit)
+        {
+            // Smoke grenades reload the smoke dischargers.
+            args.Handled = _utility.TryReloadSmoke(ent, args.User, args.Used);
+            return;
+        }
 
         args.Handled = true;
         if (HasKit(ent, MetaData(args.Used).EntityPrototype?.ID))

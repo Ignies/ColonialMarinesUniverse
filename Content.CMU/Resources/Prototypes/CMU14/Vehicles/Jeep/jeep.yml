@@ -2863,6 +2863,13 @@
   - CMUJeepSkidPlate
   - CMUJeepSnorkel
   - CMUJeepRollCage
+  - CMUJeepRoofRack
+  - CMUJeepAuxTank
+  - CMUJeepSmokeDischargers
+  - CMUJeepSmokeCanister
+  - CMUJeepWinch
+  - CMUJeepTowHitch
+  - CMUJeepCamoNet
   - CMUJeepHood
   - CMUJeepDoor
   - CMUJeepTailgate

@@ -1,0 +1,187 @@
+# Utility kits for the jeeps, bolted on like the mobility kits (jeep_upgrades.yml): each adds weight
+# and an engineer fits it. The lathe makes them all.
+
+- type: Tag
+  id: CMUJeepSmokeCanister
+
+# Roof rack: a frame to lash gear to, opened from the jeep once it's bolted on.
+- type: entity
+  parent: CMUJeepKitBase
+  id: CMUJeepRoofRack
+  name: jeep roof rack
+  description: A steel frame to bolt over a jeep, with straps to lash gear to. Open it from the jeep.
+  components:
+  - type: Sprite
+    state: roof_rack
+  - type: CMUVehicleUpgrade
+    kit: true
+    weight: 15
+  - type: CMUVehicleRoofRack
+  - type: Storage
+    maxItemSize: Large
+    grid:
+    - 0,0,9,3
+  - type: UserInterface
+    interfaces:
+      enum.StorageUiKey.Key:
+        type: StorageBoundUserInterface
+  - type: ContainerContainer
+    containers:
+      storagebase: !type:Container
+
+# Auxiliary fuel tank: another 40 units of fuel, for long runs between refills.
+- type: entity
+  parent: CMUJeepKitBase
+  id: CMUJeepAuxTank
+  name: jeep auxiliary fuel tank
+  description: A spare fuel tank plumbed into a jeep's own. With it, the jeep holds two thirds more fuel.
+  components:
+  - type: Sprite
+    state: aux_tank
+  - type: CMUVehicleUpgrade
+    kit: true
+    weight: 20
+  - type: CMUVehicleAuxTank
+    capacity: 40
+
+# Smoke dischargers: the riders fire a ring of smoke around the jeep, twice before reloading with
+# smoke canisters.
+- type: entity
+  parent: CMUJeepKitBase
+  id: CMUJeepSmokeDischargers
+  name: jeep smoke dischargers
+  description: A pair of smoke mortars to bolt onto a jeep. Its riders fire them to screen it from every side; reload them with smoke canisters.
+  components:
+  - type: Item
+    size: Large
+  - type: Sprite
+    state: smoke_dischargers
+  - type: CMUVehicleUpgrade
+    kit: true
+    weight: 10
+  - type: CMUVehicleSmokeDischarger
+    reload:
+      tags:
+      - CMUJeepSmokeCanister
+
+- type: entity
+  parent: BaseItem
+  id: CMUJeepSmokeCanister
+  name: smoke discharger canister
+  description: A smoke charge for a jeep's smoke dischargers.
+  components:
+  - type: Sprite
+    sprite: CMU14/Structures/vehicles/jeep/hardpoints.rsi
+    state: smoke_canister
+  - type: Item
+    size: Small
+  - type: Tag
+    tags:
+    - CMUJeepSmokeCanister
+
+# Winch: hauls a stuck vehicle, a wreck or a crate up behind the jeep from six tiles off.
+- type: entity
+  parent: CMUJeepKitBase
+  id: CMUJeepWinch
+  name: jeep winch
+  description: A cable winch for a jeep's bumper. It hauls a stuck vehicle, a wreck or a crate up behind the jeep.
+  components:
+  - type: Sprite
+    state: winch
+  - type: CMUVehicleUpgrade
+    kit: true
+    weight: 20
+  - type: CMUVehicleWinch
+    whitelist:
+      components:
+      - EntityStorage
+      - GridVehicleMover
+      - CMUVehiclePermanentWreck
+
+# Tow hitch: tows a vehicle, wreck or crate behind the jeep, at a little over half its speed.
+- type: entity
+  parent: CMUJeepKitBase
+  id: CMUJeepTowHitch
+  name: jeep tow hitch
+  description: A towing hitch and bar for a jeep. It tows a vehicle, a wreck or a crate behind it, slowly.
+  components:
+  - type: Item
+    size: Large
+  - type: Sprite
+    state: tow_hitch
+  - type: CMUVehicleUpgrade
+    kit: true
+    weight: 10
+  - type: CMUVehicleTowHitch
+    whitelist:
+      components:
+      - EntityStorage
+      - GridVehicleMover
+      - CMUVehiclePermanentWreck
+
+# Camo net: spread over a parked jeep, it is hard to see until it moves off.
+- type: entity
+  parent: CMUJeepKitBase
+  id: CMUJeepCamoNet
+  name: jeep camo net
+  description: A camouflage net and poles for a jeep. Spread over the parked jeep, it hides it until it moves off.
+  components:
+  - type: Item
+    size: Large
+  - type: Sprite
+    state: camo_net
+  - type: CMUVehicleUpgrade
+    kit: true
+    weight: 10
+  - type: CMUVehicleCamoNet
+
+- type: latheRecipe
+  id: CMUJeepRoofRack
+  result: CMUJeepRoofRack
+  completetime: 8
+  materials:
+    CMSteel: 15000
+
+- type: latheRecipe
+  id: CMUJeepAuxTank
+  result: CMUJeepAuxTank
+  completetime: 8
+  materials:
+    CMSteel: 11250
+
+- type: latheRecipe
+  id: CMUJeepSmokeDischargers
+  result: CMUJeepSmokeDischargers
+  completetime: 10
+  materials:
+    CMSteel: 11250
+
+- type: latheRecipe
+  id: CMUJeepSmokeCanister
+  result: CMUJeepSmokeCanister
+  completetime: 3
+  materials:
+    CMSteel: 1875
+    RMCPlastic: 1875
+
+- type: latheRecipe
+  id: CMUJeepWinch
+  result: CMUJeepWinch
+  completetime: 10
+  materials:
+    CMSteel: 15000
+
+- type: latheRecipe
+  id: CMUJeepTowHitch
+  result: CMUJeepTowHitch
+  completetime: 6
+  materials:
+    CMSteel: 7500
+
+- type: latheRecipe
+  id: CMUJeepCamoNet
+  result: CMUJeepCamoNet
+  completetime: 6
+  materials:
+    CMSteel: 1875
+    RMCPlastic: 3750
