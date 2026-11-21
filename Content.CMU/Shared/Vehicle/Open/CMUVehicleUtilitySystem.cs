@@ -278,8 +278,8 @@ public sealed class CMUVehicleUtilitySystem : EntitySystem
 
     /// <summary>
     /// Whether the winch or hitch can take hold of the load: a crate, a jeep nobody's in or a jeep's
-    /// wreck, in the open from the vehicle and within reach, not anchored, and in nobody's tow. A tank
-    /// or APC is far too heavy.
+    /// wreck, in the open from the vehicle and within reach, and in nobody's tow. Anything anchored
+    /// down stays put, and a tank or APC is far too heavy.
     /// </summary>
     private bool CanTake(EntityUid vehicle, EntityUid load, float range, EntityWhitelist? whitelist)
     {
@@ -374,7 +374,6 @@ public sealed class CMUVehicleUtilitySystem : EntitySystem
             return false;
         }
 
-        Unanchor(load);
         _transform.SetCoordinates(load, drop);
         _transform.AttachToGridOrMap(load);
         if (user != null)
@@ -435,7 +434,6 @@ public sealed class CMUVehicleUtilitySystem : EntitySystem
             return false;
         }
 
-        Unanchor(load);
         var towing = EnsureComp<CMUVehicleTowingComponent>(vehicle);
         towing.Towed = load;
         Dirty(vehicle, towing);
@@ -456,13 +454,6 @@ public sealed class CMUVehicleUtilitySystem : EntitySystem
         towing.Towed = null;
         Dirty(vehicle, towing);
         RemComp<CMUVehicleTowedComponent>(load);
-    }
-
-    private void Unanchor(EntityUid load)
-    {
-        var xform = Transform(load);
-        if (xform.Anchored)
-            _transform.Unanchor(load, xform);
     }
 
     private void OnCamoNet(Entity<CMUVehicleUpgradesComponent> ent, ref CMUVehicleCamoNetDoAfterEvent args)

@@ -152,7 +152,7 @@ public sealed partial class CMUVehicleTowingComponent : Component
 public sealed partial class CMUVehicleCamoNetComponent : Component
 {
     [DataField]
-    public float Opacity = 0.35f;
+    public float Opacity = 0.2f;
 
     [DataField]
     public TimeSpan Delay = TimeSpan.FromSeconds(10);
@@ -161,14 +161,17 @@ public sealed partial class CMUVehicleCamoNetComponent : Component
 /// <summary>
 /// A vehicle under its spread camo net. The net comes off when it moves, or any gun aboard fires.
 /// </summary>
-[RegisterComponent, NetworkedComponent, AutoGenerateComponentState]
+[RegisterComponent, NetworkedComponent, AutoGenerateComponentState, AutoGenerateComponentPause]
 [Access(typeof(CMUVehicleUtilitySystem))]
 public sealed partial class CMUVehicleCamouflagedComponent : Component
 {
     /// <summary>
     /// The latest time any gun aboard could next fire when the net went up: a gun past it has fired.
     /// </summary>
-    [DataField, AutoNetworkedField]
+    /// <remarks>
+    /// Paused along with the guns' own next-fire times, so a paused map doesn't take the net down.
+    /// </remarks>
+    [DataField(customTypeSerializer: typeof(TimeOffsetSerializer)), AutoNetworkedField, AutoPausedField]
     public TimeSpan LastShot;
 
     /// <summary>

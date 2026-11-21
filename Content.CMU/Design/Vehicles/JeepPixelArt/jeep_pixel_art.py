@@ -2103,21 +2103,24 @@ def build_aux_tank():
 
 
 def build_smoke_dischargers():
-    """Smoke dischargers: a pair of short angled tubes on a bracket."""
+    """Smoke dischargers: two upright mortar tubes on an olive bracket, banded, their bores dark."""
     m = Model()
-    m.box(-6, 6, -3, 3, 0, 2, "od", "kit")
-    for r0 in (-5, 2):
-        m.box(-2, 2, r0, r0 + 3, 3, 9, "gun", "kit")
-        m.box(-1, 1, r0 + 1, r0 + 2, 9, 9, "black", "kit")
+    m.box(-4, 4, -8, 7, 0, 2, "od", "kit")
+    m.box(-4, 4, -8, 7, 2, 2, "od_seam", "kit")
+    for r0 in (-7, 3):
+        m.box(-2, 2, r0, r0 + 4, 3, 11, "gun", "kit")
+        m.box(-2, 2, r0, r0 + 4, 8, 8, "yellow", "kit")
+        m.box(-1, 1, r0 + 1, r0 + 3, 11, 11, "black", "kit")
     return m
 
 
 def build_smoke_canister():
-    """A smoke canister: a short olive can with a yellow band."""
+    """A smoke canister: a grey can banded yellow, with a dark ringed cap."""
     m = Model()
-    m.box(-3, 3, -3, 3, 0, 9, "od", "kit")
-    m.box(-3, 3, -3, 3, 6, 6, "yellow", "kit")
-    m.box(-1, 1, -1, 1, 10, 10, "black", "kit")
+    m.box(-3, 3, -3, 3, 0, 8, "steel", "kit")
+    m.box(-3, 3, -3, 3, 5, 5, "yellow", "kit")
+    m.box(-3, 3, -3, 3, 9, 9, "black", "kit")
+    m.box(-1, 1, -1, 1, 9, 9, "gun", "kit")
     return m
 
 
