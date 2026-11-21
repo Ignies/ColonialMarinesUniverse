@@ -284,6 +284,7 @@ public sealed class CMUJeepTechnicalTest : GameTest
         var map = await OpenGround();
         EntityUid jeep = default;
         EntityUid frame = default;
+        EntityUid droppedGun = default;
         await Server.WaitPost(() =>
         {
             jeep = SEntMan.SpawnEntity("CMUVehicleJeepCargo", new EntityCoordinates(map.Grid, 0.5f, 0.5f));
@@ -303,6 +304,7 @@ public sealed class CMUJeepTechnicalTest : GameTest
             var slots = SEntMan.System<ItemSlotsSystem>();
             var mount = Turret(jeep)!.Value;
             var gun = SEntMan.SpawnEntity("CMUJeepMG", MapCoordinates.Nullspace);
+            droppedGun = gun;
             Assert.That(slots.TryInsert(mount, "turret-gun", gun, null), Is.True,
                 "A jeep gun should fit the technical's mount.");
             Assert.That(slots.TryGetSlot(jeep, "turret", out var turretSlot), Is.True);
@@ -327,6 +329,8 @@ public sealed class CMUJeepTechnicalTest : GameTest
         await Server.WaitAssertion(() =>
         {
             Assert.That(Turret(jeep), Is.Null, "A frame destroyed while bolted down takes its mount with it.");
+            Assert.That(SEntMan.EntityExists(droppedGun), Is.True, "The gun on the mount should fall clear.");
+            Assert.That(SEntMan.System<SharedContainerSystem>().IsEntityInContainer(droppedGun), Is.False);
             Assert.That(SEntMan.GetComponent<CMUVehicleCargoComponent>(jeep).Crate, Is.Null);
         });
     }

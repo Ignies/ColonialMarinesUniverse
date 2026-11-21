@@ -163,18 +163,27 @@ public sealed class CMUVehicleUpgradeSystem : EntitySystem
         }
     }
 
-    private IEnumerable<CMUVehicleUpgradeComponent> Fitted(EntityUid vehicle)
+    /// <summary>
+    /// The upgrades fitted to the vehicle: its bolted-on kits, and the parts in its own slots.
+    /// </summary>
+    private IEnumerable<CMUVehicleUpgradeComponent> Fitted(Entity<CMUVehicleUpgradesComponent> ent)
     {
-        if (!TryComp(vehicle, out ContainerManagerComponent? containers))
-            yield break;
-
-        foreach (var container in _container.GetAllContainers(vehicle, containers))
+        if (_container.TryGetContainer(ent, ent.Comp.Container, out var kits))
         {
-            foreach (var contained in container.ContainedEntities)
+            foreach (var kit in kits.ContainedEntities)
             {
-                if (TryComp(contained, out CMUVehicleUpgradeComponent? upgrade))
+                if (TryComp(kit, out CMUVehicleUpgradeComponent? upgrade))
                     yield return upgrade;
             }
+        }
+
+        if (!TryComp(ent, out ItemSlotsComponent? slots))
+            yield break;
+
+        foreach (var slot in slots.Slots.Values)
+        {
+            if (slot.Item is { } part && TryComp(part, out CMUVehicleUpgradeComponent? upgrade))
+                yield return upgrade;
         }
     }
 
@@ -332,8 +341,13 @@ public sealed class CMUVehicleUpgradeSystem : EntitySystem
             return;
         }
 
-        if (!kits.Contains(kit.Value))
+        // The verb checked the skill when it started; whoever finishes the job has to have it too.
+        if (!kits.Contains(kit.Value)
+            || !TryComp(kit, out CMUVehicleUpgradeComponent? fitted)
+            || CantFit(ent, fitted, args.User, fitted.Weight) is not null)
+        {
             return;
+        }
 
         _container.Remove(kit.Value, kits);
         _hands.PickupOrDrop(args.User, kit.Value);
