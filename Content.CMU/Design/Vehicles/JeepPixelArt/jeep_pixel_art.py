@@ -1874,18 +1874,22 @@ def build_technical_frame():
             bag(f0, min(f0 + 5, 7), -11, -8, z0)
             bag(f0, min(f0 + 5, 7), 8, 11, z0)
 
-    # Pedestal: three braced legs to a post, a collar and the pintle cradle on top.
-    for lf, lr in ((-5, -5), (-5, 4), (4, 0)):
-        for t in range(0, 9):
-            f = round(lf + (0 - lf) * t / 9)
-            r = round(lr + (0 - lr) * t / 9)
-            m.put(f, r, 1 + t, "steel", "frame")
-            m.put(f, r - 1 if lr > 0 else r, 1 + t, "steel", "frame")
-    m.box(-1, 0, -1, 0, 9, 14, "steel", "frame")
-    m.box(-2, 1, -2, 1, 12, 12, "black", "frame")
+    # Pedestal: a square base flange bolted to the deck, a straight post braced by four stepped
+    # gusset plates, a collar and the pintle cradle on top.
+    m.box(-3, 2, -3, 2, 1, 1, "frame", "frame")
+    for f0, r0 in ((-3, -3), (-3, 2), (2, -3), (2, 2)):
+        m.put(f0, r0, 2, "steel", "frame")
+    m.box(-1, 0, -1, 0, 2, 13, "steel", "frame")
+    for step in range(3):
+        top = 4 - step
+        m.box(-1, 0, 1 + step, 1 + step, 2, top, "gun", "frame")
+        m.box(-1, 0, -2 - step, -2 - step, 2, top, "gun", "frame")
+        m.box(1 + step, 1 + step, -1, 0, 2, top, "gun", "frame")
+        m.box(-2 - step, -2 - step, -1, 0, 2, top, "gun", "frame")
+    m.box(-2, 1, -2, 1, 11, 11, "black", "frame")
+    m.box(-2, 1, -2, 1, 14, 14, "gun", "frame")
     m.box(-2, 1, -2, -2, 15, 16, "gun", "frame")
     m.box(-2, 1, 1, 1, 15, 16, "gun", "frame")
-    m.box(-2, 1, -2, 1, 14, 14, "gun", "frame")
 
     # Ammo cans by the open back, one with its lid stencil.
     for r0 in (-8, 3):
