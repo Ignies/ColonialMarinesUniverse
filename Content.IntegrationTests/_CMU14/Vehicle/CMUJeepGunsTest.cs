@@ -1,4 +1,5 @@
 using System.Linq;
+using System.Numerics;
 using Content.IntegrationTests.Fixtures;
 using Content.Shared.Buckle.Components;
 using Content.Shared.CMU14.Vehicle.Open;
@@ -151,7 +152,7 @@ public sealed class CMUJeepGunsTest : GameTest
             var guns = SEntMan.System<CMUJeepGunSystem>();
             var xforms = SEntMan.System<SharedTransformSystem>();
             var seat = xforms.GetMapCoordinates(rider);
-            var muzzle = seat.Offset(new System.Numerics.Vector2(0f, -1f));
+            var muzzle = seat.Offset(new Vector2(0f, -1f));
             var aim = muzzle.Position - seat.Position;
             var blast = (pod, SEntMan.GetComponent<CMUGunBackblastComponent>(pod));
             var caught = new List<EntityUid>();
