@@ -245,6 +245,7 @@ cmu-jeep-manual-cradle = Pintle adapter
 cmu-jeep-manual-cradle-about = A cradle that clamps a marine's own gun onto a jeep's gun mount, made at the autolathe; requisitions sell a stabilized one. On the mount the gun shoots as true as wielded and spreads less, heavier guns most, with the gun's own rounds, rate and sound.
 cmu-jeep-manual-cradle-use =
     Put a gun in the adapter, then screw it down (3 s); it won't fire until it is. Unscrew it to take the gun out.
+    It won't take launchers or flamers, guns that need a specialist's training or an ID to fire, or pump, breech-loaded and spin-up guns.
     Fit the adapter in place of a mount's gun through vehicle maintenance. Reload the gun by using its magazine on the jeep.
 cmu-jeep-manual-medical = Medical jeep: bed
 cmu-jeep-manual-medical-about = A surgical bed in the back that works as an operating table, with the medic's seat facing it.

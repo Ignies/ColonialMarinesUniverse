@@ -426,8 +426,8 @@ public sealed class CMUVehicleCargoSystem : EntitySystem
 
         if (TryComp(ent.Comp.Vehicle, out CMUVehicleCargoComponent? cargo) && cargo.Crate == ent.Owner)
         {
+            SetSecured((ent.Comp.Vehicle.Value, cargo), false);
             cargo.Crate = null;
-            cargo.Secured = false;
             Dirty(ent.Comp.Vehicle.Value, cargo);
         }
 

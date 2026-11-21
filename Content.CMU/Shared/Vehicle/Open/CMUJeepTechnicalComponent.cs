@@ -19,11 +19,12 @@ public sealed partial class CMUJeepTechnicalComponent : Component
     /// The vehicle slot the mount goes into once the frame is bolted down.
     /// </summary>
     [DataField]
-    public string TurretSlot = "turret";
+    public string TurretSlot = CMUOpenVehicleSystem.TurretSlot;
 }
 
 /// <summary>
-/// Raised on a crate in a cargo bed when it's bolted down or let loose, before an unloaded crate leaves.
+/// A technical's gun mount. It only ever comes out of the vehicle back into its frame, when the frame
+/// is wrenched loose: it can't be pulled out through maintenance, or fitted anywhere else.
 /// </summary>
-[ByRefEvent]
-public readonly record struct CMUVehicleCargoSecuredEvent(EntityUid Vehicle, bool Secured);
+[RegisterComponent, NetworkedComponent, Access(typeof(CMUJeepTechnicalSystem))]
+public sealed partial class CMUJeepTechnicalMountComponent : Component;

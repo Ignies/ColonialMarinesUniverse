@@ -45,9 +45,6 @@ public sealed class CMUVehicleSeatSystem : EntitySystem
 
     private static readonly EntProtoId<SkillDefinitionComponent> FirearmsSkill = "RMCSkillFirearms";
 
-    // The vehicle's gun mount slot, whose gun the gunner seat mans.
-    private const string TurretSlot = "turret";
-
     private readonly List<(EntityUid Rider, EntityUid Seat)> _exiting = new();
 
     // A rider let through a seat's door for this buckle: after the climb, or moving between seats.
@@ -530,8 +527,11 @@ public sealed class CMUVehicleSeatSystem : EntitySystem
         if (_sentryMount.HasSentry(vehicle))
             return "cmu-jeep-sentry-gunner-seat";
 
-        if (_container.TryGetContainer(vehicle, TurretSlot, out var turret) && turret.ContainedEntities.Count == 0)
+        if (_container.TryGetContainer(vehicle, CMUOpenVehicleSystem.TurretSlot, out var turret)
+            && turret.ContainedEntities.Count == 0)
+        {
             return "cmu-jeep-gunner-seat-no-mount";
+        }
 
         return null;
     }

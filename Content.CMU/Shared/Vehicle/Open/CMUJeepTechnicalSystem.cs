@@ -22,7 +22,16 @@ public sealed class CMUJeepTechnicalSystem : EntitySystem
     {
         SubscribeLocalEvent<CMUJeepTechnicalComponent, CMUVehicleCargoSecuredEvent>(OnSecured);
         SubscribeLocalEvent<CMUJeepTechnicalComponent, StorageOpenAttemptEvent>(OnOpenAttempt);
-        SubscribeLocalEvent<CMUJeepTechnicalComponent, EntityTerminatingEvent>(OnTerminating);
+        // Before the cargo bed forgets the frame was there.
+        SubscribeLocalEvent<CMUJeepTechnicalComponent, EntityTerminatingEvent>(OnTerminating,
+            before: [typeof(CMUVehicleCargoSystem)]);
+        SubscribeLocalEvent<CMUJeepTechnicalMountComponent, ItemSlotEjectAttemptEvent>(OnMountEjectAttempt);
+    }
+
+    private void OnMountEjectAttempt(Entity<CMUJeepTechnicalMountComponent> ent, ref ItemSlotEjectAttemptEvent args)
+    {
+        // Only wrenching the frame loose takes it off, straight back into the frame.
+        args.Cancelled = true;
     }
 
     private void OnSecured(Entity<CMUJeepTechnicalComponent> ent, ref CMUVehicleCargoSecuredEvent args)
@@ -57,6 +66,7 @@ public sealed class CMUJeepTechnicalSystem : EntitySystem
     {
         if (!_itemSlots.TryGetSlot(vehicle, ent.Comp.TurretSlot, out var slot)
             || slot.Item is not { } mount
+            || !HasComp<CMUJeepTechnicalMountComponent>(mount)
             || slot.ContainerSlot is not { } fitted)
         {
             return;
@@ -77,13 +87,14 @@ public sealed class CMUJeepTechnicalSystem : EntitySystem
             || bed.Crate != ent.Owner
             || !bed.Secured
             || !_itemSlots.TryGetSlot(crate.Vehicle.Value, ent.Comp.TurretSlot, out var slot)
-            || slot.Item is not { } mount)
+            || slot.Item is not { } mount
+            || !HasComp<CMUJeepTechnicalMountComponent>(mount))
         {
             return;
         }
 
         _seats.ClearGunnerSeats(crate.Vehicle.Value);
-        PredictedQueueDel(mount);
+        QueueDel(mount);
     }
 
     private void OnOpenAttempt(Entity<CMUJeepTechnicalComponent> ent, ref StorageOpenAttemptEvent args)

@@ -2011,6 +2011,7 @@
       offset: 0,0.703
       exit: 0,1.55
       door: tailgate
+      autoSeat: false
       pixelOffsets:
         South: 0,23
         North: 0,-21

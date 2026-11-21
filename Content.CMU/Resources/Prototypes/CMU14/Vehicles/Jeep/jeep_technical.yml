@@ -5,7 +5,8 @@
   id: CMUJeepTechnicalMount
 
 # The technical's mount, which only ever sits in a frame or, bolted down, in the cargo jeep's turret
-# slot. It swings all the way round, slower than the gun jeep's pedestal, and comes with no gun.
+# slot: it can't be taken off through maintenance. It swings all the way round, slower than the gun
+# jeep's pedestal, and comes with no gun.
 - type: entity
   parent: CMUJeepHardpointBase
   id: CMUJeepTechnicalMount
@@ -20,6 +21,7 @@
   - type: Tag
     tags:
     - CMUJeepTechnicalMount
+  - type: CMUJeepTechnicalMount
   - type: HardpointItem
     hardpointType: Turret
     vehicleFamily: CMUJeep
@@ -156,10 +158,20 @@
           - Gun
           - Item
           requireAll: true
+        # Not guns that need their user's own hands, skills or ID to fire, nor launchers: those
+        # belong to the vehicle's own mounts, or to the marine trained for them.
         blacklist:
           components:
           - HardpointItem
           - CMUGunCradle
+          - GunRequiresSkills
+          - GunIDLock
+          - PumpAction
+          - BreechLoaded
+          - GunSpinup
+          - ShootAtFixedPoint
+          - CMUBackblast
+          - RMCFlamerAmmoProvider
   - type: ContainerContainer
     containers:
       cradle-gun: !type:ContainerSlot

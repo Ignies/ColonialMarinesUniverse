@@ -1,3 +1,4 @@
+using Content.Shared._RMC14.Attachable.Systems;
 using Content.Shared._RMC14.Weapons.Ranged;
 using Content.Shared.Containers.ItemSlots;
 using Content.Shared.Examine;
@@ -28,9 +29,6 @@ public sealed class CMUGunCradleSystem : EntitySystem
     [Dependency] private IGameTiming _timing = default!;
     [Dependency] private SharedToolSystem _tool = default!;
 
-    // The vehicle's gun mount slot.
-    private const string TurretSlot = "turret";
-
     public override void Initialize()
     {
         SubscribeLocalEvent<CMUGunCradleComponent, EntInsertedIntoContainerMessage>(OnGunInserted);
@@ -43,7 +41,9 @@ public sealed class CMUGunCradleSystem : EntitySystem
         SubscribeLocalEvent<CMUGunCradleComponent, GetAmmoCountEvent>(OnGetAmmoCount);
         SubscribeLocalEvent<CMUGunCradleComponent, AmmoShotEvent>(OnAmmoShot);
         SubscribeLocalEvent<CMUGunCradleComponent, GunRefreshModifiersEvent>(OnRefreshModifiers);
-        SubscribeLocalEvent<CMUCradledGunComponent, GetWeaponAccuracyEvent>(OnCradledAccuracy);
+        // First, so the other modifiers build on the wielded figure rather than the one-handed one.
+        SubscribeLocalEvent<CMUCradledGunComponent, GetWeaponAccuracyEvent>(OnCradledAccuracy,
+            before: [typeof(CMGunSystem), typeof(AttachableHolderSystem)]);
     }
 
     /// <summary>
@@ -65,8 +65,11 @@ public sealed class CMUGunCradleSystem : EntitySystem
     /// </summary>
     private Entity<CMUGunCradleComponent>? FindCradle(EntityUid vehicle)
     {
-        if (_itemSlots.GetItemOrNull(vehicle, TurretSlot) is not { } mount || !TryComp(mount, out ItemSlotsComponent? slots))
+        if (_itemSlots.GetItemOrNull(vehicle, CMUOpenVehicleSystem.TurretSlot) is not { } mount
+            || !TryComp(mount, out ItemSlotsComponent? slots))
+        {
             return null;
+        }
 
         foreach (var slot in slots.Slots.Values)
         {
@@ -145,8 +148,13 @@ public sealed class CMUGunCradleSystem : EntitySystem
 
     private void OnClamp(Entity<CMUGunCradleComponent> ent, ref CMUGunCradleClampDoAfterEvent args)
     {
-        if (args.Cancelled || args.Handled || !_itemSlots.TryGetSlot(ent.Owner, ent.Comp.Slot, out var slot) || !slot.HasItem)
+        if (args.Cancelled
+            || args.Handled
+            || !_itemSlots.TryGetSlot(ent.Owner, ent.Comp.Slot, out var slot)
+            || !slot.HasItem)
+        {
             return;
+        }
 
         args.Handled = true;
         var clamped = !slot.Locked;
@@ -169,12 +177,23 @@ public sealed class CMUGunCradleSystem : EntitySystem
 
     private void OnAttemptShoot(Entity<CMUGunCradleComponent> ent, ref AttemptShootEvent args)
     {
-        if (args.Cancelled || IsClamped(ent))
+        if (args.Cancelled)
+            return;
+
+        string? why = null;
+        if (!IsClamped(ent))
+            why = GetGun(ent) == null ? "cmu-gun-cradle-empty" : "cmu-gun-cradle-loose";
+        else if (TryComp(ent, out GunComponent? own)
+                 && TryComp(GetGun(ent), out GunComponent? held)
+                 && (held.AvailableModes & own.SelectedMode) == 0)
+            why = "cmu-gun-cradle-mode"; // Only the fire modes the clamped gun has.
+
+        if (why == null)
             return;
 
         args.Cancelled = true;
         args.ResetCooldown = true;
-        args.Message = Loc.GetString(GetGun(ent) == null ? "cmu-gun-cradle-empty" : "cmu-gun-cradle-loose");
+        args.Message = Loc.GetString(why);
     }
 
     private void OnTakeAmmo(Entity<CMUGunCradleComponent> ent, ref TakeAmmoEvent args)
@@ -208,9 +227,9 @@ public sealed class CMUGunCradleSystem : EntitySystem
 
     private void OnCradledAccuracy(Entity<CMUCradledGunComponent> ent, ref GetWeaponAccuracyEvent args)
     {
-        // Nobody wields a gun in a cradle; the mount holds it steadier than both hands would.
-        if (TryComp(ent, out RMCWeaponAccuracyComponent? accuracy) && accuracy.AccuracyMultiplierUnwielded > 0)
-            args.AccuracyMultiplier *= accuracy.AccuracyMultiplier / accuracy.AccuracyMultiplierUnwielded;
+        // Nobody wields a gun in a cradle; the mount holds it as steady as both hands would.
+        if (TryComp(ent, out RMCWeaponAccuracyComponent? accuracy))
+            args.AccuracyMultiplier = accuracy.AccuracyMultiplier;
     }
 
     private void OnRefreshModifiers(Entity<CMUGunCradleComponent> ent, ref GunRefreshModifiersEvent args)

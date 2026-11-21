@@ -82,6 +82,13 @@ public sealed partial class CMUVehicleCargoCrateComponent : Component
 [RegisterComponent, NetworkedComponent]
 public sealed partial class CMUVehicleCargoPulledComponent : Component;
 
+/// <summary>
+/// Raised on a crate in a cargo bed when it's wrenched down or let loose, as well as when a crate still
+/// wrenched down leaves the bed.
+/// </summary>
+[ByRefEvent]
+public readonly record struct CMUVehicleCargoSecuredEvent(EntityUid Vehicle, bool Secured);
+
 [Serializable, NetSerializable]
 public sealed partial class CMUVehicleCargoLoadDoAfterEvent : SimpleDoAfterEvent;
 

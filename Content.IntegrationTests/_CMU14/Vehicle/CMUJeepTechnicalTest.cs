@@ -268,6 +268,52 @@ public sealed class CMUJeepTechnicalTest : GameTest
         });
     }
 
+    [Test]
+    public async Task TheMountComesOffOnlyWithItsFrame()
+    {
+        var map = await OpenGround();
+        EntityUid jeep = default;
+        EntityUid frame = default;
+        await Server.WaitPost(() =>
+        {
+            jeep = SEntMan.SpawnEntity("CMUVehicleJeepCargo", new EntityCoordinates(map.Grid, 0.5f, 0.5f));
+            frame = SEntMan.SpawnEntity("CMUJeepTechnicalFrame", MapCoordinates.Nullspace);
+        });
+        await RunTicksSync(5);
+
+        await Server.WaitPost(() =>
+        {
+            var cargo = SEntMan.System<CMUVehicleCargoSystem>();
+            var bed = (jeep, SEntMan.GetComponent<CMUVehicleCargoComponent>(jeep));
+            cargo.Load(bed, frame);
+            cargo.SetSecured(bed, true);
+            Assert.That(Turret(jeep), Is.Not.Null, "Wrenched down, the frame's mount should be up.");
+            Assert.That(SEntMan.System<ItemSlotsSystem>().TryEject(jeep, "turret", null, out _), Is.False,
+                "The mount shouldn't come off but with its frame.");
+
+            SEntMan.DeleteEntity(frame);
+        });
+        await RunTicksSync(5);
+
+        await Server.WaitAssertion(() =>
+        {
+            Assert.That(Turret(jeep), Is.Null, "A frame destroyed while bolted down takes its mount with it.");
+            Assert.That(SEntMan.GetComponent<CMUVehicleCargoComponent>(jeep).Crate, Is.Null);
+        });
+    }
+
+    [Test]
+    public async Task TheAdapterRefusesLaunchers()
+    {
+        await Server.WaitAssertion(() =>
+        {
+            var cradle = SEntMan.SpawnEntity("CMUJeepGunCradle", MapCoordinates.Nullspace);
+            var launcher = SEntMan.SpawnEntity("RMCWeaponLauncherM5ATL", MapCoordinates.Nullspace);
+            Assert.That(SEntMan.System<ItemSlotsSystem>().TryInsert(cradle, "cradle-gun", launcher, null), Is.False,
+                "A rocket launcher shouldn't go in the adapter.");
+        });
+    }
+
     private bool TryShoot(EntityUid gun, EntityUid user, EntityCoordinates at)
     {
         var gunComp = SEntMan.GetComponent<GunComponent>(gun);

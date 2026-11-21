@@ -65,6 +65,7 @@ cmu-jeep-technical-no-open = It's a gun mount frame; there's nothing inside to g
 cmu-gun-cradle-slot = gun
 cmu-gun-cradle-empty = There's no gun in the adapter.
 cmu-gun-cradle-loose = Screw the gun down in the adapter before firing it.
+cmu-gun-cradle-mode = The gun in the adapter doesn't fire that way.
 cmu-gun-cradle-clamped = You screw {THE($gun)} down in the adapter.
 cmu-gun-cradle-unclamped = You unscrew {THE($gun)} from the adapter.
 cmu-gun-cradle-examine-empty = It has no gun in it.

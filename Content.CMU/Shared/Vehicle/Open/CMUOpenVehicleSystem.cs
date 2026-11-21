@@ -28,6 +28,11 @@ namespace Content.Shared.CMU14.Vehicle.Open;
 
 public sealed partial class CMUOpenVehicleSystem : EntitySystem
 {
+    /// <summary>
+    /// The slot a vehicle's gun mount sits in.
+    /// </summary>
+    public const string TurretSlot = "turret";
+
     private static readonly ProtoId<DamageTypePrototype> CrashDamageType = "Blunt";
 
     [Dependency] private SharedActionsSystem _actions = default!;
