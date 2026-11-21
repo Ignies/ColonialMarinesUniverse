@@ -2187,7 +2187,7 @@ def build_camo_net():
         m.box(-6, 6, r0, r0, 0, 1, "wood", "kit")
     return m
 
-UTILITY_ICON_VIEWS = {"tow_hitch": "X", "winch": "E"}
+UTILITY_ICON_VIEWS = {"tow_hitch": "X"}
 
 UTILITY_ICONS = {
     "roof_rack": build_roof_rack,
@@ -3172,9 +3172,10 @@ def icon_images():
         "skid_plate": centred(build_skid_plate(), "S", ICON),
         "snorkel": centred(build_snorkel(), "E", ICON),
         "roll_cage": centred(build_roll_cage(), "E", ICON),
-        # The tow bar lies flat, so it is drawn from above; the winch side on, to show its drum.
+        # The tow bar lies flat, so it is drawn from above; the winch is drawn by hand.
         **{name: centred(build(), UTILITY_ICON_VIEWS.get(name, "S"), ICON)
-           for name, build in UTILITY_ICONS.items()},
+           for name, build in UTILITY_ICONS.items() if name != "winch"},
+        "winch": winch_icon(),
         "windshield": centred(small_shield, "S", ICON),
         "searchlight": centred(scaled(searchlight("left")(), 2), "E", ICON),
         "engine": centred(engine(), "S", ICON),
@@ -3606,6 +3607,46 @@ def write_small_rsis():
     rsi_sheet([centred(frame, v, ICON) for v in DIRS]).save(os.path.join(path, "technical_frame.png"))
     write_meta(path, ICON, [{"name": name} for name in icons] + [{"name": "technical_frame", "directions": 4}])
     return icons
+
+
+def winch_icon():
+    """The winch's 32 px icon, drawn by hand like the spray painter's: a round drum end with its hub,
+    a short mounting foot, and the cable paying out to a hook."""
+    outline, olive_dk, olive, olive_hi = (28, 30, 22), (70, 76, 46), (98, 106, 64), (130, 138, 88)
+    steel, steel_hi, hook, hook_dk = (112, 118, 120), (164, 170, 170), (210, 172, 52), (150, 118, 30)
+    px = {}
+    cx, cy, rad = 12.5, 11.5, 6.6
+    for x in range(32):
+        for y in range(32):
+            d = math.hypot(x - cx, y - cy)
+            if d <= rad - 1:
+                px[(x, y)] = olive_hi if (x - cx) + (y - cy) < -3 else olive
+            elif d <= rad:
+                px[(x, y)] = outline
+    for x in range(32):
+        for y in range(32):
+            d = math.hypot(x - cx, y - cy)
+            if 1.6 <= d <= 2.6:
+                px[(x, y)] = olive_dk
+            elif d < 1.6:
+                px[(x, y)] = steel
+    # The foot it bolts down by.
+    for x in range(7, 19):
+        for y in range(18, 23):
+            px[(x, y)] = outline if x in (7, 18) or y == 22 else olive_dk
+    px[(9, 20)] = px[(16, 20)] = steel_hi
+    # Cable from the drum's edge, two pixels thick, to a hook.
+    for x in range(19, 27):
+        px[(x, 12)] = steel_hi
+        px[(x, 13)] = steel
+    for x, y in ((26, 13), (26, 14), (26, 15), (26, 16), (27, 17), (28, 17), (29, 16), (29, 15)):
+        px[(x, y)] = hook
+    for x, y in ((25, 15), (25, 16), (26, 17), (27, 18), (28, 18), (30, 15)):
+        px[(x, y)] = hook_dk
+    img = Image.new("RGBA", (32, 32), (0, 0, 0, 0))
+    for (x, y), c in px.items():
+        img.putpixel((x, y), c + (255,))
+    return img
 
 
 def spray_painter_images():
