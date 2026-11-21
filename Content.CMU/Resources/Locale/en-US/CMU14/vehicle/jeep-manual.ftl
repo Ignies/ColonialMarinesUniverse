@@ -218,7 +218,7 @@ cmu-jeep-manual-grenade-launcher-use =
     Swap it for the machine gun through vehicle maintenance with the jack. Load it with a grenade launcher ammo crate on the jeep.
     It won't fire at anything within three tiles: the burst would reach the jeep.
 cmu-jeep-manual-rocket-pod = Gun jeep: rocket pod
-cmu-jeep-manual-rocket-pod-about = A two-tube pod of light rockets that takes the machine gun's place on the pedestal: two shots, fifteen seconds apart, then a reload. They stagger people and rattle a vehicle's crew; they won't kill an APC or a tank on their own.
+cmu-jeep-manual-rocket-pod-about = A two-tube pod of light rockets that takes the machine gun's place on the pedestal: two shots, fifteen seconds apart, then a reload. They stagger people and chip at a vehicle's armor and gear; they won't kill an APC or a tank on their own.
 cmu-jeep-manual-rocket-pod-use =
     Swap it for the machine gun through vehicle maintenance with the jack. Load it with a jeep rocket crate on the jeep.
     Its backblast knocks down and scorches anyone standing behind it in the open. The jeep's own riders are sheltered by its bodywork.
