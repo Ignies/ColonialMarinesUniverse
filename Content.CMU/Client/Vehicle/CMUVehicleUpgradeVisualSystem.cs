@@ -91,6 +91,10 @@ public sealed class CMUVehicleUpgradeVisualSystem : EntitySystem
             Tint(vehicle, part.Id, tint);
             if (overlay != null)
                 Tint(overlay.Value, part.Id, tint);
+
+            // A raised hood is drawn on the overlay in a layer of its own.
+            if (overlay != null && part.RaisedLayer is { } raised)
+                Tint(overlay.Value, raised, tint);
         }
     }
 

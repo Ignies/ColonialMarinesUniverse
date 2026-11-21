@@ -72,7 +72,7 @@
     state: windshield
     color: "#b8d0d8"
   - type: CMUVehicleUpgrade
-    weight: 25
+    weight: 35
     windshieldChance: 0.85
     windshieldWear: 0.2
 

@@ -2031,13 +2031,21 @@ def build_technical_frame():
 
 
 def build_bull_bar():
-    """A bull bar: a steel hoop over the grille with uprights and a bash plate, standing alone."""
+    """A bull bar: tubular hoops over a grille guard, lit along their tops, with capped tube ends
+    and olive brackets running back to bolt it on."""
     m = Model()
-    m.box(0, 1, -9, 9, 0, 1, "steel", "kit")
-    m.box(0, 1, -9, 9, 9, 10, "steel", "kit")
+    for z0 in (0, 9):
+        m.box(0, 1, -9, 9, z0, z0 + 1, "gun", "kit")
+        m.box(0, 1, -8, 8, z0 + 1, z0 + 1, "steel", "kit")
+        for r0 in (-9, 9):
+            m.box(0, 1, r0, r0, z0, z0 + 1, "black", "kit")
     for r0 in (-9, -4, 3, 8):
-        m.box(0, 1, r0, r0 + 1, 2, 8, "steel", "kit")
-    m.box(-1, -1, -5, 4, 3, 7, "black", "kit")
+        m.box(0, 1, r0, r0 + 1, 2, 8, "gun", "kit")
+        m.box(1, 1, r0, r0, 2, 8, "steel", "kit")
+    m.box(-1, -1, -3, 2, 3, 7, "black", "kit")
+    for r0 in (-6, 5):
+        m.box(-5, -1, r0, r0 + 1, 4, 5, "od", "kit")
+        m.box(-5, -5, r0, r0 + 1, 4, 5, "od_seam", "kit")
     return m
 
 
@@ -3138,7 +3146,7 @@ def icon_images():
         "glturret": centred(build_gl(), "E", ICON),
         "rlturret": centred(build_rl(), "E", ICON),
         "cradleturret": centred(build_cradle(), "E", ICON),
-        "bull_bar": centred(build_bull_bar(), "S", ICON),
+        "bull_bar": centred(scaled(build_bull_bar(), 2), "S", ICON),
         "skid_plate": centred(build_skid_plate(), "S", ICON),
         "snorkel": centred(build_snorkel(), "S", ICON),
         "roll_cage": centred(build_roll_cage(), "E", ICON),
