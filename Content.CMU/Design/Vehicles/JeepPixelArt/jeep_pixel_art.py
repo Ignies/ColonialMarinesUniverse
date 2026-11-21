@@ -1750,6 +1750,48 @@ def build_mg(damaged=False):
     return m
 
 
+def build_gl(damaged=False):
+    """Pintle-mounted automatic grenade launcher; pivot at the origin, barrel towards +f."""
+    m = Model()
+    m.box(-1, 0, -1, 0, -3, -1, "steel", "mg_mount")
+    m.box(-5, 4, -2, 2, 0, 3, "gun", "mg")
+    m.box(-7, -6, -2, -2, 0, 3, "black", "mg")
+    m.box(-7, -6, 2, 2, 0, 3, "black", "mg")
+    m.box(-6, -6, -1, 1, 1, 1, "steel", "mg")
+    if damaged:
+        m.box(5, 9, -1, 1, 1, 2, "gun", "mg")
+        m.box(9, 10, 0, 0, 1, 1, "char", "mg")
+    else:
+        m.box(5, 12, -1, 1, 1, 2, "gun", "mg")
+        m.paint(lambda f, r, z: 5 <= f <= 11 and z == 2 and r == 0 and f % 2 == 1, "black")
+        m.box(13, 13, -1, 1, 1, 2, "black", "mg")
+    m.box(-2, 3, -6, -3, -1, 3, "od", "mg")
+    m.box(-2, 3, -6, -6, 1, 1, "yellow", "mg")
+    m.box(1, 2, -3, -3, 1, 2, "brass", "mg")
+    if damaged:
+        m.paint(lambda f, r, z: r <= -3 and (f + z) % 2 == 0, "char")
+        m.paint(lambda f, r, z: -5 <= f <= 4 and z == 3 and (f + r) % 3 == 0, "char")
+    return m
+
+
+def build_rl(damaged=False):
+    """Pintle-mounted four-tube rocket pod; pivot at the origin, tubes towards +f."""
+    m = Model()
+    m.box(-1, 0, -1, 0, -3, -1, "steel", "mg_mount")
+    m.box(-6, 8, -3, 2, 0, 4, "od", "mg")
+    m.box(-7, -7, -3, 2, 0, 4, "steel", "mg")
+    m.box(-2, 3, -3, 2, 5, 5, "yellow", "mg")
+    # Four tubes standing proud of the pod, their mouths dark.
+    for r0 in (-3, 1):
+        for z0 in (0, 3):
+            m.box(9, 10, r0, r0 + 1, z0, z0 + 1, "gun", "mg")
+            m.box(11, 11, r0, r0 + 1, z0, z0 + 1, "black", "mg")
+    m.box(-4, -3, -4, -4, 1, 2, "gun", "mg")
+    if damaged:
+        m.paint(lambda f, r, z: (f + r + z) % 3 == 0 and z >= 2, "char")
+        m.remove(lambda f, r, z: f >= 9 and r >= 1 and z >= 3)
+    return m
+
 # ---------------------------------------------------------------- rendering
 
 def to_world(view, f, r):
@@ -2633,9 +2675,9 @@ def aimed(model, direction, pitch=0.0):
     return out
 
 
-def mg_images(damaged=False, pitch=0.0):
+def mg_images(damaged=False, pitch=0.0, build=None):
     """Turret overlay frames for the 8 RSI directions, drawn around the pivot."""
-    m = build_mg(damaged)
+    m = (build or build_mg)(damaged)
     imgs = []
     for direction in DIRS8.values():
         buf, _ = render(aimed(m, direction, pitch), "X")
@@ -2715,6 +2757,8 @@ def icon_images():
         "tires": centred(tyre, "E", ICON),
         "road_tires": centred(road_tyre, "E", ICON),
         "mgturret": centred(build_mg(), "E", ICON),
+        "glturret": centred(build_gl(), "E", ICON),
+        "rlturret": centred(build_rl(), "E", ICON),
         "windshield": centred(small_shield, "S", ICON),
         "searchlight": centred(scaled(searchlight("left")(), 2), "E", ICON),
         "engine": centred(engine(), "S", ICON),
@@ -3108,6 +3152,11 @@ def write_rsi(variant, dy):
         save("mgturret_1", mg_images(damaged=True), directions=8)
         save("mgturret_raised_0", mg_images(pitch=RAISED_PITCH), directions=8)
         save("mgturret_raised_1", mg_images(damaged=True, pitch=RAISED_PITCH), directions=8)
+        # The gun jeep's other mounted guns, swapped onto the same pedestal.
+        save("glturret_0", mg_images(build=build_gl), directions=8)
+        save("glturret_1", mg_images(damaged=True, build=build_gl), directions=8)
+        save("rlturret_0", mg_images(build=build_rl), directions=8)
+        save("rlturret_1", mg_images(damaged=True, build=build_rl), directions=8)
     for name, tiles in click_masks(variant, per_dir, dy).items():
         save(f"click_{name}", tiles)
     blank = to_image({})

@@ -507,6 +507,9 @@
   - type: CMUVehicleGunOrigin
     pivot: "0,0.5"
     barrel: 0.65625
+  - type: CMUVehicleTurretArt
+    state: mgturret_0
+    damagedState: mgturret_1
 
 # A pintle for the gun jeep's pedestal that takes any engineer's sentry gun and fires it by itself.
 # Whoever holds the jeep's key sets who it shoots from the jeep's "Sentry settings" verb.

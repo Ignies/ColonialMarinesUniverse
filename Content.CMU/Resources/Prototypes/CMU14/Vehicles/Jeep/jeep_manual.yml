@@ -276,6 +276,14 @@
     about: cmu-jeep-manual-gun-about
     use: cmu-jeep-manual-gun-use
     repair: cmu-jeep-manual-gun-repair
+  - id: grenade-launcher
+    name: cmu-jeep-manual-grenade-launcher
+    about: cmu-jeep-manual-grenade-launcher-about
+    use: cmu-jeep-manual-grenade-launcher-use
+  - id: rocket-pod
+    name: cmu-jeep-manual-rocket-pod
+    about: cmu-jeep-manual-rocket-pod-about
+    use: cmu-jeep-manual-rocket-pod-use
   - id: sentry
     name: cmu-jeep-manual-sentry
     about: cmu-jeep-manual-sentry-about

@@ -4225,6 +4225,22 @@
         {
             "name": "click_searchlight_right",
             "directions": 4
+        },
+        {
+            "name": "glturret_0",
+            "directions": 8
+        },
+        {
+            "name": "glturret_1",
+            "directions": 8
+        },
+        {
+            "name": "rlturret_0",
+            "directions": 8
+        },
+        {
+            "name": "rlturret_1",
+            "directions": 8
         }
     ]
 }

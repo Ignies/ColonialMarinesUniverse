@@ -56,3 +56,6 @@ cmu-jeep-sentry-faction-upp = UPP
 cmu-jeep-sentry-faction-weyu = Weyland-Yutani
 cmu-jeep-sentry-faction-prodigy = Prodigy
 cmu-jeep-sentry-locked = This sentry's IFF is locked: it holds fire on its own factions and no others.
+
+cmu-jeep-gun-too-close = Too close: the burst would reach the jeep.
+cmu-jeep-gun-backblast = Backblast area not clear: {THE($target)} is behind the pod!

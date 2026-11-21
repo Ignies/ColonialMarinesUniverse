@@ -310,10 +310,21 @@ public sealed class CMUJeepDevKitSystem : EntitySystem
     {
         if (TryComp(mount, out ItemSlotsComponent? slots))
         {
-            foreach (var (id, _) in slots.Slots)
+            foreach (var (id, slot) in slots.Slots)
             {
+                // A mount comes with its own gun on: the shown one takes its place.
+                var fitted = slot.Item;
+                if (fitted != null)
+                    _containers.Remove(fitted.Value, slot.ContainerSlot!);
+
                 if (_itemSlots.TryInsert(mount, id, gun, null))
+                {
+                    Del(fitted);
                     return;
+                }
+
+                if (fitted != null)
+                    _itemSlots.TryInsert(mount, id, fitted.Value, null);
             }
         }
 

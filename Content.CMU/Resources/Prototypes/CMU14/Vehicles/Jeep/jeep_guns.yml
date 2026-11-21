@@ -1,0 +1,165 @@
+# The gun jeep's other mounted guns. Each fits the pedestal mount in place of the machine gun, swapped
+# through vehicle maintenance with the jack, and is drawn on the jeep in its own art.
+
+# An automatic grenade launcher: lobs a round to where it's aimed, up to ten tiles off. Its rounds
+# burst a moment after landing, and it won't fire at anything so close the burst would reach the jeep.
+- type: entity
+  parent: CMUJeepHardpointBase
+  id: CMUJeepGrenadeLauncher
+  name: jeep grenade launcher
+  description: An automatic grenade launcher for the gun jeep's pedestal. It lobs its rounds where it's aimed, and won't fire at anything within three tiles.
+  components:
+  - type: ContainerContainer
+    containers:
+      ballistic-ammo: !type:Container
+        ents: []
+        showEnts: False
+        occludes: True
+  - type: Sprite
+    state: glturret
+  - type: HardpointItem
+    hardpointType: Cannon
+    vehicleFamily: CMUJeep
+    slotType: Cannon
+    damageMultiplier: 0.1
+    repairRate: 0.01
+  - type: HardpointIntegrity
+    maxIntegrity: 75
+    integrity: 75
+  - type: VehicleTurretAttachment
+  - type: VehicleTurret
+    showOverlay: false
+    fireWhileRotatingGraceDegrees: 15
+    useBarrelDirectionForShots: true
+    maxShotCurvatureDegrees: 10
+  - type: GunUseGunOrigin
+  - type: GunIgnoreContainerOwnerCollision
+  - type: GunIgnorePrediction
+  - type: Gun
+    fireRate: 0.5
+    projectileSpeed: 18
+    minAngle: 6
+    maxAngle: 6
+    selectedMode: SemiAuto
+    availableModes:
+    - SemiAuto
+    soundGunshot: /Audio/CMU14/Weapons/agl/gun_agl_fire1.ogg
+    cameraRecoilScalar: 0
+  - type: ShootAtFixedPoint
+    shootArcProj: true
+    maxFixedRange: 10
+  - type: OnShootTriggerAmmoTimer
+    delay: 1.5
+  - type: CMUGunMinimumRange
+    range: 3
+  - type: RMCWeaponAccuracy
+    accuracyMultiplier: 4
+    accuracyMultiplierUnwielded: 4
+  - type: BallisticAmmoProvider
+    cycleable: false
+    proto: CMGrenadeHighExplosive
+    capacity: 10
+  - type: VehicleHardpointAmmo
+    magazineSize: 10
+    maxStoredMagazines: 1
+  - type: GunFireArc
+    arc: 100
+  - type: RefillableByBulletBox
+    bulletType: VehicleAmmoBoxGrenadeLauncher
+  - type: CMUVehicleGunOrigin
+    pivot: "0,0.5"
+    barrel: 0.5
+  - type: CMUVehicleTurretArt
+    state: glturret_0
+    damagedState: glturret_1
+
+# A two-tube rocket pod with anti-armor rockets: two shots that can wreck a vehicle, then a slow reload
+# from a rocket crate. Its backblast throws out behind it: it won't fire with anyone standing there,
+# the jeep's own riders included.
+- type: entity
+  parent: CMUJeepHardpointBase
+  id: CMUJeepRocketPod
+  name: jeep rocket pod
+  description: A rocket pod for the gun jeep's pedestal, loaded from anti-armor rocket crates. Its backblast won't let it fire with anyone behind it.
+  components:
+  - type: ContainerContainer
+    containers:
+      ballistic-ammo: !type:Container
+        ents: []
+        showEnts: False
+        occludes: True
+  - type: Sprite
+    state: rlturret
+  - type: HardpointItem
+    hardpointType: Cannon
+    vehicleFamily: CMUJeep
+    slotType: Cannon
+    damageMultiplier: 0.1
+    repairRate: 0.01
+  - type: HardpointIntegrity
+    maxIntegrity: 75
+    integrity: 75
+  - type: VehicleTurretAttachment
+  - type: VehicleTurret
+    showOverlay: false
+    fireWhileRotatingGraceDegrees: 10
+    useBarrelDirectionForShots: true
+    maxShotCurvatureDegrees: 5
+  - type: GunUseGunOrigin
+  - type: GunIgnoreContainerOwnerCollision
+  - type: GunIgnorePrediction
+  - type: Gun
+    fireRate: 0.1 # Ten seconds between rockets.
+    projectileSpeed: 18
+    minAngle: 4
+    maxAngle: 4
+    selectedMode: SemiAuto
+    availableModes:
+    - SemiAuto
+    soundGunshot:
+      path: /Audio/CMU14/Weapons/vehicle/towfire.ogg
+    cameraRecoilScalar: 0
+  - type: CMUGunBackblast
+    range: 2.5
+    arc: 60
+  - type: RMCWeaponAccuracy
+    accuracyMultiplier: 5
+    accuracyMultiplierUnwielded: 5
+  - type: BallisticAmmoProvider
+    cycleable: false
+    proto: VehicleRocket84mmAntiArmor
+    capacity: 2
+  - type: VehicleHardpointAmmo
+    magazineSize: 2
+    maxStoredMagazines: 1
+  - type: GunFireArc
+    arc: 90
+  - type: RefillableByBulletBox
+    bulletType: VehicleAmmoBoxRocketLauncher
+  - type: CMUVehicleGunOrigin
+    pivot: "0,0.5"
+    barrel: 0.5
+  - type: CMUVehicleTurretArt
+    state: rlturret_0
+    damagedState: rlturret_1
+
+- type: entity
+  parent: RMCCrateBase
+  id: CMUCrateJeepGrenadeLauncher
+  name: jeep grenade launcher crate
+  description: A jeep grenade launcher, to swap for the gun jeep's machine gun. Its rounds come in grenade launcher ammo crates.
+  components:
+  - type: StorageFill
+    contents:
+    - id: CMUJeepGrenadeLauncher
+
+- type: entity
+  parent: RMCCrateBase
+  id: CMUCrateJeepRocketPod
+  name: jeep rocket pod crate
+  description: A jeep rocket pod, to swap for the gun jeep's machine gun, with a crate of anti-armor rockets.
+  components:
+  - type: StorageFill
+    contents:
+    - id: CMUJeepRocketPod
+    - id: VehicleAmmoBoxRocketLauncher

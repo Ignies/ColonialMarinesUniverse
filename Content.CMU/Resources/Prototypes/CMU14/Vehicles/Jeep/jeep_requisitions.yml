@@ -31,6 +31,17 @@
         maxStock: 2
         startingStock: 1
         stockReplenishDelay: 3600
+      # The gun jeep's other guns, swapped for its machine gun. Their ammo is on the vehicle ammo list.
+      - cost: 3000
+        crate: CMUCrateJeepGrenadeLauncher
+        maxStock: 1
+        startingStock: 1
+        stockReplenishDelay: 1800
+      - cost: 4500
+        crate: CMUCrateJeepRocketPod
+        maxStock: 1
+        startingStock: 1
+        stockReplenishDelay: 3600
 
 # The colony's ASRS console only gets the cargo and medical jeeps, on the same one-at-a-time,
 # restock-to-two footing as the platoons'.
