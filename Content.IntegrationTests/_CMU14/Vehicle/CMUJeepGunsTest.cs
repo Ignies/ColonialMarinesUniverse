@@ -178,9 +178,20 @@ public sealed class CMUJeepGunsTest : GameTest
     [Test]
     public async Task EachGunIsDrawnInItsOwnArt()
     {
-        var (_, _, launcher) = await GunJeep("CMUJeepGrenadeLauncher");
+        var (_, jeep, launcher) = await GunJeep("CMUJeepGrenadeLauncher");
         await Server.WaitAssertion(() =>
-            Assert.That(SEntMan.GetComponent<CMUVehicleTurretArtComponent>(launcher).State, Is.EqualTo("glturret_0")));
+        {
+            // What the turret overlay and the maintenance preview draw for the pedestal.
+            var guns = SEntMan.System<CMUJeepGunSystem>();
+            var containers = SEntMan.System<SharedContainerSystem>();
+            var mount = containers.GetContainer(jeep, "turret").ContainedEntities.Single();
+            Assert.That(guns.Art(mount)?.Comp.State, Is.EqualTo("glturret_0"),
+                "The pedestal should be drawn with the grenade launcher on it.");
+
+            containers.Remove(launcher, containers.GetContainer(mount, "turret-gun"));
+            Assert.That(guns.Art(mount)?.Comp.State, Is.EqualTo("pedestal_0"),
+                "With its gun off, the pedestal should be drawn bare.");
+        });
 
         var (_, _, pod) = await GunJeep("CMUJeepRocketPod");
         await Server.WaitAssertion(() =>
