@@ -18,9 +18,10 @@ namespace Content.Shared.CMU14.Vehicle.Open;
 
 /// <summary>
 /// Fires the handheld gun clamped in a vehicle gun cradle as the cradle's own: the cradle takes its
-/// rounds from the gun and copies its rate, burst, speed and sound, with less spread and recoil, and the
-/// gun's own touches on its shots, like damage falloff and IFF, still apply. It shoots as true as
-/// wielded; its wield, skill and other hand-held checks don't apply on the mount.
+/// rounds from the gun and copies its rate, burst, speed and sound, with less spread and recoil. The
+/// gun's own checks before a shot (who may fire it, its safety, jams, aim) and its touches on each
+/// shot (heat, damage falloff, IFF) still apply. It shoots as true as wielded, and nobody needs to
+/// wield it: the mount holds it.
 /// </summary>
 public sealed class CMUGunCradleSystem : EntitySystem
 {
@@ -41,6 +42,7 @@ public sealed class CMUGunCradleSystem : EntitySystem
         SubscribeLocalEvent<CMUGunCradleComponent, TakeAmmoEvent>(OnTakeAmmo);
         SubscribeLocalEvent<CMUGunCradleComponent, GetAmmoCountEvent>(OnGetAmmoCount);
         SubscribeLocalEvent<CMUGunCradleComponent, AmmoShotEvent>(OnAmmoShot);
+        SubscribeLocalEvent<CMUGunCradleComponent, GunShotEvent>(OnGunShot);
         SubscribeLocalEvent<CMUGunCradleComponent, GunRefreshModifiersEvent>(OnRefreshModifiers);
         // First, so the other modifiers build on the wielded figure rather than the one-handed one.
         SubscribeLocalEvent<CMUCradledGunComponent, GetWeaponAccuracyEvent>(OnCradledAccuracy,
@@ -202,12 +204,15 @@ public sealed class CMUGunCradleSystem : EntitySystem
             return;
         }
 
-        // The gun's own checks still stand, but for being held: who may fire it, its aim, its safety,
-        // its jams. Wielding is checked on the shot itself, which the cradle takes.
+        // The gun's own checks still stand, but for being held: who may fire it, its safety, its jams,
+        // and where it puts the shot. Wielding is checked on the shot itself, which the cradle takes.
         var relay = new AttemptShootEvent(args.User, null, args.FromCoordinates, args.ToCoordinates);
         RaiseLocalEvent(GetGun(ent)!.Value, ref relay);
         if (!relay.Cancelled)
+        {
+            args.ToCoordinates = relay.ToCoordinates;
             return;
+        }
 
         args.Cancelled = true;
         args.ResetCooldown = relay.ResetCooldown;
@@ -248,6 +253,13 @@ public sealed class CMUGunCradleSystem : EntitySystem
         // Nobody wields a gun in a cradle; the mount holds it as steady as both hands would.
         if (TryComp(ent, out RMCWeaponAccuracyComponent? accuracy))
             args.AccuracyMultiplier = accuracy.AccuracyMultiplier;
+    }
+
+    private void OnGunShot(Entity<CMUGunCradleComponent> ent, ref GunShotEvent args)
+    {
+        // The gun keeps count of its own shots: its heat, its fire groups, its attachments.
+        if (GetGun(ent) is { } gun)
+            RaiseLocalEvent(gun, ref args);
     }
 
     private void OnRefreshModifiers(Entity<CMUGunCradleComponent> ent, ref GunRefreshModifiersEvent args)

@@ -1,5 +1,6 @@
 using System.Linq;
 using Content.IntegrationTests.Fixtures;
+using Content.Shared._RMC14.Vehicle;
 using Content.Shared._RMC14.Weapons.Ranged;
 using Content.Shared.Buckle.Components;
 using Content.Shared.CMU14.Vehicle.Open;
@@ -114,8 +115,11 @@ public sealed class CMUJeepTechnicalTest : GameTest
         await Server.WaitPost(() =>
         {
             Assert.That(SEntMan.GetComponent<CMUVehicleCargoComponent>(jeep).Secured, Is.True);
-            var fitted = Turret(jeep) is { } mount ? SEntMan.GetComponent<MetaDataComponent>(mount).EntityPrototype?.ID : null;
-            Assert.That(fitted, Is.EqualTo("CMUJeepTechnicalMount"), "Wrenched down, the frame's mount should be the jeep's gun mount.");
+            var fitted = Turret(jeep) is { } mount
+                ? SEntMan.GetComponent<MetaDataComponent>(mount).EntityPrototype?.ID
+                : null;
+            Assert.That(fitted, Is.EqualTo("CMUJeepTechnicalMount"),
+                "Wrenched down, the frame's mount should be the jeep's gun mount.");
             SEntMan.System<CMUVehicleSeatSystem>().ClickSeat(GunnerSeat(jeep), gunner);
         });
         await RunSeconds(4);
@@ -308,7 +312,11 @@ public sealed class CMUJeepTechnicalTest : GameTest
             SEntMan.EventBus.RaiseLocalEvent(mount, ref takeMount);
             Assert.That(takeMount.Cancelled, Is.True, "The mount shouldn't come off but with its frame.");
 
+            // Asked of the mount as the gun slot's owner, and of the gun itself, the mount lets its gun go.
+            // Hardpoint maintenance's own hold on every hardpoint is taken off here, to ask only the mount.
+            SEntMan.RemoveComponent<HardpointSlotsComponent>(mount);
             var takeGun = new ItemSlotEjectAttemptEvent(mount, gun, null, gunSlot!);
+            SEntMan.EventBus.RaiseLocalEvent(mount, ref takeGun);
             SEntMan.EventBus.RaiseLocalEvent(gun, ref takeGun);
             Assert.That(takeGun.Cancelled, Is.False, "A gun on the technical's mount should come off as usual.");
 
@@ -334,8 +342,9 @@ public sealed class CMUJeepTechnicalTest : GameTest
             jeep = SEntMan.SpawnEntity("CMUVehicleJeepGunner", new EntityCoordinates(map.Grid, 0.5f, 0.5f));
             cradle = SEntMan.SpawnEntity("CMUJeepGunCradle", MapCoordinates.Nullspace);
             var slots = SEntMan.System<ItemSlotsSystem>();
-            var vulture = SEntMan.SpawnEntity("RMCWeaponSniperM707Vulture", MapCoordinates.Nullspace);
-            Assert.That(slots.TryInsert(cradle, "cradle-gun", vulture, null), Is.True);
+            // Fired only by those its user whitelist names.
+            var sniper = SEntMan.SpawnEntity("RMCL112SniperRifle", MapCoordinates.Nullspace);
+            Assert.That(slots.TryInsert(cradle, "cradle-gun", sniper, null), Is.True);
             slots.SetLock(cradle, "cradle-gun", true);
 
             var mount = SEntMan.System<SharedContainerSystem>().GetContainer(jeep, "turret").ContainedEntities.Single();
@@ -358,14 +367,18 @@ public sealed class CMUJeepTechnicalTest : GameTest
     }
 
     [Test]
-    public async Task TheAdapterRefusesLaunchers()
+    public async Task TheAdapterRefusesLaunchersAndTheVulture()
     {
         await Server.WaitAssertion(() =>
         {
-            var cradle = SEntMan.SpawnEntity("CMUJeepGunCradle", MapCoordinates.Nullspace);
-            var launcher = SEntMan.SpawnEntity("RMCWeaponLauncherM5ATL", MapCoordinates.Nullspace);
-            Assert.That(SEntMan.System<ItemSlotsSystem>().TryInsert(cradle, "cradle-gun", launcher, null), Is.False,
-                "A rocket launcher shouldn't go in the adapter.");
+            var slots = SEntMan.System<ItemSlotsSystem>();
+            foreach (var gun in new[] { "RMCWeaponLauncherM5ATL", "RMCWeaponSniperM707Vulture" })
+            {
+                var cradle = SEntMan.SpawnEntity("CMUJeepGunCradle", MapCoordinates.Nullspace);
+                var refused = SEntMan.SpawnEntity(gun, MapCoordinates.Nullspace);
+                Assert.That(slots.TryInsert(cradle, "cradle-gun", refused, null), Is.False,
+                    $"The {gun} shouldn't go in the adapter.");
+            }
         });
     }
 
