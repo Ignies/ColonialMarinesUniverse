@@ -1,13 +1,12 @@
 using Content.Shared._RMC14.Vehicle;
 using Content.Shared.CMU14.Vehicle.Open;
-using Content.Shared.Containers.ItemSlots;
 using Robust.Client.GameObjects;
 
 namespace Content.Client.CMU14.Vehicle;
 
 /// <summary>
 /// Draws a vehicle's turret overlay as the gun fitted to its mount: the machine gun, the grenade
-/// launcher, the rocket pod or a pintle adapter's clamped gun, or the bare pedestal with none on;
+/// launcher, the rocket pod or a pintle adapter's clamped gun, or the bare mount with none on;
 /// damaged while the gun or its mount is too damaged to fire. The overlay otherwise only ever shows
 /// the mount prototype's one state.
 /// </summary>
@@ -18,7 +17,7 @@ namespace Content.Client.CMU14.Vehicle;
 /// </remarks>
 public sealed class CMUJeepGunArtSystem : EntitySystem
 {
-    [Dependency] private CMUGunCradleSystem _cradle = default!;
+    [Dependency] private CMUJeepGunSystem _guns = default!;
     [Dependency] private HardpointSystem _hardpoints = default!;
     [Dependency] private SpriteSystem _sprite = default!;
 
@@ -35,11 +34,7 @@ public sealed class CMUJeepGunArtSystem : EntitySystem
             }
 
             // The fitted gun's art, or the bare mount's once the gun is off.
-            Entity<CMUVehicleTurretArtComponent>? art = FittedGun(turret.Value);
-            if (art == null && TryComp(turret, out CMUVehicleTurretArtComponent? bare))
-                art = (turret.Value, bare);
-
-            if (art is not { } shown)
+            if (_guns.Art(turret.Value) is not { } shown)
                 continue;
 
             var broken = !_hardpoints.IsHardpointFunctional(turret.Value)
@@ -51,25 +46,5 @@ public sealed class CMUJeepGunArtSystem : EntitySystem
             if (layer.State.Name != state)
                 _sprite.LayerSetRsiState((uid, sprite), 0, state);
         }
-    }
-
-    private Entity<CMUVehicleTurretArtComponent>? FittedGun(EntityUid mount)
-    {
-        if (!TryComp(mount, out ItemSlotsComponent? slots))
-            return null;
-
-        foreach (var slot in slots.Slots.Values)
-        {
-            if (slot.Item is not { } item || !TryComp(item, out CMUVehicleTurretArtComponent? art))
-                continue;
-
-            // An adapter is drawn with a gun in it; empty, the mount shows bare.
-            if (TryComp(item, out CMUGunCradleComponent? cradle) && _cradle.GetGun((item, cradle)) == null)
-                return null;
-
-            return (item, art);
-        }
-
-        return null;
     }
 }

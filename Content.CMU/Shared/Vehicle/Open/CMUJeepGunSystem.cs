@@ -1,5 +1,6 @@
 using System.Numerics;
 using Content.Shared._RMC14.Vehicle;
+using Content.Shared.Containers.ItemSlots;
 using Content.Shared.Damage;
 using Content.Shared.Damage.Systems;
 using Content.Shared.Interaction;
@@ -19,6 +20,7 @@ namespace Content.Shared.CMU14.Vehicle.Open;
 /// </summary>
 public sealed class CMUJeepGunSystem : EntitySystem
 {
+    [Dependency] private CMUGunCradleSystem _cradle = default!;
     [Dependency] private DamageableSystem _damageable = default!;
     [Dependency] private SharedInteractionSystem _interaction = default!;
     [Dependency] private CMUOpenVehicleSystem _jeep = default!;
@@ -39,6 +41,29 @@ public sealed class CMUJeepGunSystem : EntitySystem
         SubscribeLocalEvent<CMUGunMinimumRangeComponent, AttemptShootEvent>(OnMinimumRange,
             after: [typeof(CMUVehicleGunOriginSystem)]);
         SubscribeLocalEvent<CMUGunBackblastComponent, GunShotEvent>(OnBackblast);
+    }
+
+    /// <summary>
+    /// What a gun mount is drawn as: the gun fitted to it, or the bare mount with none on.
+    /// </summary>
+    public Entity<CMUVehicleTurretArtComponent>? Art(EntityUid mount)
+    {
+        if (TryComp(mount, out ItemSlotsComponent? slots))
+        {
+            foreach (var slot in slots.Slots.Values)
+            {
+                if (slot.Item is not { } item || !TryComp(item, out CMUVehicleTurretArtComponent? art))
+                    continue;
+
+                // A pintle adapter is drawn with a gun in it; empty, the mount shows bare.
+                if (TryComp(item, out CMUGunCradleComponent? cradle) && _cradle.GetGun((item, cradle)) == null)
+                    break;
+
+                return (item, art);
+            }
+        }
+
+        return TryComp(mount, out CMUVehicleTurretArtComponent? bare) ? (mount, bare) : null;
     }
 
     private void OnMinimumRange(Entity<CMUGunMinimumRangeComponent> ent, ref AttemptShootEvent args)

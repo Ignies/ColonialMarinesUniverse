@@ -15,6 +15,9 @@ namespace Content.Shared.CMU14.Vehicle.Open;
 [RegisterComponent, NetworkedComponent, Access(typeof(CMUGunCradleSystem))]
 public sealed partial class CMUGunCradleComponent : Component
 {
+    /// <summary>
+    /// The item slot the gun is clamped in.
+    /// </summary>
     [DataField]
     public string Slot = "cradle-gun";
 
@@ -25,6 +28,9 @@ public sealed partial class CMUGunCradleComponent : Component
     [DataField]
     public Dictionary<ProtoId<ItemSizePrototype>, float> SpreadBySize = new();
 
+    /// <summary>
+    /// The spread multiplier for a gun of a size <see cref="SpreadBySize"/> doesn't list.
+    /// </summary>
     [DataField]
     public float DefaultSpread = 0.75f;
 
@@ -34,9 +40,15 @@ public sealed partial class CMUGunCradleComponent : Component
     [DataField]
     public float Recoil = 0.5f;
 
+    /// <summary>
+    /// The tool that screws the gun down in the cradle, and loosens it.
+    /// </summary>
     [DataField]
     public ProtoId<ToolQualityPrototype> ClampQuality = "Screwing";
 
+    /// <summary>
+    /// How long screwing it down or loosening it takes.
+    /// </summary>
     [DataField]
     public TimeSpan ClampDelay = TimeSpan.FromSeconds(3);
 }
