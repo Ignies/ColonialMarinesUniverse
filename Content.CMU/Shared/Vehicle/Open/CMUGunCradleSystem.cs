@@ -25,11 +25,15 @@ namespace Content.Shared.CMU14.Vehicle.Open;
 /// </summary>
 public sealed class CMUGunCradleSystem : EntitySystem
 {
+    [Dependency] private SharedContainerSystem _container = default!;
     [Dependency] private SharedGunSystem _gun = default!;
     [Dependency] private ItemSlotsSystem _itemSlots = default!;
     [Dependency] private SharedPopupSystem _popup = default!;
     [Dependency] private IGameTiming _timing = default!;
     [Dependency] private SharedToolSystem _tool = default!;
+
+    // Cradles whose gun refreshed its figures since the last tick.
+    private readonly HashSet<EntityUid> _stale = new();
 
     public override void Initialize()
     {
@@ -45,6 +49,7 @@ public sealed class CMUGunCradleSystem : EntitySystem
         SubscribeLocalEvent<CMUGunCradleComponent, GunShotEvent>(OnGunShot);
         SubscribeLocalEvent<CMUGunCradleComponent, GunRefreshModifiersEvent>(OnRefreshModifiers);
         // First, so the other modifiers build on the wielded figure rather than the one-handed one.
+        SubscribeLocalEvent<CMUCradledGunComponent, GunRefreshModifiersEvent>(OnCradledRefresh);
         SubscribeLocalEvent<CMUCradledGunComponent, GetWeaponAccuracyEvent>(OnCradledAccuracy,
             before: [typeof(CMGunSystem), typeof(AttachableHolderSystem), typeof(VehicleWeaponSupportSystem)]);
     }
@@ -246,6 +251,27 @@ public sealed class CMUGunCradleSystem : EntitySystem
         // The gun's own touches on its rounds, like damage falloff, still apply.
         if (GetGun(ent) is { } gun)
             RaiseLocalEvent(gun, args);
+    }
+
+    private void OnCradledRefresh(Entity<CMUCradledGunComponent> ent, ref GunRefreshModifiersEvent args)
+    {
+        // The gun's figures are only written once its refresh finishes; the cradle copies them after.
+        if (_container.TryGetContainingContainer((ent, null, null), out var container)
+            && HasComp<CMUGunCradleComponent>(container.Owner))
+        {
+            _stale.Add(container.Owner);
+        }
+    }
+
+    public override void Update(float frameTime)
+    {
+        foreach (var cradle in _stale)
+        {
+            if (!TerminatingOrDeleted(cradle))
+                _gun.RefreshModifiers(cradle);
+        }
+
+        _stale.Clear();
     }
 
     private void OnCradledAccuracy(Entity<CMUCradledGunComponent> ent, ref GetWeaponAccuracyEvent args)

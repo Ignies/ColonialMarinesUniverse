@@ -17,6 +17,7 @@ public sealed class CMUJeepTechnicalSystem : EntitySystem
     [Dependency] private INetManager _net = default!;
     [Dependency] private SharedPopupSystem _popup = default!;
     [Dependency] private CMUVehicleSeatSystem _seats = default!;
+    [Dependency] private SharedTransformSystem _transform = default!;
 
     public override void Initialize()
     {
@@ -82,7 +83,7 @@ public sealed class CMUJeepTechnicalSystem : EntitySystem
 
     private void OnTerminating(Entity<CMUJeepTechnicalComponent> ent, ref EntityTerminatingEvent args)
     {
-        // A frame destroyed while bolted down takes its mount and gun with it.
+        // A frame destroyed while bolted down takes its mount with it; the gun on it falls clear.
         if (_net.IsClient
             || !TryComp(ent, out CMUVehicleCargoCrateComponent? crate)
             || !TryComp(crate.Vehicle, out CMUVehicleCargoComponent? bed)
@@ -96,6 +97,18 @@ public sealed class CMUJeepTechnicalSystem : EntitySystem
         }
 
         _seats.ClearGunnerSeats(crate.Vehicle.Value);
+        if (TryComp(mount, out ItemSlotsComponent? guns))
+        {
+            foreach (var gunSlot in guns.Slots.Values)
+            {
+                if (gunSlot.Item is not { } gun || gunSlot.ContainerSlot is not { } container)
+                    continue;
+
+                _container.Remove(gun, container);
+                _transform.AttachToGridOrMap(gun);
+            }
+        }
+
         QueueDel(mount);
     }
 
