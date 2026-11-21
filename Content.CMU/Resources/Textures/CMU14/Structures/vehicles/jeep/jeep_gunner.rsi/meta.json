@@ -4257,6 +4257,10 @@
         {
             "name": "cradleturret_1",
             "directions": 8
+        },
+        {
+            "name": "technical_bare",
+            "directions": 8
         }
     ]
 }
