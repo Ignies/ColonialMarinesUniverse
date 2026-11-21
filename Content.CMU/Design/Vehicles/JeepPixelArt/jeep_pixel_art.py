@@ -1893,7 +1893,9 @@ def build_technical_frame():
         m.box(1 + step, 1 + step, -1, 0, 2, top, "gun", "frame")
         m.box(-2 - step, -2 - step, -1, 0, 2, top, "gun", "frame")
     m.box(-1, 0, -1, 0, 11, 11, "black", "frame")
-    m.box(-1, 0, -1, 0, 15, 15, "steel", "frame")
+    # The cap: a light pin head ringed dark, so the post reads as rising toward the viewer from above.
+    m.box(-2, 1, -2, 1, 15, 15, "black", "frame")
+    m.box(-1, 0, -1, 0, 16, 16, "white", "frame")
 
     # Ammo cans by the open back, one with its lid stencil.
     for r0 in (-8, 3):
