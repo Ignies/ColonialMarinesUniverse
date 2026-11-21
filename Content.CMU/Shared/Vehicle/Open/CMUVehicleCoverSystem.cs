@@ -85,17 +85,21 @@ public sealed class CMUVehicleCoverSystem : EntitySystem
             return;
         }
 
+        if (!seat.Windshield
+            || !HeadOrChest(args)
+            || Vector2.Dot(shot, Direction.South.ToVec()) > reach
+            || !WindshieldWhole(vehicle, jeep))
+        {
+            return;
+        }
+
         // A ballistic windshield catches more and wears less; a mesh one catches less but barely wears.
         var glass = _jeep.WindshieldItem(vehicle, jeep) is { } windshield
             ? CompOrNull<CMUVehicleUpgradeComponent>(windshield)
             : null;
         var chance = glass?.WindshieldChance ?? cover.WindshieldChance;
         var wear = glass?.WindshieldWear ?? cover.WindshieldWear;
-        if (seat.Windshield &&
-            HeadOrChest(args) &&
-            Vector2.Dot(shot, Direction.South.ToVec()) <= reach &&
-            WindshieldWhole(vehicle, jeep) &&
-            SharedRandomExtensions.PredictedProb(_timing, chance, GetNetEntity(ent), shotSeed))
+        if (SharedRandomExtensions.PredictedProb(_timing, chance, GetNetEntity(ent), shotSeed))
         {
             args.Cancelled = true;
             if (_net.IsServer)

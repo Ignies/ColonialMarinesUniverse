@@ -261,9 +261,9 @@ public sealed class CMUJeepUpgradeTest : GameTest
 
             var side = SEntMan.SpawnEntity("CMMobHuman", new EntityCoordinates(map.Grid, 6.5f, 0.5f));
             var behind = SEntMan.SpawnEntity("CMMobHuman", new EntityCoordinates(map.Grid, 0.5f, 7.5f));
-            Assert.That(Hit(driver, side, BodyPartType.Torso), Is.False,
+            Assert.That(Stopped(driver, side, BodyPartType.Torso), Is.False,
                 "A stock door shouldn't stop a shot at the driver's chest.");
-            Assert.That(Hit(rear, behind, BodyPartType.Leg), Is.False,
+            Assert.That(Stopped(rear, behind, BodyPartType.Leg), Is.False,
                 "A stock tailgate shouldn't stop a shot at the gunner from behind.");
 
             Swap(jeep, "jeep-door-driver", "CMUJeepDoorArmored");
@@ -272,9 +272,9 @@ public sealed class CMUJeepUpgradeTest : GameTest
                 SEntMan.System<ItemSlotsSystem>().GetItemOrNull(jeep, "jeep-door-driver")!.Value);
             door.ChestChance = 1f;
 
-            Assert.That(Hit(driver, side, BodyPartType.Torso), Is.True,
+            Assert.That(Stopped(driver, side, BodyPartType.Torso), Is.True,
                 "An armored door should stop a shot at the driver's chest.");
-            Assert.That(Hit(rear, behind, BodyPartType.Leg), Is.True,
+            Assert.That(Stopped(rear, behind, BodyPartType.Leg), Is.True,
                 "An armored tailgate should stop a shot at the gunner's legs from behind.");
         });
     }
@@ -295,7 +295,7 @@ public sealed class CMUJeepUpgradeTest : GameTest
     /// <summary>
     /// Whether the jeep's cover stops a bullet from <paramref name="shooter"/> at the rider.
     /// </summary>
-    private bool Hit(EntityUid rider, EntityUid shooter, BodyPartType part)
+    private bool Stopped(EntityUid rider, EntityUid shooter, BodyPartType part)
     {
         // Hit location would otherwise roll where the bullet lands; the test names the part.
         SEntMan.RemoveComponent<HitLocationComponent>(rider);
