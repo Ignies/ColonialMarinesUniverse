@@ -488,6 +488,10 @@ public sealed partial class GridVehicleMoverSystem : EntitySystem
         if (HasComp<MohawkRampRailingComponent>(other))
             return false;
 
+        // CMU14: people braced against the vehicle to push it ride its bumper, not under its wheels.
+        if (IsCMUHandPusherOf(other, vehicle))
+            return false;
+
         var otherXform = Transform(other);
         if (!otherXform.Anchored && HasComp<ItemComponent>(other))
             return false;

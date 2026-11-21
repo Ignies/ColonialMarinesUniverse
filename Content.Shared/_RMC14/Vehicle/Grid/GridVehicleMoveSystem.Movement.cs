@@ -282,6 +282,7 @@ public sealed partial class GridVehicleMoverSystem : EntitySystem
         }
 
         var maxSpeed = GetModifiedMaxSpeed(uid, mover);
+        maxSpeed = CMUCapHandPushSpeed(uid, maxSpeed); // CMU14: a vehicle pushed by hand only crawls
         var accelModifier = GetAccelerationModifier(uid);
         if (hasInput && mover.PushImpulseSpeed > 0f)
         {

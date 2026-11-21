@@ -103,6 +103,21 @@ public sealed partial class GridVehicleMoverSystem : EntitySystem
             return default;
         }
 
+        // CMU14 Begin: people braced against an open vehicle push it by hand; a xeno shoving it back
+        // the other way knocks them off and has its way
+        if (TryGetCMUHandPush(uid, movementGrid, out var handPush))
+        {
+            if (!TryGetActivePusher(uid, mover, out var shover) || GetPushDirection(uid, shover) != -handPush)
+            {
+                _activeXenoPushers.Remove(uid);
+                pushing = true;
+                return new VehicleControlInput(handPush, 0f, 0f);
+            }
+
+            CMUOverpowerHandPushers(uid);
+        }
+        // CMU14 End
+
         if (!TryGetActivePusher(uid, mover, out var pusher))
         {
             if (mover.IsPushMove &&

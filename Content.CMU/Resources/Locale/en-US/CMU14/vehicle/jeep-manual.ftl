@@ -201,6 +201,12 @@ cmu-jeep-manual-crashes-damage =
     Every crash wears the wheels and can break the lamps near where the jeep hit. Head on crashes also dent the front and wear the engine.
     A head on crash at speed blacks out the riders for a moment and can knock them out. A knocked out driver leans on the horn.
 cmu-jeep-manual-crashes-repair = Beat the dents out with a lit welder on the front: 3 s a pass, 5 fuel each.
+cmu-jeep-manual-pushing = Pushing
+cmu-jeep-manual-pushing-about = With no one at the wheel, people on foot can push the jeep by hand, slowly, along its length. It won't roll on bare hubs.
+cmu-jeep-manual-pushing-use =
+    Ctrl+click the jeep's back or front to brace against it, then walk into it. From the back it rolls forward, from the front it rolls back. Its sides can't be pushed.
+    More people pushing the same way push it faster, and pushes from both ends cancel out. Walk any other way to let go.
+    A big xeno shoving it back against you knocks you off your feet.
 
 ## Variants
 
