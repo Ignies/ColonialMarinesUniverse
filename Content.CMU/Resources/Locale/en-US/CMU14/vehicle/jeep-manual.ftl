@@ -247,6 +247,25 @@ cmu-jeep-manual-cradle-use =
     Put a gun in the adapter, then screw it down (3 s); it won't fire until it is. Unscrew it to take the gun out.
     It won't take launchers or flamers, guns that need a specialist's training or an ID to fire, or pump, breech-loaded and spin-up guns.
     Fit the adapter in place of a mount's gun through vehicle maintenance. Reload the gun by using its magazine on the jeep.
+cmu-jeep-manual-armor = Armor and run-flats
+cmu-jeep-manual-armor-about =
+    Heavier parts in place of the stock ones, made at the autolathe or bought from requisitions:
+    • Armored doors: shield the rider beside them at the chest as well as the legs.
+    • Armored tailgate: shut, it shields the legs of riders in the back from behind.
+    • Armored hood: keeps most hits off the engine, onto the hull instead.
+    • Ballistic windshield: catches most shots from ahead and wears slowly. A mesh one is light, catches few and barely wears.
+    • Run-flat wheels: take half the damage, a little slower everywhere.
+    Every upgrade adds weight. A jeep carries some free; past that it slows, and it takes none past its most. Examine it to see its load.
+cmu-jeep-manual-armor-use = Only an engineer can fit one. Take off the stock part as usual, then fit the upgrade in its place.
+cmu-jeep-manual-kits = Bolt-on kits
+cmu-jeep-manual-kits-about =
+    Kits bolted onto a jeep, made at the autolathe:
+    • Bull bar: takes the worst of a crash off the hull.
+    • Skid plate: spares the wheels the worst of a crash.
+    • Snorkel: halves the drag of water.
+    • Roll cage: no crash knocks the riders out.
+    Each adds weight like the armor, and a jeep takes one of each.
+cmu-jeep-manual-kits-use = An engineer uses the kit on the jeep (6 s). To take one off, hold a wrench and use the jeep's remove verb for it.
 cmu-jeep-manual-medical = Medical jeep: bed
 cmu-jeep-manual-medical-about = A surgical bed in the back that works as an operating table, with the medic's seat facing it.
 cmu-jeep-manual-medical-use = Use the lie on verb, or lay a patient on it. The tailgate is its door.

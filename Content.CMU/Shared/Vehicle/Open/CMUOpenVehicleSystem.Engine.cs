@@ -15,6 +15,7 @@ public sealed partial class CMUOpenVehicleSystem
 {
     [Dependency] private HardpointSystem _hardpoints = default!;
     [Dependency] private SharedTransformSystem _transform = default!;
+    [Dependency] private CMUVehicleUpgradeSystem _upgrades = default!;
 
     private (EntityUid Jeep, MapCoordinates Epicenter)? _blast;
 
@@ -37,6 +38,7 @@ public sealed partial class CMUOpenVehicleSystem
     {
         var jeep = ent.Comp;
         var share = hitPoint is { } at && jeep.EngineBay.Contains(at) ? jeep.EngineDirectHitShare : jeep.EngineDamageShare;
+        share *= _upgrades.EngineShare(ent); // Engine bay armor turns some of it onto the hull.
         var hit = total * _hardpoints.CMUIncomingDamageMultiplier(args.Origin, args.Tool);
         if (jeep.EngineIntegrity > 0f)
             jeep.EngineOverkill = 0f;

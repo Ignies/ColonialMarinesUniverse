@@ -54,6 +54,18 @@
         },
         {
             "name": "technical_frame"
+        },
+        {
+            "name": "bull_bar"
+        },
+        {
+            "name": "skid_plate"
+        },
+        {
+            "name": "snorkel"
+        },
+        {
+            "name": "roll_cage"
         }
     ]
 }

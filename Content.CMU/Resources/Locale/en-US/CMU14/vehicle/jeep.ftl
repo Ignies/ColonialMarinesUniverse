@@ -120,6 +120,7 @@ ent-CMUFlareJeepDropCLF = jeep drop flare
 
 cmu-vehicle-tyre-offroad = [color=yellow]Off-road tyres[/color]: the same on any ground.
 cmu-vehicle-tyre-road = [color=yellow]Road tyres[/color]: quicker on paving, slower on dirt and sand, and they bog down in water.
+cmu-vehicle-tyre-runflat = [color=yellow]Run-flat tyres[/color]: they shrug off damage that would shred others, a little slower everywhere.
 
 cmu-vehicle-cover-door = The shot slams into the door beside you!
 cmu-vehicle-cover-windshield = The windshield catches the shot!

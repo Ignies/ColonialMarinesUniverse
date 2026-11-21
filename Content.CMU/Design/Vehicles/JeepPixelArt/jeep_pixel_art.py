@@ -184,6 +184,12 @@ ATTACHMENTS = {
     "turn_signal_right": "S",
     "taillight_left": "N",
     "taillight_right": "N",
+    # Upgrade kits: the bull bar and snorkel stand in front of the riders seen from ahead or from the
+    # snorkel's side; the roll cage's hoop rises over the riders seen from behind.
+    "bull_bar": "S",
+    "skid_plate": "",
+    "snorkel": "SE",
+    "roll_cage": "N",
 }
 # The six lamps, each fitted on its own: the headlights, the turn signals on the front fenders and
 # the tail lights (with the rear turn signals) on the rear corners. Left is the driver's side, r < 0.
@@ -1700,6 +1706,65 @@ def over(dst, src):
     return rgb + (round(out_a * 255),)
 
 
+# Bolt-on upgrade kits (jeep_upgrades.yml), drawn on the jeep when fitted.
+def bull_bar_kit(damaged=False):
+    """A tubular bull bar ahead of the bumper: a hoop at hood height on two uprights, a low bar and a
+    grille guard between."""
+    m = Model()
+    for r0 in (-17, 15):
+        m.box(34, 35, r0, r0 + 1, 2, HOOD - 2, "black", "bull_bar")
+    m.box(34, 35, -17, 16, HOOD - 2, HOOD - 1, "black", "bull_bar")
+    m.box(34, 35, -17, 16, 2, 3, "black", "bull_bar")
+    for r0 in (-7, 5):
+        m.box(34, 34, r0, r0 + 1, 4, HOOD - 3, "gun", "bull_bar")
+    if damaged:
+        m.remove(lambda f, r, z: r > 10 and z > HOOD - 4)
+        m.paint(lambda f, r, z: (r + z) % 3 == 0, "char")
+    return m
+
+
+def skid_plate_kit(damaged=False):
+    """A steel plate under the nose, showing below the bumper."""
+    m = Model()
+    m.box(22, 33, -15, 14, 1, 1, "steel", "skid_plate")
+    m.paint(lambda f, r, z: f % 3 == 0, "gun")
+    if damaged:
+        m.paint(lambda f, r, z: (f + r) % 4 == 0, "char")
+    return m
+
+
+def snorkel_kit(damaged=False):
+    """An intake pipe up the passenger's side of the cowl beside the windshield post, capped."""
+    m = Model()
+    top = HOOD + 15
+    m.box(10, 11, 21, 22, HOOD - 6, top, "black", "snorkel")
+    m.box(9, 13, 20, 23, top + 1, top + 2, "gun", "snorkel")
+    if damaged:
+        m.remove(lambda f, r, z: z > top - 4)
+    return m
+
+
+def roll_cage_kit(damaged=False):
+    """A roll bar hoop behind the front seats, braced forward to the windshield's top corners."""
+    m = Model()
+    top = HOOD + 14
+    for r0 in (-20, 19):
+        m.box(-6, -6, r0, r0, HOOD - 4, top, "black", "roll_cage")
+        m.box(-5, 6, r0, r0, top, top, "black", "roll_cage")
+    m.box(-6, -6, -20, 19, top, top, "black", "roll_cage")
+    m.box(-6, -6, -20, 19, top - 6, top - 6, "gun", "roll_cage")
+    if damaged:
+        m.paint(lambda f, r, z: (r + z) % 4 == 0, "char")
+    return m
+
+
+UPGRADE_KITS = {
+    "bull_bar": bull_bar_kit,
+    "skid_plate": skid_plate_kit,
+    "snorkel": snorkel_kit,
+    "roll_cage": roll_cage_kit,
+}
+
 HARDPOINTS = {
     "windshield_up": windshield_up,
     "windshield_down": windshield_down,
@@ -1714,6 +1779,7 @@ HARDPOINTS = {
     **{f"headlight_{side}": headlight(side) for side in LAMP_SIDES},
     **{f"turn_signal_{side}": turn_signal(side) for side in LAMP_SIDES},
     **{f"taillight_{side}": taillight(side) for side in LAMP_SIDES},
+    **UPGRADE_KITS,
 }
 # Where the spare's carrier and the jerry can's rack stand; the rack's upright is in front of the
 # left tail light's inner column.
@@ -1841,6 +1907,50 @@ def build_technical_frame():
     m.box(-11, -9, -8, 8, 2, 5, "canvas", "frame")
     m.box(-1, 0, -1, 0, 2, 10, "steel", "frame")
     m.box(-2, 1, -2, 1, 11, 11, "black", "frame")
+    return m
+
+
+def build_bull_bar():
+    """A bull bar: a steel hoop over the grille with uprights and a bash plate, standing alone."""
+    m = Model()
+    m.box(0, 1, -9, 9, 0, 1, "steel", "kit")
+    m.box(0, 1, -9, 9, 9, 10, "steel", "kit")
+    for r0 in (-9, -4, 3, 8):
+        m.box(0, 1, r0, r0 + 1, 2, 8, "steel", "kit")
+    m.box(-1, -1, -5, 4, 3, 7, "black", "kit")
+    return m
+
+
+def build_skid_plate():
+    """A skid plate: a ribbed steel tray with its mounting tabs."""
+    m = Model()
+    m.box(-9, 9, -7, 7, 0, 0, "steel", "kit")
+    m.paint(lambda f, r, z: f % 3 == 0, "black")
+    for f0 in (-9, 8):
+        m.box(f0, f0 + 1, -7, 7, 1, 2, "steel", "kit")
+    return m
+
+
+def build_snorkel():
+    """A snorkel: a tall intake pipe with its rain cap."""
+    m = Model()
+    m.box(0, 1, 0, 1, 0, 14, "black", "kit")
+    m.box(-2, 1, -1, 2, 15, 16, "gun", "kit")
+    m.box(2, 4, 0, 1, 0, 1, "black", "kit")
+    return m
+
+
+def build_roll_cage():
+    """A roll cage: two hoops of tubing joined along the top."""
+    m = Model()
+    for f0 in (-6, 5):
+        m.box(f0, f0, -7, -7, 0, 9, "steel", "kit")
+        m.box(f0, f0, 7, 7, 0, 9, "steel", "kit")
+        m.box(f0, f0, -7, 7, 10, 10, "steel", "kit")
+    for r0 in (-7, 7):
+        m.box(-6, 5, r0, r0, 10, 10, "steel", "kit")
+    m.box(-6, 5, -7, -7, 5, 5, "black", "kit")
+    m.box(-6, 5, 7, 7, 5, 5, "black", "kit")
     return m
 
 
@@ -2813,6 +2923,10 @@ def icon_images():
         "rlturret": centred(build_rl(), "E", ICON),
         "cradleturret": centred(build_cradle(), "E", ICON),
         "technical_frame": centred(build_technical_frame(), "S", ICON),
+        "bull_bar": centred(build_bull_bar(), "S", ICON),
+        "skid_plate": centred(build_skid_plate(), "S", ICON),
+        "snorkel": centred(build_snorkel(), "S", ICON),
+        "roll_cage": centred(build_roll_cage(), "S", ICON),
         "windshield": centred(small_shield, "S", ICON),
         "searchlight": centred(scaled(searchlight("left")(), 2), "E", ICON),
         "engine": centred(engine(), "S", ICON),

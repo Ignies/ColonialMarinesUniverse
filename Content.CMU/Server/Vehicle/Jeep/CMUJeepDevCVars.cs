@@ -43,4 +43,10 @@ public sealed class CMUJeepDevCVars
     /// What goes on <see cref="DevTurret"/>'s mount, e.g. "RMCSentryMini". Empty to leave it bare.
     /// </summary>
     public static readonly CVarDef<string> DevTurretGun = CVarDef.Create("cmu.jeep.dev_turret_gun", "", CVar.SERVERONLY);
+
+    /// <summary>
+    /// Kits to bolt onto the dev kit's jeeps, comma separated, e.g. "CMUJeepBullBar,CMUJeepRollCage".
+    /// Empty for none.
+    /// </summary>
+    public static readonly CVarDef<string> DevUpgrades = CVarDef.Create("cmu.jeep.dev_upgrades", "", CVar.SERVERONLY);
 }

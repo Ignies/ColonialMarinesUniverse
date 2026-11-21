@@ -50,9 +50,10 @@ public sealed partial class GridVehicleMoverSystem
 
     private void CMUScaleCrash(EntityUid vehicle, GridVehicleMoverComponent mover, ref float wheelDamage, ref float hullDamage)
     {
+        // A bull bar and skid plate take some of it.
         var scale = CMUCrashScale(vehicle, mover);
-        wheelDamage *= scale;
-        hullDamage *= scale;
+        wheelDamage *= scale * _cmuUpgrades.CrashWheelDamage(vehicle);
+        hullDamage *= scale * _cmuUpgrades.CrashDamage(vehicle);
     }
 
     /// <summary>

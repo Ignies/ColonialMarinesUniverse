@@ -71,3 +71,13 @@ cmu-gun-cradle-unclamped = You unscrew {THE($gun)} from the adapter.
 cmu-gun-cradle-examine-empty = It has no gun in it.
 cmu-gun-cradle-examine-clamped = {CAPITALIZE(THE($gun))} is screwed down in it.
 cmu-gun-cradle-examine-loose = {CAPITALIZE(THE($gun))} sits loose in it; screw it down to fire it.
+
+cmu-vehicle-upgrade-unskilled = You don't know how to fit {THE($upgrade)}.
+cmu-vehicle-upgrade-too-heavy = {CAPITALIZE(THE($upgrade))} would put the jeep over the most it can carry.
+cmu-vehicle-upgrade-already = The jeep already has {INDEFINITE($upgrade)} {$upgrade} on.
+cmu-vehicle-upgrade-fitted = You bolt {THE($upgrade)} on.
+cmu-vehicle-upgrade-removed = You unbolt {THE($upgrade)}.
+cmu-vehicle-upgrade-remove-verb = Remove {$upgrade}
+cmu-vehicle-upgrade-examine-kit = It has {INDEFINITE($upgrade)} [color=cyan]{$upgrade}[/color] bolted on.
+cmu-vehicle-upgrade-examine-load = It carries its upgrades easily: [color=green]{$load}%[/color] of its most.
+cmu-vehicle-upgrade-examine-heavy = It sits low under its upgrades: [color=yellow]{$load}%[/color] of its most, and slower for it.

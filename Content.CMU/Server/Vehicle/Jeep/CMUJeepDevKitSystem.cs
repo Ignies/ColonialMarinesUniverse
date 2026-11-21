@@ -205,9 +205,14 @@ public sealed class CMUJeepDevKitSystem : EntitySystem
             jeeps.Add(spawned);
             spots.Add($"{ToPrettyString(spawned)} at {coordinates.Position}");
             if (crates)
+            {
                 DropCrate(spawned, _transform.ToMapCoordinates(coordinates));
+            }
             else
+            {
                 LeaveKitKey(spawned);
+                FitUpgrades(spawned);
+            }
         }
 
         if (placed.Count == 0)
@@ -372,6 +377,24 @@ public sealed class CMUJeepDevKitSystem : EntitySystem
     /// A test jeep's key comes out of the ignition and lies on the ground by the driver's door, to be
     /// put in before driving off.
     /// </summary>
+    /// <summary>
+    /// Bolts <see cref="CMUJeepDevCVars.DevUpgrades"/> onto the jeep, for screenshots of their art.
+    /// </summary>
+    private void FitUpgrades(EntityUid jeep)
+    {
+        if (!TryComp(jeep, out CMUVehicleUpgradesComponent? upgrades)
+            || !_containers.TryGetContainer(jeep, upgrades.Container, out var kits))
+        {
+            return;
+        }
+
+        foreach (var id in _cfg.GetCVar(CMUJeepDevCVars.DevUpgrades).Split(',', StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (_prototypes.HasIndex<EntityPrototype>(id.Trim()))
+                _containers.Insert(Spawn(id.Trim(), MapCoordinates.Nullspace), kits);
+        }
+    }
+
     private void LeaveKitKey(EntityUid jeep)
     {
         if (!TryComp(jeep, out CMUVehicleIgnitionComponent? ignition) ||

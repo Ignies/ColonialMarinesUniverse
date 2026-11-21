@@ -21,6 +21,7 @@ public sealed class CMUVehicleCrashKnockoutSystem : EntitySystem
     [Dependency] private IRobustRandom _random = default!;
     [Dependency] private RMCSizeStunSystem _sizeStun = default!;
     [Dependency] private IGameTiming _timing = default!;
+    [Dependency] private CMUVehicleUpgradeSystem _upgrades = default!;
 
     public override void Initialize()
     {
@@ -47,9 +48,15 @@ public sealed class CMUVehicleCrashKnockoutSystem : EntitySystem
 
     private void OnCrashed(Entity<CMUVehicleCrashKnockoutComponent> ent, ref CMUVehicleCrashedEvent args)
     {
-        // Even with no chance of staying out, a hard enough crash blacks everyone out for a moment.
-        if (!args.Frontal || args.Speed < ent.Comp.MinSpeed || !TryComp(ent, out CMUVehicleSeatsComponent? seats))
+        // Even with no chance of staying out, a hard enough crash blacks everyone out for a moment. A
+        // roll cage keeps the riders from being thrown about at all.
+        if (!args.Frontal
+            || args.Speed < ent.Comp.MinSpeed
+            || _upgrades.IsCrashProof(ent)
+            || !TryComp(ent, out CMUVehicleSeatsComponent? seats))
+        {
             return;
+        }
 
         var chance = Chance(ent.Comp, args.Frontal, args.Speed);
         foreach (var seat in seats.SeatEntities)

@@ -594,6 +594,9 @@
   name: jeep
   description: A light, open four-by-four. Fast and nimble, but nothing stands between its crew and the bullets.
   components:
+  # Armor and mobility upgrades (jeep_upgrades.yml): 60 weight rides free, then each unit costs
+  # 0.4% of top speed, up to 160 at most, 40% slower.
+  - type: CMUVehicleUpgrades
   - type: CMUVehicleIgnition
     keySlot:
       name: cmu-jeep-part-ignition
@@ -1243,6 +1246,19 @@
       state: axe_0
     - map: [ jack ]
       state: jack_0
+    # Bolt-on upgrade kits (jeep_upgrades.yml), shown while fitted.
+    - map: [ bull_bar ]
+      state: bull_bar_0
+      visible: false
+    - map: [ skid_plate ]
+      state: skid_plate_0
+      visible: false
+    - map: [ snorkel ]
+      state: snorkel_0
+      visible: false
+    - map: [ roll_cage ]
+      state: roll_cage_0
+      visible: false
     - map: [ rmc-wheels ]
       state: wheels_1
     - map: [ rims ]
@@ -2240,6 +2256,18 @@
       state: axe_overlay_0
     - map: [ jack ]
       state: jack_overlay_0
+    - map: [ bull_bar ]
+      state: bull_bar_overlay_0
+      visible: false
+    - map: [ skid_plate ]
+      state: skid_plate_overlay_0
+      visible: false
+    - map: [ snorkel ]
+      state: snorkel_overlay_0
+      visible: false
+    - map: [ roll_cage ]
+      state: roll_cage_overlay_0
+      visible: false
     # The hood raised or swinging; shut, it is the hood layer under the windshield.
     - map: [ hood_raised ]
       state: hood_open_overlay
@@ -2436,6 +2464,18 @@
       state: axe_overlay_0
     - map: [ jack ]
       state: jack_overlay_0
+    - map: [ bull_bar ]
+      state: bull_bar_overlay_0
+      visible: false
+    - map: [ skid_plate ]
+      state: skid_plate_overlay_0
+      visible: false
+    - map: [ snorkel ]
+      state: snorkel_overlay_0
+      visible: false
+    - map: [ roll_cage ]
+      state: roll_cage_overlay_0
+      visible: false
     # The hood raised or swinging; shut, it is the hood layer under the windshield.
     - map: [ hood_raised ]
       state: hood_open_overlay
@@ -2821,6 +2861,14 @@
   - CMUJeepSentryMount
   - CMUJeepTechnicalFrame
   - CMUJeepGunCradle
+  - CMUJeepDoorArmored
+  - CMUJeepTailgateArmored
+  - CMUJeepHoodArmored
+  - CMUJeepWindshieldMesh
+  - CMUJeepBullBar
+  - CMUJeepSkidPlate
+  - CMUJeepSnorkel
+  - CMUJeepRollCage
   - CMUJeepHood
   - CMUJeepDoor
   - CMUJeepTailgate

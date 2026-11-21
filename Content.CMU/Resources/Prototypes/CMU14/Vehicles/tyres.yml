@@ -14,3 +14,11 @@
   waterDrag: 1.35
   statePrefix: road_
   examine: cmu-vehicle-tyre-road
+
+# Run-flat tyres: stiff sidewalls on an inner ring, so a holed tyre keeps rolling. They wear far
+# slower under fire and in crashes, ride a little harder and slower everywhere.
+- type: cmuVehicleTyre
+  id: CMUTyreRunFlat
+  pavedSpeed: 0.95
+  roughSpeed: 0.95
+  examine: cmu-vehicle-tyre-runflat

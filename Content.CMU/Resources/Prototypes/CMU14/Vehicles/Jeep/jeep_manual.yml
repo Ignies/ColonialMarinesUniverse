@@ -300,6 +300,14 @@
     name: cmu-jeep-manual-cradle
     about: cmu-jeep-manual-cradle-about
     use: cmu-jeep-manual-cradle-use
+  - id: armor
+    name: cmu-jeep-manual-armor
+    about: cmu-jeep-manual-armor-about
+    use: cmu-jeep-manual-armor-use
+  - id: kits
+    name: cmu-jeep-manual-kits
+    about: cmu-jeep-manual-kits-about
+    use: cmu-jeep-manual-kits-use
   - id: medical
     name: cmu-jeep-manual-medical
     about: cmu-jeep-manual-medical-about

@@ -54,6 +54,17 @@
         maxStock: 2
         startingStock: 1
         stockReplenishDelay: 1800
+      # Upgrades the lathe can't make.
+      - cost: 2500
+        crate: CMUCrateJeepRunFlats
+        maxStock: 2
+        startingStock: 1
+        stockReplenishDelay: 1800
+      - cost: 2000
+        crate: CMUCrateJeepWindshieldBallistic
+        maxStock: 2
+        startingStock: 1
+        stockReplenishDelay: 1800
 
 # The colony's ASRS console only gets the cargo and medical jeeps, on the same one-at-a-time,
 # restock-to-two footing as the platoons'.

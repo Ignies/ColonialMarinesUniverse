@@ -4205,6 +4205,70 @@
         {
             "name": "click_searchlight_right",
             "directions": 4
+        },
+        {
+            "name": "bull_bar_0",
+            "directions": 4
+        },
+        {
+            "name": "bull_bar_1",
+            "directions": 4
+        },
+        {
+            "name": "skid_plate_0",
+            "directions": 4
+        },
+        {
+            "name": "skid_plate_1",
+            "directions": 4
+        },
+        {
+            "name": "snorkel_0",
+            "directions": 4
+        },
+        {
+            "name": "snorkel_overlay_0",
+            "directions": 4
+        },
+        {
+            "name": "snorkel_1",
+            "directions": 4
+        },
+        {
+            "name": "snorkel_overlay_1",
+            "directions": 4
+        },
+        {
+            "name": "roll_cage_0",
+            "directions": 4
+        },
+        {
+            "name": "roll_cage_1",
+            "directions": 4
+        },
+        {
+            "name": "bull_bar_overlay_0",
+            "directions": 4
+        },
+        {
+            "name": "bull_bar_overlay_1",
+            "directions": 4
+        },
+        {
+            "name": "skid_plate_overlay_0",
+            "directions": 4
+        },
+        {
+            "name": "skid_plate_overlay_1",
+            "directions": 4
+        },
+        {
+            "name": "roll_cage_overlay_0",
+            "directions": 4
+        },
+        {
+            "name": "roll_cage_overlay_1",
+            "directions": 4
         }
     ]
 }

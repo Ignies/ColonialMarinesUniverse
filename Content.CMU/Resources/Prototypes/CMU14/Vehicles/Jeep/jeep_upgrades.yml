@@ -1,0 +1,265 @@
+# Armor and mobility upgrades for the jeeps. Heavier parts go in the jeep's own slots in place of the
+# stock ones; kits are bolted on with a wrench. Each adds weight: past a jeep's free load it slows,
+# and it takes no more past its most (CMUVehicleUpgrades on the jeep). Only an engineer fits them.
+# The lathe makes them all but the run-flat wheels and the ballistic windshield, which requisitions sell.
+
+# Armored door: plate over the skin. It stops shots at the chest of the rider beside it, not just
+# the legs, and takes twice the punishment.
+- type: entity
+  parent: CMUJeepDoor
+  id: CMUJeepDoorArmored
+  name: armored jeep door
+  description: A jeep door with steel plate bolted over its skin. It shields the chest of whoever sits beside it, and it is heavy.
+  components:
+  - type: Sprite
+    state: door
+    color: "#9aa08a"
+  - type: CMUVehiclePartIntegrity
+    integrity: 200
+    maxIntegrity: 200
+    repairAmount: 25
+    wreckable: true
+  - type: CMUVehicleUpgrade
+    weight: 35
+    coversChest: true
+
+# Armored tailgate: shields the legs of riders in the back from shots from behind.
+- type: entity
+  parent: CMUJeepTailgate
+  id: CMUJeepTailgateArmored
+  name: armored jeep tailgate
+  description: A jeep tailgate with steel plate bolted over it. Shut, it shields the legs of the riders in the back from behind.
+  components:
+  - type: Sprite
+    state: tailgate
+    color: "#9aa08a"
+  - type: CMUVehiclePartIntegrity
+    integrity: 200
+    maxIntegrity: 200
+    repairAmount: 25
+    wreckable: true
+  - type: CMUVehicleUpgrade
+    weight: 30
+    coversRear: true
+
+# Engine bay armor: a plated bonnet that turns most hits away from the engine onto the hull.
+- type: entity
+  parent: CMUJeepHood
+  id: CMUJeepHoodArmored
+  name: armored jeep hood
+  description: A jeep bonnet with plate under its skin. It keeps most hits off the engine, at the hull's expense.
+  components:
+  - type: Sprite
+    state: hood
+    color: "#9aa08a"
+  - type: CMUVehiclePartIntegrity
+    integrity: 200
+    maxIntegrity: 200
+    repairAmount: 25
+    wreckable: true
+  - type: CMUVehicleUpgrade
+    weight: 35
+    engineShare: 0.4
+
+# Ballistic windshield: thick laminated glass. It catches most shots from ahead and wears slowly.
+- type: entity
+  parent: CMUJeepWindshield
+  id: CMUJeepWindshieldBallistic
+  name: ballistic jeep windshield
+  description: A windshield of thick laminated glass. It stops most shots from ahead, and it is heavy.
+  components:
+  - type: Sprite
+    state: windshield
+    color: "#b8d0d8"
+  - type: CMUVehicleUpgrade
+    weight: 25
+    windshieldChance: 0.85
+    windshieldWear: 0.2
+
+# Mesh windshield: a wire screen. Light, it keeps grit and thrown things out, catches the odd shot,
+# and a shot barely wears it.
+- type: entity
+  parent: CMUJeepWindshield
+  id: CMUJeepWindshieldMesh
+  name: mesh jeep windshield
+  description: A wire mesh screen in a windshield frame. It keeps the grit out and catches the odd shot, and a shot barely marks it.
+  components:
+  - type: Sprite
+    state: windshield
+    color: "#7a7a72"
+  - type: CMUVehicleUpgrade
+    weight: 8
+    windshieldChance: 0.3
+    windshieldWear: 0.05
+
+# Run-flat wheels: they shrug off most of what's thrown at them, a little slower everywhere.
+- type: entity
+  parent: CMUJeepWheel
+  id: CMUJeepWheelRunFlat
+  name: jeep run-flat wheel set
+  description: A set of jeep wheels on run-flat tyres. They keep rolling through damage that would shred ordinary tyres, a little slower.
+  components:
+  - type: Sprite
+    state: tires
+    color: "#c8c0b0"
+  - type: HardpointItem
+    damageRegion: Sides
+    hardpointType: Wheel
+    vehicleFamily: CMUJeep
+    slotType: Wheel
+    damageMultiplier: 0.075
+    repairRate: 0.0165
+  - type: CMUVehicleTyre
+    tyre: CMUTyreRunFlat
+  - type: CMUVehicleUpgrade
+    weight: 15
+
+- type: entity
+  abstract: true
+  parent: CMUJeepHardpointBase
+  id: CMUJeepKitBase
+  components:
+  - type: Item
+    size: Huge
+
+# Bull bar: a steel frame over the grille that takes the worst of a crash.
+- type: entity
+  parent: CMUJeepKitBase
+  id: CMUJeepBullBar
+  name: jeep bull bar
+  description: A steel frame to bolt over a jeep's grille. It takes the worst of a crash off the hull.
+  components:
+  - type: Sprite
+    state: bull_bar
+  - type: CMUVehicleUpgrade
+    kit: true
+    layer: bull_bar
+    weight: 25
+    crashDamage: 0.6
+
+# Skid plate: steel under the running gear, sparing the wheels in crashes.
+- type: entity
+  parent: CMUJeepKitBase
+  id: CMUJeepSkidPlate
+  name: jeep skid plate
+  description: A steel plate to bolt under a jeep. It spares the wheels the worst of a crash.
+  components:
+  - type: Sprite
+    state: skid_plate
+  - type: CMUVehicleUpgrade
+    kit: true
+    layer: skid_plate
+    weight: 20
+    crashWheelDamage: 0.5
+
+# Snorkel: the engine breathes from above the cab, so water drags at the jeep half as hard.
+- type: entity
+  parent: CMUJeepKitBase
+  id: CMUJeepSnorkel
+  name: jeep snorkel
+  description: An air intake run up past the windshield. With it, a jeep fords water at half the drag.
+  components:
+  - type: Item
+    size: Large
+  - type: Sprite
+    state: snorkel
+  - type: CMUVehicleUpgrade
+    kit: true
+    layer: snorkel
+    weight: 5
+    waterDrag: 0.5
+
+# Roll cage: tubing over the seats, so a crash doesn't throw the riders about or knock them out.
+- type: entity
+  parent: CMUJeepKitBase
+  id: CMUJeepRollCage
+  name: jeep roll cage
+  description: Steel tubing to bolt over a jeep's seats. No crash knocks its riders out.
+  components:
+  - type: Sprite
+    state: roll_cage
+  - type: CMUVehicleUpgrade
+    kit: true
+    layer: roll_cage
+    weight: 30
+    crashProof: true
+
+- type: latheRecipe
+  id: CMUJeepDoorArmored
+  result: CMUJeepDoorArmored
+  completetime: 12
+  materials:
+    CMSteel: 15000
+    CMPlasteel: 7500
+
+- type: latheRecipe
+  id: CMUJeepTailgateArmored
+  result: CMUJeepTailgateArmored
+  completetime: 12
+  materials:
+    CMSteel: 15000
+    CMPlasteel: 7500
+
+- type: latheRecipe
+  id: CMUJeepHoodArmored
+  result: CMUJeepHoodArmored
+  completetime: 14
+  materials:
+    CMSteel: 18750
+    CMPlasteel: 7500
+
+- type: latheRecipe
+  id: CMUJeepWindshieldMesh
+  result: CMUJeepWindshieldMesh
+  completetime: 6
+  materials:
+    CMSteel: 7500
+
+- type: latheRecipe
+  id: CMUJeepBullBar
+  result: CMUJeepBullBar
+  completetime: 10
+  materials:
+    CMSteel: 22500
+
+- type: latheRecipe
+  id: CMUJeepSkidPlate
+  result: CMUJeepSkidPlate
+  completetime: 10
+  materials:
+    CMSteel: 18750
+
+- type: latheRecipe
+  id: CMUJeepSnorkel
+  result: CMUJeepSnorkel
+  completetime: 6
+  materials:
+    CMSteel: 3750
+    RMCPlastic: 3750
+
+- type: latheRecipe
+  id: CMUJeepRollCage
+  result: CMUJeepRollCage
+  completetime: 12
+  materials:
+    CMSteel: 30000
+
+- type: entity
+  parent: RMCCrateBase
+  id: CMUCrateJeepRunFlats
+  name: jeep run-flat wheels crate
+  description: A set of run-flat jeep wheels.
+  components:
+  - type: StorageFill
+    contents:
+    - id: CMUJeepWheelRunFlat
+
+- type: entity
+  parent: RMCCrateBase
+  id: CMUCrateJeepWindshieldBallistic
+  name: ballistic jeep windshield crate
+  description: A ballistic windshield for a jeep.
+  components:
+  - type: StorageFill
+    contents:
+    - id: CMUJeepWindshieldBallistic
