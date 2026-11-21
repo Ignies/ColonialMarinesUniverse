@@ -1916,6 +1916,11 @@ def build_rl(damaged=False):
         m.box(-8, -7, r0 + 1, r0 + 2, 1, 2, "steel", "mg")
         m.box(5, 6, r0, r0 + 3, 4, 4, "yellow", "mg")
     m.box(-2, 3, -1, 0, 0, 2, "steel", "mg")
+    # The saddle the tubes are strapped into, on the pintle: a dark plate under them, with cheeks.
+    m.box(-3, 2, -5, 4, -1, -1, "black", "mg")
+    m.box(-3, 2, -6, -6, -1, 1, "gun", "mg")
+    m.box(-3, 2, 5, 5, -1, 1, "gun", "mg")
+    m.box(-1, 0, -1, 0, -2, -2, "gun", "mg")
     # A sight box on the left tube, forward.
     m.box(2, 4, -5, -4, 4, 5, "gun", "mg")
     if damaged:
@@ -2001,22 +2006,21 @@ def build_technical_frame():
             bag(f0, min(f0 + 5, 7), -11, -8, z0)
             bag(f0, min(f0 + 5, 7), 8, 11, z0)
 
-    # Pedestal: a square base flange bolted to the deck, a straight post braced by four stepped
-    # gusset plates, a collar and the pintle cradle on top.
+    # Pedestal: a square base flange bolted to the deck, a slim post braced by four stepped gusset
+    # plates, shaded down one side, with a clamp band and a capped pintle pin the gun drops onto.
     m.box(-3, 2, -3, 2, 1, 1, "frame", "frame")
     for f0, r0 in ((-3, -3), (-3, 2), (2, -3), (2, 2)):
         m.put(f0, r0, 2, "steel", "frame")
-    m.box(-1, 0, -1, 0, 2, 13, "steel", "frame")
+    m.box(-1, 0, -1, 0, 2, 14, "gun", "frame")
+    m.paint(lambda f, r, z: f == 0 and r == 0 and 2 <= z <= 14, "steel")
     for step in range(3):
         top = 4 - step
         m.box(-1, 0, 1 + step, 1 + step, 2, top, "gun", "frame")
         m.box(-1, 0, -2 - step, -2 - step, 2, top, "gun", "frame")
         m.box(1 + step, 1 + step, -1, 0, 2, top, "gun", "frame")
         m.box(-2 - step, -2 - step, -1, 0, 2, top, "gun", "frame")
-    m.box(-2, 1, -2, 1, 11, 11, "black", "frame")
-    m.box(-2, 1, -2, 1, 14, 14, "gun", "frame")
-    m.box(-2, 1, -2, -2, 15, 16, "gun", "frame")
-    m.box(-2, 1, 1, 1, 15, 16, "gun", "frame")
+    m.box(-1, 0, -1, 0, 11, 11, "black", "frame")
+    m.box(-1, 0, -1, 0, 15, 15, "steel", "frame")
 
     # Ammo cans by the open back, one with its lid stencil.
     for r0 in (-8, 3):
@@ -3541,6 +3545,8 @@ def write_rsi(variant, dy):
         save("rlturret_1", mg_images(damaged=True, build=build_rl), directions=8)
         save("pedestal_0", mg_images(build=build_pedestal), directions=8)
         save("pedestal_1", mg_images(damaged=True, build=build_pedestal), directions=8)
+        # The technical's bare mount draws nothing: its frame has the post.
+        save("technical_bare", mg_images(build=lambda damaged=False: Model()), directions=8)
         save("cradleturret_0", mg_images(build=build_cradle), directions=8)
         save("cradleturret_1", mg_images(damaged=True, build=build_cradle), directions=8)
     for name, tiles in click_masks(variant, per_dir, dy).items():

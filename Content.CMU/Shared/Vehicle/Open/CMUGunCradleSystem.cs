@@ -48,8 +48,8 @@ public sealed class CMUGunCradleSystem : EntitySystem
         SubscribeLocalEvent<CMUGunCradleComponent, AmmoShotEvent>(OnAmmoShot);
         SubscribeLocalEvent<CMUGunCradleComponent, GunShotEvent>(OnGunShot);
         SubscribeLocalEvent<CMUGunCradleComponent, GunRefreshModifiersEvent>(OnRefreshModifiers);
-        // First, so the other modifiers build on the wielded figure rather than the one-handed one.
         SubscribeLocalEvent<CMUCradledGunComponent, GunRefreshModifiersEvent>(OnCradledRefresh);
+        // First, so the other modifiers build on the wielded figure rather than the one-handed one.
         SubscribeLocalEvent<CMUCradledGunComponent, GetWeaponAccuracyEvent>(OnCradledAccuracy,
             before: [typeof(CMGunSystem), typeof(AttachableHolderSystem), typeof(VehicleWeaponSupportSystem)]);
     }

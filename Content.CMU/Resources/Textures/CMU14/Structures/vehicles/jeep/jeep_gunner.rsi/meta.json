@@ -4377,6 +4377,10 @@
         {
             "name": "tow_hitch_overlay_1",
             "directions": 4
+        },
+        {
+            "name": "technical_bare",
+            "directions": 8
         }
     ]
 }

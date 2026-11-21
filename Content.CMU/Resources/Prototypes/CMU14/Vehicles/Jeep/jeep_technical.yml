@@ -40,15 +40,15 @@
     showOverlay: true
     useDirectionalOffsets: true
     overlayRsi: CMU14/Structures/vehicles/jeep/jeep_gunner.rsi
-    overlayState: pedestal_0
-    overlayDamagedState: pedestal_1
+    # The frame draws the post; the bare mount adds nothing over it.
+    overlayState: technical_bare
+    overlayDamagedState: technical_bare
     pixelOffsetNorth: "0,-11"
     pixelOffsetEast: "-27,13"
     pixelOffsetSouth: "0,38"
     pixelOffsetWest: "27,13"
   - type: CMUVehicleTurretArt
-    state: pedestal_0
-    damagedState: pedestal_1
+    state: technical_bare
   - type: ItemSlots
     slots:
       turret-gun:
