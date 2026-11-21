@@ -1897,16 +1897,67 @@ def build_cradle(damaged=False):
 
 
 def build_technical_frame():
-    """The technical's bed mount: a steel pallet with a sandbag lip and a pintle post."""
+    """The technical's bed mount: a bolted steel deck with angle-iron rails, a wall of sandbags round
+    three sides, a braced tripod pedestal with its pintle cradle, and ammo cans at the open back."""
     m = Model()
-    m.box(-11, 11, -11, 11, 0, 1, "steel", "frame")
-    m.paint(lambda f, r, z: z == 1 and (f == r or f == -r), "black")
-    for r0, r1 in ((-11, -9), (9, 11)):
-        m.box(-11, 11, r0, r1, 2, 6, "canvas", "frame")
-        m.paint(lambda f, r, z, r0=r0, r1=r1: r0 <= r <= r1 and z in (4, 6) and f % 5 == 0, "canvas_seam")
-    m.box(-11, -9, -8, 8, 2, 5, "canvas", "frame")
-    m.box(-1, 0, -1, 0, 2, 10, "steel", "frame")
-    m.box(-2, 1, -2, 1, 11, 11, "black", "frame")
+    # Deck: a checker plate (a raised dot every few voxels, alternate rows offset) inside an
+    # angle-iron rail, with bolt heads standing proud at its corners and mid-sides.
+    m.box(-11, 11, -11, 11, 0, 0, "gun", "frame")
+    for f in range(-9, 10, 3):
+        for r in range(-9 + (f // 3) % 2, 10, 3):
+            m.put(f, r, 1, "steel", "frame")
+    for r0 in (-11, 11):
+        m.box(-11, 11, r0, r0, 1, 1, "frame", "frame")
+    for f0 in (-11, 11):
+        m.box(f0, f0, -11, 11, 1, 1, "frame", "frame")
+    for f0 in (-11, 0, 11):
+        for r0 in (-11, 0, 11):
+            if f0 or r0:
+                m.put(f0, r0, 2, "steel", "frame")
+
+    # Sandbags: two staggered courses of rounded bags along the front and both sides.
+    def bag(f0, f1, r0, r1, z0):
+        for f in range(f0, f1 + 1):
+            for r in range(r0, r1 + 1):
+                for z in range(z0, z0 + 3):
+                    edge_f = f in (f0, f1)
+                    edge_r = r in (r0, r1)
+                    edge_z = z in (z0, z0 + 2)
+                    # Rounded: no voxel on three outer faces at once, fewer on two.
+                    if edge_f + edge_r + edge_z >= 3 or (edge_f and edge_r and (f + r) % 2 == 0):
+                        continue
+                    mat = "canvas_seam" if (edge_z and (edge_f or edge_r)) else "canvas"
+                    m.put(f, r, z, mat, "frame")
+        m.put((f0 + f1) // 2, (r0 + r1) // 2, z0 + 2, "strap", "frame")
+
+    for course, z0 in enumerate((2, 5)):
+        shift = 3 if course else 0
+        # Front wall, toward the cab.
+        for r0 in range(-11 + shift, 10, 6):
+            bag(8, 11, r0, min(r0 + 5, 11), z0)
+        # Side walls.
+        for f0 in range(-9 + shift, 7, 6):
+            bag(f0, min(f0 + 5, 7), -11, -8, z0)
+            bag(f0, min(f0 + 5, 7), 8, 11, z0)
+
+    # Pedestal: three braced legs to a post, a collar and the pintle cradle on top.
+    for lf, lr in ((-5, -5), (-5, 4), (4, 0)):
+        for t in range(0, 9):
+            f = round(lf + (0 - lf) * t / 9)
+            r = round(lr + (0 - lr) * t / 9)
+            m.put(f, r, 1 + t, "steel", "frame")
+            m.put(f, r - 1 if lr > 0 else r, 1 + t, "steel", "frame")
+    m.box(-1, 0, -1, 0, 9, 14, "steel", "frame")
+    m.box(-2, 1, -2, 1, 12, 12, "black", "frame")
+    m.box(-2, 1, -2, -2, 15, 16, "gun", "frame")
+    m.box(-2, 1, 1, 1, 15, 16, "gun", "frame")
+    m.box(-2, 1, -2, 1, 14, 14, "gun", "frame")
+
+    # Ammo cans by the open back, one with its lid stencil.
+    for r0 in (-8, 3):
+        m.box(-10, -7, r0, r0 + 4, 1, 5, "od", "frame")
+        m.box(-10, -7, r0, r0 + 4, 6, 6, "od_seam", "frame")
+    m.box(-9, -8, -7, -5, 6, 6, "yellow", "frame")
     return m
 
 
