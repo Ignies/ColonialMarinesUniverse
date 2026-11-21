@@ -3,6 +3,7 @@ using Content.IntegrationTests.Fixtures;
 using Content.Shared._RMC14.Stealth;
 using Content.Shared.Chemistry.EntitySystems;
 using Content.Shared.CMU14.Vehicle.Open;
+using Content.Shared.DoAfter;
 using Content.Shared.FixedPoint;
 using Content.Shared.Storage;
 using Content.Shared.Storage.EntitySystems;
@@ -189,6 +190,38 @@ public sealed class CMUJeepUtilityTest : GameTest
             Assert.That(SEntMan.HasComponent<CMUVehicleCamouflagedComponent>(jeep), Is.False,
                 "Firing should give the jeep away.");
             Assert.That(SEntMan.HasComponent<EntityActiveInvisibleComponent>(jeep), Is.False);
+        });
+    }
+
+    [Test]
+    public async Task TheWinchHaulsInALoadWellOutOfReach()
+    {
+        var (map, jeep) = await Jeep();
+        EntityUid crate = default;
+        await Server.WaitPost(() =>
+        {
+            Bolt(jeep, "CMUJeepWinch");
+            crate = SEntMan.SpawnEntity("RMCCrateGreen", new EntityCoordinates(map.Grid, 3.5f, 4.5f));
+            var user = SEntMan.SpawnEntity("CMMobHuman", new EntityCoordinates(map.Grid, 1.6f, 0.5f));
+
+            // As the winch verb starts it: the load rides in the event, far beyond arm's reach.
+            var ev = new CMUVehicleWinchDoAfterEvent { Load = SEntMan.GetNetEntity(crate) };
+            var args = new DoAfterArgs(SEntMan, user, TimeSpan.FromSeconds(8), ev, jeep, jeep)
+            {
+                BreakOnMove = true,
+                NeedHand = true,
+                BlockDuplicate = true,
+            };
+            Assert.That(SEntMan.System<SharedDoAfterSystem>().TryStartDoAfter(args), Is.True);
+        });
+        await RunSeconds(10f);
+
+        await Server.WaitAssertion(() =>
+        {
+            var transforms = SEntMan.System<SharedTransformSystem>();
+            var behind = transforms.GetWorldPosition(crate) - transforms.GetWorldPosition(jeep);
+            Assert.That(behind.Y, Is.GreaterThan(1.5f), "The winch should finish hauling in a crate five tiles off.");
+            Assert.That(MathF.Abs(behind.X), Is.LessThan(0.5f));
         });
     }
 

@@ -1797,7 +1797,7 @@ def smoke_dischargers_kit(damaged=False):
     m = Model()
     for r0 in (-20, 17):
         m.box(22, 25, r0, r0 + 2, HOOD, HOOD + 1, "od", "smoke_dischargers")
-        m.box(23, 24, r0, r0 + 2, HOOD + 2, HOOD + 4, "gun", "smoke_dischargers")
+        m.box(23, 24, r0, r0 + 2, HOOD + 2, HOOD + 4, "steel", "smoke_dischargers")
         m.box(23, 24, r0 + 1, r0 + 1, HOOD + 4, HOOD + 4, "black", "smoke_dischargers")
     if damaged:
         m.paint(lambda f, r, z: (f + r + z) % 2 == 0, "char")
@@ -2169,15 +2169,17 @@ def build_tow_hitch():
 
 
 def build_camo_net():
-    """A camo net: a rolled bundle of mottled netting with its poles."""
+    """A camo net: a rolled bundle of netting, a dark diamond mesh over its patches, tied to two
+    poles that stand out past each end."""
     m = Model()
-    m.box(-9, 9, -4, 4, 0, 6, "od", "kit")
-    m.paint(lambda f, r, z: (f * 3 + r * 5 + z) % 4 == 0, "canvas")
-    m.paint(lambda f, r, z: (f + r * 2) % 5 == 0, "od_seam")
+    m.box(-8, 8, -4, 4, 0, 6, "od", "kit")
+    m.paint(lambda f, r, z: (f * 2 + r * 3) % 7 < 2, "canvas")
+    m.paint(lambda f, r, z: (f + r) % 4 == 0 or (f - r) % 4 == 0, "black")
+    for f0 in (-6, 5):
+        m.box(f0, f0, -4, 4, 6, 6, "strap", "kit")
     for r0 in (-6, 5):
-        m.box(-10, 10, r0, r0, 1, 1, "wood", "kit")
+        m.box(-11, 11, r0, r0, 2, 3, "wood", "kit")
     return m
-
 
 UTILITY_ICONS = {
     "roof_rack": build_roof_rack,

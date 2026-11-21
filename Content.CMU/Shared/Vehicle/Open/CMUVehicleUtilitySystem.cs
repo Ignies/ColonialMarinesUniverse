@@ -332,14 +332,15 @@ public sealed class CMUVehicleUtilitySystem : EntitySystem
             verbs.Add(new InteractionVerb
             {
                 Text = Loc.GetString("cmu-vehicle-winch-verb", ("load", load)),
-                Act = () => StartDoAfter(user, vehicle, winch.Comp.Delay, new CMUVehicleWinchDoAfterEvent(), load),
+                Act = () => StartDoAfter(user, vehicle, winch.Comp.Delay,
+                    new CMUVehicleWinchDoAfterEvent { Load = GetNetEntity(load) }, null),
             });
         }
     }
 
     private void OnWinch(Entity<CMUVehicleUpgradesComponent> ent, ref CMUVehicleWinchDoAfterEvent args)
     {
-        if (args.Cancelled || args.Handled || args.Used is not { } load)
+        if (args.Cancelled || args.Handled || !TryGetEntity(args.Load, out var found) || found is not { } load)
             return;
 
         args.Handled = true;
@@ -405,14 +406,15 @@ public sealed class CMUVehicleUtilitySystem : EntitySystem
             verbs.Add(new InteractionVerb
             {
                 Text = Loc.GetString("cmu-vehicle-hitch-verb", ("load", load)),
-                Act = () => StartDoAfter(user, vehicle, hitch.Comp.Delay, new CMUVehicleHitchDoAfterEvent(), load),
+                Act = () => StartDoAfter(user, vehicle, hitch.Comp.Delay,
+                    new CMUVehicleHitchDoAfterEvent { Load = GetNetEntity(load) }, null),
             });
         }
     }
 
     private void OnHitch(Entity<CMUVehicleUpgradesComponent> ent, ref CMUVehicleHitchDoAfterEvent args)
     {
-        if (args.Cancelled || args.Handled || args.Used is not { } load)
+        if (args.Cancelled || args.Handled || !TryGetEntity(args.Load, out var found) || found is not { } load)
             return;
 
         args.Handled = true;

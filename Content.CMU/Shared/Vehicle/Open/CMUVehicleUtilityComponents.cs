@@ -152,7 +152,7 @@ public sealed partial class CMUVehicleTowingComponent : Component
 public sealed partial class CMUVehicleCamoNetComponent : Component
 {
     [DataField]
-    public float Opacity = 0.2f;
+    public float Opacity = 0.3f;
 
     [DataField]
     public TimeSpan Delay = TimeSpan.FromSeconds(10);
@@ -184,11 +184,36 @@ public sealed partial class CMUVehicleCamouflagedComponent : Component
 [Serializable, NetSerializable]
 public sealed partial class CMUVehicleSmokeReloadDoAfterEvent : SimpleDoAfterEvent;
 
+/// <summary>
+/// Hauling a load in on the winch. The load rides in the event, not as the do-after's used item: it is
+/// meant to be well out of the user's reach.
+/// </summary>
 [Serializable, NetSerializable]
-public sealed partial class CMUVehicleWinchDoAfterEvent : SimpleDoAfterEvent;
+public sealed partial class CMUVehicleWinchDoAfterEvent : DoAfterEvent
+{
+    [DataField]
+    public NetEntity Load;
 
+    public override DoAfterEvent Clone()
+    {
+        return new CMUVehicleWinchDoAfterEvent { Load = Load };
+    }
+}
+
+/// <summary>
+/// Hitching a load behind the vehicle, carried the same way as the winch's.
+/// </summary>
 [Serializable, NetSerializable]
-public sealed partial class CMUVehicleHitchDoAfterEvent : SimpleDoAfterEvent;
+public sealed partial class CMUVehicleHitchDoAfterEvent : DoAfterEvent
+{
+    [DataField]
+    public NetEntity Load;
+
+    public override DoAfterEvent Clone()
+    {
+        return new CMUVehicleHitchDoAfterEvent { Load = Load };
+    }
+}
 
 [Serializable, NetSerializable]
 public sealed partial class CMUVehicleCamoNetDoAfterEvent : SimpleDoAfterEvent;
