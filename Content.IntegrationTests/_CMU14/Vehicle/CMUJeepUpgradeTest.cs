@@ -1,4 +1,10 @@
 using System.Linq;
+using Content.Shared.Body.Part;
+using Content.Shared.DoAfter;
+using Content.Shared.CMU14.Medical.Anatomy.BodyParts;
+using Content.Shared.Damage.Systems;
+using Content.Shared.Damage;
+using Content.Shared.Buckle.Components;
 using Content.IntegrationTests.Fixtures;
 using Content.Shared._RMC14.Marines.Skills;
 using Content.Shared.CMU14.Vehicle.Open;
@@ -177,7 +183,127 @@ public sealed class CMUJeepUpgradeTest : GameTest
             // Raised, the hood shields nothing.
             SEntMan.System<CMUOpenVehicleSystem>()
                 .SetPanel((jeep, SEntMan.GetComponent<CMUOpenVehicleComponent>(jeep)), CMUOpenVehicleSystem.Hood, true);
-            Assert.That(upgrades.EngineShare(jeep), Is.EqualTo(1f), "A raised armored hood shouldn't shield the engine.");
+            Assert.That(upgrades.EngineShare(jeep), Is.EqualTo(1f),
+                "A raised armored hood shouldn't shield the engine.");
         });
+    }
+
+    [Test]
+    public async Task OnlyAnEngineerTakesAKitOff()
+    {
+        var (map, jeep) = await Jeep();
+        EntityUid rookie = default;
+        EntityUid kit = default;
+        await Server.WaitPost(() =>
+        {
+            var containers = SEntMan.System<SharedContainerSystem>();
+            kit = SEntMan.SpawnEntity("CMUJeepBullBar", MapCoordinates.Nullspace);
+            containers.Insert(kit, containers.GetContainer(jeep, "vehicle-upgrades"));
+
+            // The do-after a remove verb starts, run by someone who isn't an engineer.
+            rookie = Holding(map, "CMWrench", engineer: false);
+            var ev = new CMUVehicleKitDoAfterEvent(false, SEntMan.GetNetEntity(kit));
+            var args = new DoAfterArgs(SEntMan, rookie, TimeSpan.FromSeconds(1), ev, jeep, jeep);
+            Assert.That(SEntMan.System<SharedDoAfterSystem>().TryStartDoAfter(args), Is.True);
+        });
+        await RunSeconds(3f);
+
+        await Server.WaitAssertion(() =>
+        {
+            Assert.That(Kits(jeep), Does.Contain(kit), "Only an engineer should get a kit off.");
+        });
+    }
+
+    [Test]
+    public async Task ArmoredDoorsAndTailgateShieldTheirRiders()
+    {
+        var map = await Pair.CreateTestMap();
+        EntityUid jeep = default;
+        EntityUid driver = default;
+        EntityUid rear = default;
+        await Server.WaitPost(() =>
+        {
+            var maps = SEntMan.System<SharedMapSystem>();
+            for (var x = -8; x <= 8; x++)
+            {
+                for (var y = -8; y <= 8; y++)
+                {
+                    maps.SetTile(map.Grid.Owner, map.Grid.Comp, new Vector2i(x, y), map.Tile.Tile);
+                }
+            }
+
+            // The gun jeep: a driver behind the east door, the gunner in over the tailgate behind.
+            jeep = SEntMan.SpawnEntity("CMUVehicleJeepGunner", new EntityCoordinates(map.Grid, 0.5f, 0.5f));
+            driver = SEntMan.SpawnEntity("CMMobHuman", new EntityCoordinates(map.Grid, 1.45f, 0.75f));
+            rear = SEntMan.SpawnEntity("CMMobHuman", new EntityCoordinates(map.Grid, 0.5f, 2.05f));
+        });
+        await RunTicksSync(5);
+
+        await Server.WaitPost(() =>
+        {
+            var seats = SEntMan.GetComponent<CMUVehicleSeatsComponent>(jeep).SeatEntities;
+            var seating = SEntMan.System<CMUVehicleSeatSystem>();
+            seating.ClickSeat(seats.First(s => SEntMan.GetComponent<CMUVehicleSeatComponent>(s).Driver), driver);
+            seating.ClickSeat(seats.First(s => SEntMan.GetComponent<CMUVehicleSeatComponent>(s).Gunner), rear);
+        });
+        await RunSeconds(4f);
+
+        await Server.WaitAssertion(() =>
+        {
+            Assert.That(SEntMan.GetComponent<BuckleComponent>(driver).Buckled, Is.True);
+            Assert.That(SEntMan.GetComponent<BuckleComponent>(rear).Buckled, Is.True);
+
+            // Climbing in can leave a panel open; cover needs it shut.
+            var open = SEntMan.System<CMUOpenVehicleSystem>();
+            var parts = (jeep, SEntMan.GetComponent<CMUOpenVehicleComponent>(jeep));
+            open.SetPanel(parts, "door_driver", false);
+            open.SetPanel(parts, CMUOpenVehicleSystem.Tailgate, false);
+
+            var side = SEntMan.SpawnEntity("CMMobHuman", new EntityCoordinates(map.Grid, 6.5f, 0.5f));
+            var behind = SEntMan.SpawnEntity("CMMobHuman", new EntityCoordinates(map.Grid, 0.5f, 7.5f));
+            Assert.That(Hit(driver, side, BodyPartType.Torso), Is.False,
+                "A stock door shouldn't stop a shot at the driver's chest.");
+            Assert.That(Hit(rear, behind, BodyPartType.Leg), Is.False,
+                "A stock tailgate shouldn't stop a shot at the gunner from behind.");
+
+            Swap(jeep, "jeep-door-driver", "CMUJeepDoorArmored");
+            Swap(jeep, "jeep-tailgate", "CMUJeepTailgateArmored");
+            var door = SEntMan.GetComponent<CMUVehicleUpgradeComponent>(
+                SEntMan.System<ItemSlotsSystem>().GetItemOrNull(jeep, "jeep-door-driver")!.Value);
+            door.ChestChance = 1f;
+
+            Assert.That(Hit(driver, side, BodyPartType.Torso), Is.True,
+                "An armored door should stop a shot at the driver's chest.");
+            Assert.That(Hit(rear, behind, BodyPartType.Leg), Is.True,
+                "An armored tailgate should stop a shot at the gunner's legs from behind.");
+        });
+    }
+
+    private EntityUid Swap(EntityUid jeep, string slot, string part)
+    {
+        var containers = SEntMan.System<SharedContainerSystem>();
+        foreach (var stock in containers.GetContainer(jeep, slot).ContainedEntities.ToArray())
+        {
+            SEntMan.DeleteEntity(stock);
+        }
+
+        var fitted = SEntMan.SpawnEntity(part, MapCoordinates.Nullspace);
+        Assert.That(SEntMan.System<ItemSlotsSystem>().TryInsert(jeep, slot, fitted, null), Is.True);
+        return fitted;
+    }
+
+    /// <summary>
+    /// Whether the jeep's cover stops a bullet from <paramref name="shooter"/> at the rider.
+    /// </summary>
+    private bool Hit(EntityUid rider, EntityUid shooter, BodyPartType part)
+    {
+        // Hit location would otherwise roll where the bullet lands; the test names the part.
+        SEntMan.RemoveComponent<HitLocationComponent>(rider);
+        var damage = new DamageSpecifier();
+        damage.DamageDict["Piercing"] = 20;
+        var impact = new DamageImpact(DamageImpactDelivery.Projectile, default, default, default);
+        var ev = new BeforeDamageChangedEvent(damage, shooter, null, impact, TargetPart: part);
+        SEntMan.EventBus.RaiseLocalEvent(rider, ref ev);
+        return ev.Cancelled;
     }
 }

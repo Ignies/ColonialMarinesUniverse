@@ -594,8 +594,8 @@
   name: jeep
   description: A light, open four-by-four. Fast and nimble, but nothing stands between its crew and the bullets.
   components:
-  # Armor and mobility upgrades (jeep_upgrades.yml): 60 weight rides free, then each unit costs
-  # 0.4% of top speed, up to 160 at most, 40% slower.
+  # Armor and mobility upgrades (jeep_upgrades.yml): 30 weight rides free, then each unit costs
+  # 0.4% of top speed, up to 160 at most, 52% slower.
   - type: CMUVehicleUpgrades
   - type: CMUVehicleIgnition
     keySlot:

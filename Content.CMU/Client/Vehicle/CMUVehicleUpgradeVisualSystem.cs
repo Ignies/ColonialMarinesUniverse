@@ -6,7 +6,8 @@ namespace Content.Client.CMU14.Vehicle;
 
 /// <summary>
 /// Shows the kits bolted onto a vehicle, a bull bar or a roll cage, on its sprite and its overlay's:
-/// each kit's layer is shown while it's fitted, worn while the hull is wrecked.
+/// each kit's layer is shown while it's fitted, worn while the hull is wrecked. Armored panels are
+/// tinted on the vehicle as their items are.
 /// </summary>
 public sealed class CMUVehicleUpgradeVisualSystem : EntitySystem
 {
@@ -61,6 +62,45 @@ public sealed class CMUVehicleUpgradeVisualSystem : EntitySystem
                 if (overlay != null)
                     Show(overlay.Value, layer, $"{layer}_overlay_{worn}", shown);
             }
+
+            if (TryComp(uid, out CMUOpenVehicleComponent? jeep))
+                TintArmor((uid, sprite), overlay, jeep);
+        }
+    }
+
+    /// <summary>
+    /// Armored panels show on the vehicle in their own tint: the plate on a door, the thick glass of a
+    /// ballistic windshield. Stock ones show as drawn.
+    /// </summary>
+    private void TintArmor(
+        Entity<SpriteComponent> vehicle,
+        Entity<SpriteComponent>? overlay,
+        CMUOpenVehicleComponent jeep)
+    {
+        foreach (var part in jeep.Parts)
+        {
+            if (part.Kind is not (CMUVehiclePartKind.Panel or CMUVehiclePartKind.Windshield) || part.Slot == null)
+                continue;
+
+            var tint = _jeep.PanelItem(vehicle, jeep, part.Id) is { } item
+                && HasComp<CMUVehicleUpgradeComponent>(item)
+                && TryComp(item, out SpriteComponent? itemSprite)
+                    ? itemSprite.Color
+                    : Color.White;
+
+            Tint(vehicle, part.Id, tint);
+            if (overlay != null)
+                Tint(overlay.Value, part.Id, tint);
+        }
+    }
+
+    private void Tint(Entity<SpriteComponent> ent, string layer, Color tint)
+    {
+        if (_sprite.LayerMapTryGet(ent.AsNullable(), layer, out var index, false)
+            && _sprite.TryGetLayer(ent.AsNullable(), index, out var current, false)
+            && current.Color != tint)
+        {
+            _sprite.LayerSetColor(ent.AsNullable(), index, tint);
         }
     }
 

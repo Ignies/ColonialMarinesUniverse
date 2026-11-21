@@ -5,14 +5,15 @@
   id: CMUJeepTechnicalMount
 
 # The technical's mount, which only ever sits in a frame or, bolted down, in the cargo jeep's turret
-# slot: it can't be taken off through maintenance. It swings all the way round, slower than the gun
-# jeep's pedestal, and comes with no gun.
+# slot: it can't be taken off through maintenance. It swings three quarters of the way round, over
+# the sides and back but not ahead over the cab, slower than the gun jeep's pedestal, and comes with
+# no gun. It takes no rocket pod: the bed can't carry its backblast.
 - type: entity
   parent: CMUJeepHardpointBase
   id: CMUJeepTechnicalMount
   categories: [ HideSpawnMenu ]
   name: technical gun mount
-  description: An improvised pintle on a frame bolted into a cargo jeep's bed. It swings all the way round.
+  description: An improvised pintle on a frame bolted into a cargo jeep's bed. It swings over the sides and back, not ahead over the cab.
   components:
   - type: Sprite
     state: technical_frame
@@ -35,7 +36,7 @@
     rotateToCursor: true
     stabilizedRotation: false
     rotationSpeed: 150
-    cmuMaxYawDegrees: 180
+    cmuMaxYawDegrees: 135
     showOverlay: true
     useDirectionalOffsets: true
     overlayRsi: CMU14/Structures/vehicles/jeep/jeep_gunner.rsi
@@ -54,6 +55,9 @@
         whitelist:
           components:
           - HardpointItem
+        blacklist:
+          components:
+          - CMUGunBackblast
   - type: ContainerContainer
     containers:
       turret-gun: !type:ContainerSlot
@@ -77,7 +81,6 @@
   components:
   - type: Sprite
     sprite: CMU14/Structures/vehicles/jeep/hardpoints.rsi
-    noRot: true
     layers:
     - state: technical_frame
   - type: Icon

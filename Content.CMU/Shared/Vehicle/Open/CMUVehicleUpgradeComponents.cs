@@ -113,7 +113,7 @@ public sealed partial class CMUVehicleUpgradesComponent : Component
     /// Upgrade weight the vehicle carries without slowing.
     /// </summary>
     [DataField]
-    public float FreeWeight = 60f;
+    public float FreeWeight = 30f;
 
     /// <summary>
     /// The most upgrade weight it takes.

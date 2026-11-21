@@ -341,11 +341,14 @@ public sealed class CMUVehicleUpgradeSystem : EntitySystem
             return;
         }
 
+        if (!kits.Contains(kit.Value) || !TryComp(kit, out CMUVehicleUpgradeComponent? fitted))
+            return;
+
         // The verb checked the skill when it started; whoever finishes the job has to have it too.
-        if (!kits.Contains(kit.Value)
-            || !TryComp(kit, out CMUVehicleUpgradeComponent? fitted)
-            || CantFit(ent, fitted, args.User, fitted.Weight) is not null)
+        if (!_skills.HasSkill(args.User, fitted.Skill, fitted.SkillLevel))
         {
+            var message = Loc.GetString("cmu-vehicle-upgrade-unskilled", ("upgrade", kit.Value));
+            _popup.PopupEntity(message, ent, args.User, PopupType.SmallCaution);
             return;
         }
 

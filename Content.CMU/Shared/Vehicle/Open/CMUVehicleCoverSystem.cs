@@ -95,7 +95,7 @@ public sealed class CMUVehicleCoverSystem : EntitySystem
             HeadOrChest(args) &&
             Vector2.Dot(shot, Direction.South.ToVec()) <= reach &&
             WindshieldWhole(vehicle, jeep) &&
-            SharedRandomExtensions.PredictedProb(_timing, chance, GetNetEntity(ent), GetNetEntity(args.Source ?? args.Origin)))
+            SharedRandomExtensions.PredictedProb(_timing, chance, GetNetEntity(ent), shotSeed))
         {
             args.Cancelled = true;
             if (_net.IsServer)
