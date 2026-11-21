@@ -30,8 +30,10 @@ public sealed class CMUJeepTechnicalSystem : EntitySystem
 
     private void OnMountEjectAttempt(Entity<CMUJeepTechnicalMountComponent> ent, ref ItemSlotEjectAttemptEvent args)
     {
-        // Only wrenching the frame loose takes it off, straight back into the frame.
-        args.Cancelled = true;
+        // Only wrenching the frame loose takes it off, straight back into the frame. Its own gun slot
+        // raises this too, for the gun in it, which comes and goes as usual.
+        if (args.Item == ent.Owner)
+            args.Cancelled = true;
     }
 
     private void OnSecured(Entity<CMUJeepTechnicalComponent> ent, ref CMUVehicleCargoSecuredEvent args)

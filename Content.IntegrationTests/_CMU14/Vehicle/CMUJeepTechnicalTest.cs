@@ -76,7 +76,9 @@ public sealed class CMUJeepTechnicalTest : GameTest
             user = SEntMan.SpawnEntity("CMMobHuman", new EntityCoordinates(map.Grid, 0.5f, 2.4f));
             gunner = SEntMan.SpawnEntity("CMMobHuman", new EntityCoordinates(map.Grid, -0.5f, 2.4f));
             SEntMan.System<CMUOpenVehicleSystem>()
-                .SetPanel((jeep, SEntMan.GetComponent<CMUOpenVehicleComponent>(jeep)), CMUOpenVehicleSystem.Tailgate, true);
+                .SetPanel((jeep, SEntMan.GetComponent<CMUOpenVehicleComponent>(jeep)),
+                    CMUOpenVehicleSystem.Tailgate,
+                    true);
         });
         await RunTicksSync(5);
 
@@ -112,8 +114,8 @@ public sealed class CMUJeepTechnicalTest : GameTest
         await Server.WaitPost(() =>
         {
             Assert.That(SEntMan.GetComponent<CMUVehicleCargoComponent>(jeep).Secured, Is.True);
-            Assert.That(Turret(jeep) is { } mount && SEntMan.GetComponent<MetaDataComponent>(mount).EntityPrototype?.ID == "CMUJeepTechnicalMount",
-                Is.True, "Wrenched down, the frame's mount should be the jeep's gun mount.");
+            var fitted = Turret(jeep) is { } mount ? SEntMan.GetComponent<MetaDataComponent>(mount).EntityPrototype?.ID : null;
+            Assert.That(fitted, Is.EqualTo("CMUJeepTechnicalMount"), "Wrenched down, the frame's mount should be the jeep's gun mount.");
             SEntMan.System<CMUVehicleSeatSystem>().ClickSeat(GunnerSeat(jeep), gunner);
         });
         await RunSeconds(4);
@@ -130,7 +132,8 @@ public sealed class CMUJeepTechnicalTest : GameTest
         {
             Assert.That(SEntMan.GetComponent<CMUVehicleCargoComponent>(jeep).Secured, Is.False);
             Assert.That(Turret(jeep), Is.Null, "Wrenched loose, the mount should leave the jeep.");
-            Assert.That(SEntMan.System<SharedContainerSystem>().GetContainer(frame, "technical-mount").ContainedEntities,
+            var stowed = SEntMan.System<SharedContainerSystem>().GetContainer(frame, "technical-mount");
+            Assert.That(stowed.ContainedEntities,
                 Has.Count.EqualTo(1), "The mount should go back into its frame.");
             Assert.That(SEntMan.GetComponent<BuckleComponent>(gunner).Buckled, Is.False,
                 "With the mount gone, the gunner should get down.");
@@ -159,7 +162,8 @@ public sealed class CMUJeepTechnicalTest : GameTest
 
         await Server.WaitPost(() =>
         {
-            var screwdriver = SEntMan.SpawnEntity("CMScrewdriver", SEntMan.GetComponent<TransformComponent>(user).Coordinates);
+            var at = SEntMan.GetComponent<TransformComponent>(user).Coordinates;
+            var screwdriver = SEntMan.SpawnEntity("CMScrewdriver", at);
             Assert.That(SEntMan.System<SharedHandsSystem>().TryPickup(user, screwdriver), Is.True);
             Click(user, cradle);
         });
@@ -213,7 +217,8 @@ public sealed class CMUJeepTechnicalTest : GameTest
             Assert.That(shooting.Float(), Is.GreaterThan(unwielded.Float()),
                 "In the adapter the gun should shoot as true as wielded, not as held one-handed.");
 
-            Assert.That(TryShoot(cradle, gunner, target), Is.True, "Screwed down, the gun should fire from the adapter.");
+            Assert.That(TryShoot(cradle, gunner, target), Is.True,
+                "Screwed down, the gun should fire from the adapter.");
             Assert.That(Ammo(rifle), Is.LessThan(full), "The adapter's shots should come from its gun.");
         });
     }
@@ -248,7 +253,8 @@ public sealed class CMUJeepTechnicalTest : GameTest
 
             Assert.That(slots.TryInsert(mount, "turret-gun", cradle, null), Is.True);
 
-            magazine = SEntMan.SpawnEntity("RMCMagazineRifleL24", SEntMan.GetComponent<TransformComponent>(user).Coordinates);
+            var at = SEntMan.GetComponent<TransformComponent>(user).Coordinates;
+            magazine = SEntMan.SpawnEntity("RMCMagazineRifleL24", at);
             Assert.That(SEntMan.System<SharedHandsSystem>().TryPickup(user, magazine), Is.True);
         });
         await RunTicksSync(5);
@@ -288,8 +294,23 @@ public sealed class CMUJeepTechnicalTest : GameTest
             cargo.Load(bed, frame);
             cargo.SetSecured(bed, true);
             Assert.That(Turret(jeep), Is.Not.Null, "Wrenched down, the frame's mount should be up.");
-            Assert.That(SEntMan.System<ItemSlotsSystem>().TryEject(jeep, "turret", null, out _), Is.False,
-                "The mount shouldn't come off but with its frame.");
+            // Maintenance takes hardpoints off by ejecting them, which asks the slot's owner and the
+            // item first: the mount refuses for itself, not for the gun in its own slot.
+            var slots = SEntMan.System<ItemSlotsSystem>();
+            var mount = Turret(jeep)!.Value;
+            var gun = SEntMan.SpawnEntity("CMUJeepMG", MapCoordinates.Nullspace);
+            Assert.That(slots.TryInsert(mount, "turret-gun", gun, null), Is.True,
+                "A jeep gun should fit the technical's mount.");
+            Assert.That(slots.TryGetSlot(jeep, "turret", out var turretSlot), Is.True);
+            Assert.That(slots.TryGetSlot(mount, "turret-gun", out var gunSlot), Is.True);
+
+            var takeMount = new ItemSlotEjectAttemptEvent(jeep, mount, null, turretSlot!);
+            SEntMan.EventBus.RaiseLocalEvent(mount, ref takeMount);
+            Assert.That(takeMount.Cancelled, Is.True, "The mount shouldn't come off but with its frame.");
+
+            var takeGun = new ItemSlotEjectAttemptEvent(mount, gun, null, gunSlot!);
+            SEntMan.EventBus.RaiseLocalEvent(gun, ref takeGun);
+            Assert.That(takeGun.Cancelled, Is.False, "A gun on the technical's mount should come off as usual.");
 
             SEntMan.DeleteEntity(frame);
         });
@@ -299,6 +320,40 @@ public sealed class CMUJeepTechnicalTest : GameTest
         {
             Assert.That(Turret(jeep), Is.Null, "A frame destroyed while bolted down takes its mount with it.");
             Assert.That(SEntMan.GetComponent<CMUVehicleCargoComponent>(jeep).Crate, Is.Null);
+        });
+    }
+
+    [Test]
+    public async Task TheAdapterKeepsItsGunsOwnChecks()
+    {
+        var map = await OpenGround();
+        EntityUid jeep = default;
+        EntityUid cradle = default;
+        await Server.WaitPost(() =>
+        {
+            jeep = SEntMan.SpawnEntity("CMUVehicleJeepGunner", new EntityCoordinates(map.Grid, 0.5f, 0.5f));
+            cradle = SEntMan.SpawnEntity("CMUJeepGunCradle", MapCoordinates.Nullspace);
+            var slots = SEntMan.System<ItemSlotsSystem>();
+            var vulture = SEntMan.SpawnEntity("RMCWeaponSniperM707Vulture", MapCoordinates.Nullspace);
+            Assert.That(slots.TryInsert(cradle, "cradle-gun", vulture, null), Is.True);
+            slots.SetLock(cradle, "cradle-gun", true);
+
+            var mount = SEntMan.System<SharedContainerSystem>().GetContainer(jeep, "turret").ContainedEntities.Single();
+            var gunSlot = SEntMan.System<SharedContainerSystem>().GetContainer(mount, "turret-gun");
+            foreach (var old in gunSlot.ContainedEntities.ToArray())
+            {
+                SEntMan.DeleteEntity(old);
+            }
+
+            Assert.That(slots.TryInsert(mount, "turret-gun", cradle, null), Is.True);
+        });
+        await RunTicksSync(5);
+
+        await Server.WaitAssertion(() =>
+        {
+            var gunner = SEntMan.SpawnEntity("CMMobHuman", new EntityCoordinates(map.Grid, 0.5f, 1.5f));
+            Assert.That(TryShoot(cradle, gunner, new EntityCoordinates(map.Grid, 0.5f, -6.5f)), Is.False,
+                "A specialist's rifle in the adapter should still only fire for its specialist.");
         });
     }
 

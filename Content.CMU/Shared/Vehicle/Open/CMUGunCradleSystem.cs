@@ -1,4 +1,5 @@
 using Content.Shared._RMC14.Attachable.Systems;
+using Content.Shared._RMC14.Vehicle;
 using Content.Shared._RMC14.Weapons.Ranged;
 using Content.Shared.Containers.ItemSlots;
 using Content.Shared.Examine;
@@ -43,7 +44,7 @@ public sealed class CMUGunCradleSystem : EntitySystem
         SubscribeLocalEvent<CMUGunCradleComponent, GunRefreshModifiersEvent>(OnRefreshModifiers);
         // First, so the other modifiers build on the wielded figure rather than the one-handed one.
         SubscribeLocalEvent<CMUCradledGunComponent, GetWeaponAccuracyEvent>(OnCradledAccuracy,
-            before: [typeof(CMGunSystem), typeof(AttachableHolderSystem)]);
+            before: [typeof(CMGunSystem), typeof(AttachableHolderSystem), typeof(VehicleWeaponSupportSystem)]);
     }
 
     /// <summary>
@@ -182,18 +183,35 @@ public sealed class CMUGunCradleSystem : EntitySystem
 
         string? why = null;
         if (!IsClamped(ent))
+        {
             why = GetGun(ent) == null ? "cmu-gun-cradle-empty" : "cmu-gun-cradle-loose";
+        }
         else if (TryComp(ent, out GunComponent? own)
                  && TryComp(GetGun(ent), out GunComponent? held)
                  && (held.AvailableModes & own.SelectedMode) == 0)
-            why = "cmu-gun-cradle-mode"; // Only the fire modes the clamped gun has.
+        {
+            // Only the fire modes the clamped gun has.
+            why = "cmu-gun-cradle-mode";
+        }
 
-        if (why == null)
+        if (why != null)
+        {
+            args.Cancelled = true;
+            args.ResetCooldown = true;
+            args.Message = Loc.GetString(why);
+            return;
+        }
+
+        // The gun's own checks still stand, but for being held: who may fire it, its aim, its safety,
+        // its jams. Wielding is checked on the shot itself, which the cradle takes.
+        var relay = new AttemptShootEvent(args.User, null, args.FromCoordinates, args.ToCoordinates);
+        RaiseLocalEvent(GetGun(ent)!.Value, ref relay);
+        if (!relay.Cancelled)
             return;
 
         args.Cancelled = true;
-        args.ResetCooldown = true;
-        args.Message = Loc.GetString(why);
+        args.ResetCooldown = relay.ResetCooldown;
+        args.Message = relay.Message;
     }
 
     private void OnTakeAmmo(Entity<CMUGunCradleComponent> ent, ref TakeAmmoEvent args)

@@ -116,7 +116,10 @@ public sealed class CMUJeepCrewFireTest : GameTest
             var seatSystem = SEntMan.System<CMUVehicleSeatSystem>();
             seatSystem.ClickSeat(seats.First(s => SEntMan.GetComponent<CMUVehicleSeatComponent>(s).Driver), driver);
             if (passenger)
-                seatSystem.ClickSeat(seats.First(s => SEntMan.GetComponent<CMUVehicleSeatComponent>(s) is { Driver: false, Gunner: false }), rider);
+            {
+                var seat = seats.First(s => SEntMan.GetComponent<CMUVehicleSeatComponent>(s) is { Driver: false, Gunner: false });
+                seatSystem.ClickSeat(seat, rider);
+            }
         });
         await RunSeconds(4f);
 

@@ -158,8 +158,9 @@
           - Gun
           - Item
           requireAll: true
-        # Not guns that need their user's own hands, skills or ID to fire, nor launchers: those
-        # belong to the vehicle's own mounts, or to the marine trained for them.
+        # Not launchers or flamers, which belong to the vehicle's own mounts, nor guns that need a
+        # specialist's training, an ID, or their user's hands to work them. Every other check the gun
+        # makes before firing still applies on the adapter.
         blacklist:
           components:
           - HardpointItem
@@ -171,6 +172,8 @@
           - GunSpinup
           - ShootAtFixedPoint
           - CMUBackblast
+          - CMUATGMLauncher
+          - CMUManpadLowAltitude
           - RMCFlamerAmmoProvider
   - type: ContainerContainer
     containers:

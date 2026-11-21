@@ -1,5 +1,6 @@
 using Content.Shared.CMU14.Medical.Core;
 using Content.Shared.CMU14.Medical.Injuries.Pain.Penalties;
+using Content.Shared.CMU14.Vehicle.Open;
 using Content.Shared._RMC14.Weapons.Ranged;
 using Content.Shared.FixedPoint;
 using Content.Shared.Weapons.Ranged.Events;
@@ -20,7 +21,9 @@ public sealed partial class CMUAccuracyEventSubscriber : EntitySystem
     public override void Initialize()
     {
         base.Initialize();
-        SubscribeLocalEvent<RMCWeaponAccuracyComponent, GetWeaponAccuracyEvent>(OnGetAccuracy);
+        // After a gun cradle sets its gun's wielded figure, which this scales.
+        SubscribeLocalEvent<RMCWeaponAccuracyComponent, GetWeaponAccuracyEvent>(OnGetAccuracy,
+            after: [typeof(CMUGunCradleSystem)]);
         SubscribeLocalEvent<CMUMedicalGunAimPenaltyComponent, GunRefreshModifiersEvent>(OnGunRefreshModifiers);
 
         _cfg.OnValueChanged(CMUMedicalCCVars.Enabled, v => _medicalEnabled = v, true);

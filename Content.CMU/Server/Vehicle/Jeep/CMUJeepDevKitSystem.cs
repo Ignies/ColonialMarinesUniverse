@@ -293,7 +293,7 @@ public sealed class CMUJeepDevKitSystem : EntitySystem
                 var bed = (jeep, Comp<CMUVehicleCargoComponent>(jeep));
                 _cargo.Load(bed, Spawn(turret, MapCoordinates.Nullspace));
                 _cargo.SetSecured(bed, true);
-                if (_itemSlots.GetItemOrNull(jeep, "turret") is { } fitted
+                if (_itemSlots.GetItemOrNull(jeep, CMUOpenVehicleSystem.TurretSlot) is { } fitted
                     && !string.IsNullOrEmpty(gun)
                     && _prototypes.HasIndex<EntityPrototype>(gun))
                 {
@@ -304,7 +304,7 @@ public sealed class CMUJeepDevKitSystem : EntitySystem
                 continue;
             }
 
-            if (_containers.TryGetContainer(jeep, "turret", out var slot))
+            if (_containers.TryGetContainer(jeep, CMUOpenVehicleSystem.TurretSlot, out var slot))
             {
                 foreach (var old in slot.ContainedEntities.ToArray())
                 {
@@ -313,7 +313,7 @@ public sealed class CMUJeepDevKitSystem : EntitySystem
             }
 
             var mount = Spawn(turret, MapCoordinates.Nullspace);
-            if (!_itemSlots.TryInsert(jeep, "turret", mount, null))
+            if (!_itemSlots.TryInsert(jeep, CMUOpenVehicleSystem.TurretSlot, mount, null))
             {
                 Del(mount);
                 continue;
