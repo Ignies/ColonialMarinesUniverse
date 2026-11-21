@@ -1,10 +1,9 @@
-using System.Linq;
 using Content.IntegrationTests.Fixtures;
 using Content.Shared.Buckle.Components;
 using Content.Shared.CMU14.Vehicle.Open;
+using Content.Shared.Containers.ItemSlots;
 using Content.Shared.Damage.Systems;
 using Content.Shared.Stunnable;
-using Content.Shared.Containers.ItemSlots;
 using Content.Shared.Weapons.Ranged.Components;
 using Content.Shared.Weapons.Ranged.Events;
 using Content.Shared.Weapons.Ranged.Systems;
@@ -12,6 +11,7 @@ using Robust.Shared.Containers;
 using Robust.Shared.GameObjects;
 using Robust.Shared.Map;
 using Robust.Shared.Prototypes;
+using System.Linq;
 
 namespace Content.IntegrationTests.CMU14.Vehicle;
 
