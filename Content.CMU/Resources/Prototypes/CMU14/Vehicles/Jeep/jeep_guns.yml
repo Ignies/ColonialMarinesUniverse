@@ -241,5 +241,6 @@
   - type: BulletBox
     amount: 4
     max: 4
+    ammoProto: CMUJeepRocket
     bulletType: CMUJeepRocketBox
     usedIn: Jeep rocket pod

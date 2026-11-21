@@ -312,10 +312,13 @@ public sealed class CMUJeepDevKitSystem : EntitySystem
         {
             foreach (var (id, slot) in slots.Slots)
             {
+                if (slot.ContainerSlot is not { } container)
+                    continue;
+
                 // A mount comes with its own gun on: the shown one takes its place.
                 var fitted = slot.Item;
                 if (fitted != null)
-                    _containers.Remove(fitted.Value, slot.ContainerSlot!);
+                    _containers.Remove(fitted.Value, container);
 
                 if (_itemSlots.TryInsert(mount, id, gun, null))
                 {
@@ -323,8 +326,9 @@ public sealed class CMUJeepDevKitSystem : EntitySystem
                     return;
                 }
 
-                if (fitted != null)
-                    _itemSlots.TryInsert(mount, id, fitted.Value, null);
+                // Put back as it was; a gun that won't go back isn't left lying about.
+                if (fitted != null && !_itemSlots.TryInsert(mount, id, fitted.Value, null))
+                    Del(fitted);
             }
         }
 

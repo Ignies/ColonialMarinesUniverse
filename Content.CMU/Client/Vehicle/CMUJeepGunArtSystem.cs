@@ -1,6 +1,5 @@
 using Content.Shared._RMC14.Vehicle;
 using Content.Shared.CMU14.Vehicle.Open;
-using Content.Shared.Containers.ItemSlots;
 using Robust.Client.GameObjects;
 
 namespace Content.Client.CMU14.Vehicle;
@@ -17,6 +16,7 @@ namespace Content.Client.CMU14.Vehicle;
 /// </remarks>
 public sealed class CMUJeepGunArtSystem : EntitySystem
 {
+    [Dependency] private CMUJeepGunSystem _guns = default!;
     [Dependency] private HardpointSystem _hardpoints = default!;
     [Dependency] private SpriteSystem _sprite = default!;
 
@@ -33,11 +33,7 @@ public sealed class CMUJeepGunArtSystem : EntitySystem
             }
 
             // The fitted gun's art, or the bare mount's once the gun is off.
-            Entity<CMUVehicleTurretArtComponent>? art = FittedGun(turret.Value);
-            if (art == null && TryComp(turret, out CMUVehicleTurretArtComponent? bare))
-                art = (turret.Value, bare);
-
-            if (art is not { } shown)
+            if (_guns.Art(turret.Value) is not { } shown)
                 continue;
 
             var broken = !_hardpoints.IsHardpointFunctional(turret.Value)
@@ -49,19 +45,5 @@ public sealed class CMUJeepGunArtSystem : EntitySystem
             if (layer.State.Name != state)
                 _sprite.LayerSetRsiState((uid, sprite), 0, state);
         }
-    }
-
-    private Entity<CMUVehicleTurretArtComponent>? FittedGun(EntityUid mount)
-    {
-        if (!TryComp(mount, out ItemSlotsComponent? slots))
-            return null;
-
-        foreach (var slot in slots.Slots.Values)
-        {
-            if (slot.Item is { } item && TryComp(item, out CMUVehicleTurretArtComponent? art))
-                return (item, art);
-        }
-
-        return null;
     }
 }
