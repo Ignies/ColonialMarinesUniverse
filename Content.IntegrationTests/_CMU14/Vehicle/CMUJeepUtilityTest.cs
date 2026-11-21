@@ -283,6 +283,14 @@ public sealed class CMUJeepUtilityTest : GameTest
             Assert.That(utility.ToggleCamoNet(jeep), Is.True);
             Assert.That(SEntMan.HasComponent<EntityActiveInvisibleComponent>(jeep), Is.False,
                 "Taken down, the jeep should show again.");
+
+            // Spread again, then the smoke dischargers fire: that gives it away too.
+            Bolt(jeep, "CMUJeepSmokeDischargers");
+            Assert.That(utility.ToggleCamoNet(jeep), Is.True);
+            var user = SEntMan.SpawnEntity("CMMobHuman", MapCoordinates.Nullspace);
+            Assert.That(utility.TryFireSmoke(jeep, user), Is.True);
+            Assert.That(SEntMan.HasComponent<EntityActiveInvisibleComponent>(jeep), Is.False,
+                "Firing the smoke dischargers should give the jeep away.");
         });
     }
 }

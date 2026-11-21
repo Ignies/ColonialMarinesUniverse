@@ -2134,20 +2134,26 @@ def build_smoke_canister():
 
 
 def build_winch():
-    """A winch: a cable drum wound with cable between olive end plates on a base bracket, the cable
-    paying out to a yellow hook."""
+    """A winch: a cable drum lying across its bracket between olive end plates, wound with cable,
+    the free end paying out to a yellow hook."""
     m = Model()
-    m.box(-7, 7, -5, 5, 0, 1, "gun", "kit")
-    for r0 in (-6, 5):
-        m.box(-5, 5, r0, r0 + 1, 2, 11, "od", "kit")
-        m.box(-5, 5, r0, r0 + 1, 11, 11, "od_seam", "kit")
-    for f in range(-4, 5):
-        for z in range(3, 11):
-            if (f / 4.5) ** 2 + ((z - 6.5) / 4) ** 2 <= 1:
-                m.box(f, f, -4, 4, z, z, "steel" if z % 2 else "gun", "kit")
-    m.box(5, 9, -1, 0, 4, 4, "black", "kit")
-    m.box(10, 11, -1, 0, 2, 5, "yellow", "kit")
-    m.box(10, 10, -1, 0, 1, 1, "yellow", "kit")
+    m.box(-5, 5, -9, 9, 0, 1, "gun", "kit")
+    # Round end plates with a hub, so it reads as a drum side on.
+    for r0 in (-9, 8):
+        for f in range(-5, 6):
+            for z in range(1, 12):
+                d = (f / 5.5) ** 2 + ((z - 6) / 5.5) ** 2
+                if d <= 1:
+                    m.box(f, f, r0, r0 + 1, z, z, "black" if d <= 0.12 else "od", "kit")
+    for f in range(-3, 4):
+        for z in range(2, 10):
+            if (f / 3.5) ** 2 + ((z - 6) / 4) ** 2 <= 1:
+                m.box(f, f, -7, 7, z, z, "gun", "kit")
+    # Cable wound round it: light turns side by side across the drum.
+    m.paint(lambda f, r, z: -7 <= r <= 7 and r % 2 == 0 and z >= 2, "steel")
+    m.box(4, 8, 0, 0, 4, 4, "black", "kit")
+    m.box(9, 9, 0, 1, 2, 4, "yellow", "kit")
+    m.box(8, 8, 1, 1, 2, 2, "yellow", "kit")
     return m
 
 
@@ -2169,17 +2175,19 @@ def build_tow_hitch():
 
 
 def build_camo_net():
-    """A camo net: a rolled bundle of netting, a dark diamond mesh over its patches, tied to two
-    poles that stand out past each end."""
+    """A camo net: a long rolled bundle of netting, a dark diamond mesh over its patches, tied
+    twice, with a pole standing past each end."""
     m = Model()
-    m.box(-8, 8, -4, 4, 0, 6, "od", "kit")
+    m.box(-4, 4, -10, 10, 0, 6, "od", "kit")
     m.paint(lambda f, r, z: (f * 2 + r * 3) % 7 < 2, "canvas")
     m.paint(lambda f, r, z: (f + r) % 4 == 0 or (f - r) % 4 == 0, "black")
-    for f0 in (-6, 5):
-        m.box(f0, f0, -4, 4, 6, 6, "strap", "kit")
-    for r0 in (-6, 5):
-        m.box(-11, 11, r0, r0, 2, 3, "wood", "kit")
+    for r0 in (-5, 5):
+        m.box(-4, 4, r0, r0, 6, 6, "strap", "kit")
+    for r0 in (-12, 11):
+        m.box(-6, 6, r0, r0, 0, 1, "wood", "kit")
     return m
+
+UTILITY_ICON_VIEWS = {"tow_hitch": "X", "winch": "E"}
 
 UTILITY_ICONS = {
     "roof_rack": build_roof_rack,
@@ -3164,8 +3172,8 @@ def icon_images():
         "skid_plate": centred(build_skid_plate(), "S", ICON),
         "snorkel": centred(build_snorkel(), "E", ICON),
         "roll_cage": centred(build_roll_cage(), "E", ICON),
-        # The tow bar lies flat, so it is drawn from above.
-        **{name: centred(build(), "X" if name == "tow_hitch" else "S", ICON)
+        # The tow bar lies flat, so it is drawn from above; the winch side on, to show its drum.
+        **{name: centred(build(), UTILITY_ICON_VIEWS.get(name, "S"), ICON)
            for name, build in UTILITY_ICONS.items()},
         "windshield": centred(small_shield, "S", ICON),
         "searchlight": centred(scaled(searchlight("left")(), 2), "E", ICON),

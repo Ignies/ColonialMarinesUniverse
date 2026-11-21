@@ -221,6 +221,9 @@ public sealed class CMUVehicleUtilitySystem : EntitySystem
         smoke.Comp.Charges--;
         smoke.Comp.NextFire = _timing.CurTime + smoke.Comp.Cooldown;
         Dirty(smoke);
+
+        // The dischargers' thump gives the jeep away as surely as a gun.
+        TakeDownNet(vehicle);
         _popup.PopupPredicted(Loc.GetString("cmu-vehicle-smoke-fired"), vehicle, user, PopupType.Medium);
         if (_net.IsClient)
             return true;
