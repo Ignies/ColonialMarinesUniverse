@@ -68,8 +68,8 @@ public sealed class CMUVehicleCoverSystem : EntitySystem
         var doorArmor = seat.Door is { } fitted ? Armor(vehicle, jeep, fitted) : null;
         var shotSeed = GetNetEntity(args.Source ?? args.Origin);
         if (seat.Door is { } door
-            && (BelowChest(args) || ChestCovered(doorArmor, args, GetNetEntity(ent), shotSeed))
             && DoorFaces(seat, doorArmor, shot, reach)
+            && (BelowChest(args) || ChestCovered(doorArmor, args, GetNetEntity(ent), shotSeed))
             && !CMUOpenVehicleSystem.GetPanelFlag(jeep, door)
             && _jeep.IsPanelFitted(vehicle, jeep, door)
             && !_jeep.IsPanelBroken(vehicle, jeep, door)
