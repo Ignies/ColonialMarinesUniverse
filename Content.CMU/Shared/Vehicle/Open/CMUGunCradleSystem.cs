@@ -188,13 +188,14 @@ public sealed class CMUGunCradleSystem : EntitySystem
         if (args.Cancelled)
             return;
 
+        var gun = GetGun(ent);
         string? why = null;
-        if (!IsClamped(ent))
+        if (gun is not { } clamped || !IsClamped(ent))
         {
-            why = GetGun(ent) == null ? "cmu-gun-cradle-empty" : "cmu-gun-cradle-loose";
+            why = gun == null ? "cmu-gun-cradle-empty" : "cmu-gun-cradle-loose";
         }
         else if (TryComp(ent, out GunComponent? own)
-                 && TryComp(GetGun(ent), out GunComponent? held)
+                 && TryComp(clamped, out GunComponent? held)
                  && (held.AvailableModes & own.SelectedMode) == 0)
         {
             // Only the fire modes the clamped gun has.
@@ -212,7 +213,7 @@ public sealed class CMUGunCradleSystem : EntitySystem
         // The gun's own checks still stand, but for being held: who may fire it, its safety, its jams,
         // and where it puts the shot. Wielding is checked on the shot itself, which the cradle takes.
         var relay = new AttemptShootEvent(args.User, null, args.FromCoordinates, args.ToCoordinates);
-        RaiseLocalEvent(GetGun(ent)!.Value, ref relay);
+        RaiseLocalEvent(gun!.Value, ref relay);
         if (!relay.Cancelled)
         {
             args.ToCoordinates = relay.ToCoordinates;

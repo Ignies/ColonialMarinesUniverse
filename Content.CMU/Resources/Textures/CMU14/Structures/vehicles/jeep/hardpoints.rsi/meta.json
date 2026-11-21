@@ -53,7 +53,8 @@
             "name": "cradleturret"
         },
         {
-            "name": "technical_frame"
+            "name": "technical_frame",
+            "directions": 4
         }
     ]
 }

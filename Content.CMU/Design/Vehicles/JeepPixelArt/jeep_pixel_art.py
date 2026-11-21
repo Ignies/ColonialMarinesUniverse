@@ -2812,7 +2812,6 @@ def icon_images():
         "glturret": centred(build_gl(), "E", ICON),
         "rlturret": centred(build_rl(), "E", ICON),
         "cradleturret": centred(build_cradle(), "E", ICON),
-        "technical_frame": centred(build_technical_frame(), "S", ICON),
         "windshield": centred(small_shield, "S", ICON),
         "searchlight": centred(scaled(searchlight("left")(), 2), "E", ICON),
         "engine": centred(engine(), "S", ICON),
@@ -3237,7 +3236,10 @@ def write_small_rsis():
     icons = icon_images()
     for name, img in icons.items():
         img.save(os.path.join(path, name + ".png"))
-    write_meta(path, ICON, [{"name": name} for name in icons])
+    # The technical's frame rides in a cargo bed, turning with the jeep: one view a direction.
+    frame = build_technical_frame()
+    rsi_sheet([centred(frame, v, ICON) for v in DIRS]).save(os.path.join(path, "technical_frame.png"))
+    write_meta(path, ICON, [{"name": name} for name in icons] + [{"name": "technical_frame", "directions": 4}])
     return icons
 
 

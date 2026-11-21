@@ -386,6 +386,54 @@ public sealed class CMUJeepTechnicalTest : GameTest
         });
     }
 
+    [Test]
+    public async Task TheTechnicalMountTakesNoRocketPod()
+    {
+        await Server.WaitAssertion(() =>
+        {
+            var slots = SEntMan.System<ItemSlotsSystem>();
+            var mount = SEntMan.SpawnEntity("CMUJeepTechnicalMount", MapCoordinates.Nullspace);
+            var pod = SEntMan.SpawnEntity("CMUJeepRocketPod", MapCoordinates.Nullspace);
+            Assert.That(slots.TryInsert(mount, "turret-gun", pod, null), Is.False,
+                "The bed can't carry the rocket pod's backblast.");
+            var launcher = SEntMan.SpawnEntity("CMUJeepGrenadeLauncher", MapCoordinates.Nullspace);
+            Assert.That(slots.TryInsert(mount, "turret-gun", launcher, null), Is.True,
+                "The grenade launcher should fit the technical's mount.");
+        });
+    }
+
+    [Test]
+    public async Task TheCradleFollowsItsGunsFigures()
+    {
+        EntityUid cradle = default;
+        EntityUid rifle = default;
+        await Server.WaitPost(() =>
+        {
+            cradle = SEntMan.SpawnEntity("CMUJeepGunCradle", MapCoordinates.Nullspace);
+            rifle = SEntMan.SpawnEntity(Rifle, MapCoordinates.Nullspace);
+            Assert.That(SEntMan.System<ItemSlotsSystem>().TryInsert(cradle, "cradle-gun", rifle, null), Is.True);
+        });
+        await RunTicksSync(2);
+
+        await Server.WaitPost(() =>
+        {
+            // Something on the clamped gun changes its rate, like an attachment toggled.
+            var guns = SEntMan.System<SharedGunSystem>();
+            var held = SEntMan.GetComponent<GunComponent>(rifle);
+            guns.SetFireRate((rifle, held), held.FireRate * 2f);
+            guns.RefreshModifiers(rifle);
+        });
+        await RunTicksSync(2);
+
+        await Server.WaitAssertion(() =>
+        {
+            var held = SEntMan.GetComponent<GunComponent>(rifle);
+            Assert.That(SEntMan.GetComponent<GunComponent>(cradle).FireRateModified,
+                Is.EqualTo(held.FireRateModified).Within(0.001f),
+                "The cradle should pick up its gun's new rate.");
+        });
+    }
+
     private bool TryShoot(EntityUid gun, EntityUid user, EntityCoordinates at)
     {
         var gunComp = SEntMan.GetComponent<GunComponent>(gun);
