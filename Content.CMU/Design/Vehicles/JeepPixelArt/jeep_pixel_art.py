@@ -1991,21 +1991,28 @@ def build_bull_bar():
 
 
 def build_skid_plate():
-    """A skid plate: a ribbed steel tray with its mounting tabs."""
+    """A skid plate: a steel plate with a bevelled, upturned edge and a bolt at each corner."""
     m = Model()
     m.box(-9, 9, -7, 7, 0, 0, "steel", "kit")
-    m.paint(lambda f, r, z: f % 3 == 0, "black")
-    for f0 in (-9, 8):
-        m.box(f0, f0 + 1, -7, 7, 1, 2, "steel", "kit")
+    m.box(-9, 9, -7, -7, 1, 1, "gun", "kit")
+    m.box(-9, 9, 7, 7, 1, 1, "gun", "kit")
+    m.box(-9, -9, -7, 7, 1, 1, "gun", "kit")
+    m.box(9, 9, -7, 7, 1, 1, "frame", "kit")
+    for f0 in (-7, 7):
+        for r0 in (-5, 5):
+            m.put(f0, r0, 1, "black", "kit")
     return m
 
 
 def build_snorkel():
-    """A snorkel: a fat intake pipe with its mounting bracket and a rain cap."""
+    """A snorkel: a fat intake pipe rising from a bend at its foot, with its bracket and a rain cap."""
     m = Model()
-    m.box(-1, 1, -1, 1, 0, 16, "black", "kit")
-    m.box(-3, 3, -2, 2, 17, 19, "gun", "kit")
-    m.box(2, 5, -1, 1, 4, 6, "steel", "kit")
+    m.box(-1, 1, -1, 1, 3, 22, "black", "kit")
+    m.paint(lambda f, r, z: r == -1 and 3 <= z <= 22, "gun")
+    m.box(2, 8, -1, 1, 1, 3, "black", "kit")
+    m.box(-3, 3, -2, 2, 23, 25, "gun", "kit")
+    m.box(-3, 3, -2, 2, 25, 25, "steel", "kit")
+    m.box(-2, 1, 2, 3, 10, 12, "od", "kit")
     return m
 
 
@@ -2992,7 +2999,7 @@ def icon_images():
         "cradleturret": centred(build_cradle(), "E", ICON),
         "bull_bar": centred(scaled(build_bull_bar(), 2), "S", ICON),
         "skid_plate": centred(build_skid_plate(), "S", ICON),
-        "snorkel": centred(build_snorkel(), "S", ICON),
+        "snorkel": centred(build_snorkel(), "E", ICON),
         "roll_cage": centred(build_roll_cage(), "E", ICON),
         "windshield": centred(small_shield, "S", ICON),
         "searchlight": centred(scaled(searchlight("left")(), 2), "E", ICON),
