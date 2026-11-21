@@ -101,7 +101,8 @@
       components:
       - EntityStorage
       - CMUOpenVehicle
-      - CMUVehiclePermanentWreck
+      tags:
+      - CMUJeepWreck
 
 # Tow hitch: tows a jeep nobody's driving, a wreck or a crate behind the jeep, at a little over half
 # its speed. It comes loose if the load snags.
@@ -124,7 +125,8 @@
       components:
       - EntityStorage
       - CMUOpenVehicle
-      - CMUVehiclePermanentWreck
+      tags:
+      - CMUJeepWreck
 
 # Camo net: spread over a parked jeep, it is hard to see until it moves off or anything aboard fires.
 - type: entity

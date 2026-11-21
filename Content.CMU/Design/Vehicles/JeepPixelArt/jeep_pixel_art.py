@@ -2110,23 +2110,37 @@ def build_smoke_canister():
 
 
 def build_winch():
-    """A winch: a cable drum between its cheeks, with a hook."""
+    """A winch: a cable drum wound with cable between olive end plates on a base bracket, the cable
+    paying out to a yellow hook."""
     m = Model()
-    m.box(-6, 6, -8, -7, 0, 9, "steel", "kit")
-    m.box(-6, 6, 7, 8, 0, 9, "steel", "kit")
-    m.box(-4, 4, -6, 6, 2, 7, "black", "kit")
-    m.paint(lambda f, r, z: (r + z) % 2 == 0, "gun")
-    m.box(7, 10, -1, 0, 3, 4, "yellow", "kit")
+    m.box(-7, 7, -5, 5, 0, 1, "gun", "kit")
+    for r0 in (-6, 5):
+        m.box(-5, 5, r0, r0 + 1, 2, 11, "od", "kit")
+        m.box(-5, 5, r0, r0 + 1, 11, 11, "od_seam", "kit")
+    for f in range(-4, 5):
+        for z in range(3, 11):
+            if (f / 4.5) ** 2 + ((z - 6.5) / 4) ** 2 <= 1:
+                m.box(f, f, -4, 4, z, z, "steel" if z % 2 else "gun", "kit")
+    m.box(5, 9, -1, 0, 4, 4, "black", "kit")
+    m.box(10, 11, -1, 0, 2, 5, "yellow", "kit")
+    m.box(10, 10, -1, 0, 1, 1, "yellow", "kit")
     return m
 
 
 def build_tow_hitch():
-    """A tow hitch: a receiver bar with a ball and a pin."""
+    """A tow bar: an A-frame of heavy tube from two clevis feet to a towing eye, braced across."""
     m = Model()
-    m.box(-10, 6, -1, 1, 0, 2, "black", "kit")
-    m.box(7, 9, -2, 2, 0, 3, "steel", "kit")
-    m.box(8, 8, -1, 1, 4, 5, "steel", "kit")
-    m.box(-4, -4, -3, 3, 1, 1, "yellow", "kit")
+    # Arms on an even 2:1 slope, so they read as clean lines.
+    for t in range(0, 14):
+        r = -8 + t // 2
+        m.box(-8 + t, -8 + t, r - 1, r, 1, 2, "gun", "kit")
+        m.box(-8 + t, -8 + t, -r - 1, -r, 1, 2, "gun", "kit")
+    m.box(-2, -1, -5, 4, 1, 2, "od", "kit")
+    for r0 in (-9, 7):
+        m.box(-11, -9, r0, r0 + 2, 0, 3, "steel", "kit")
+        m.box(-10, -10, r0 + 1, r0 + 1, 3, 3, "black", "kit")
+    m.box(6, 9, -2, 1, 1, 2, "steel", "kit")
+    m.box(7, 8, -1, 0, 1, 2, "black", "kit")
     return m
 
 
@@ -3124,7 +3138,9 @@ def icon_images():
         "skid_plate": centred(build_skid_plate(), "S", ICON),
         "snorkel": centred(build_snorkel(), "S", ICON),
         "roll_cage": centred(build_roll_cage(), "E", ICON),
-        **{name: centred(build(), "S", ICON) for name, build in UTILITY_ICONS.items()},
+        # The tow bar lies flat, so it is drawn from above.
+        **{name: centred(build(), "X" if name == "tow_hitch" else "S", ICON)
+           for name, build in UTILITY_ICONS.items()},
         "windshield": centred(small_shield, "S", ICON),
         "searchlight": centred(scaled(searchlight("left")(), 2), "E", ICON),
         "engine": centred(engine(), "S", ICON),

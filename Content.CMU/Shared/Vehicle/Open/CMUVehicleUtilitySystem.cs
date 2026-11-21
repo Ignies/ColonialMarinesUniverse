@@ -277,16 +277,16 @@ public sealed class CMUVehicleUtilitySystem : EntitySystem
     }
 
     /// <summary>
-    /// Whether the winch or hitch can take hold of the load: a crate, a wreck or a jeep nobody's in,
-    /// in the open from the vehicle and within reach, not anchored but for a wreck, and in nobody's tow.
-    /// A tank or APC is far too heavy.
+    /// Whether the winch or hitch can take hold of the load: a crate, a jeep nobody's in or a jeep's
+    /// wreck, in the open from the vehicle and within reach, not anchored, and in nobody's tow. A tank
+    /// or APC is far too heavy.
     /// </summary>
     private bool CanTake(EntityUid vehicle, EntityUid load, float range, EntityWhitelist? whitelist)
     {
         if (load == vehicle
             || _container.IsEntityInContainer(load)
             || !_whitelist.IsWhitelistPass(whitelist, load)
-            || (Transform(load).Anchored && !HasComp<CMUVehiclePermanentWreckComponent>(load))
+            || Transform(load).Anchored
             || Crewed(load)
             || CompOrNull<CMUVehicleTowedComponent>(load)?.Tower != null
             || CompOrNull<CMUVehicleTowingComponent>(load)?.Towed != null

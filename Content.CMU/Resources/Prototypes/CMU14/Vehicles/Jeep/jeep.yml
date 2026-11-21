@@ -51,6 +51,9 @@
 - type: Tag
   id: CMUJeepTailgate
 
+- type: Tag
+  id: CMUJeepWreck
+
 - type: shader
   id: CMUVehicleRiderClip
   kind: source
@@ -2727,6 +2730,10 @@
     structure: true
   # Sliding on from where its jeep went up, its own blast mustn't fling it off in some random way.
   - type: CMUExplosionImmovable
+  # What a winch or tow hitch knows a jeep wreck by.
+  - type: Tag
+    tags:
+    - CMUJeepWreck
   - type: RMCRefinable
     amount: 1
     delay: 15
