@@ -60,6 +60,24 @@ public sealed class CMUVehicleUtilitySystem : EntitySystem
         SubscribeLocalEvent<CMUVehicleUpgradesComponent, CMUVehicleHitchDoAfterEvent>(OnHitch);
         SubscribeLocalEvent<CMUVehicleUpgradesComponent, CMUVehicleCamoNetDoAfterEvent>(OnCamoNet);
         SubscribeLocalEvent<CMUVehicleRoofRackComponent, StorageInteractAttemptEvent>(OnRackInteractAttempt);
+        SubscribeLocalEvent<CMUVehicleTowingComponent, ComponentShutdown>(OnTowingShutdown);
+        SubscribeLocalEvent<CMUVehicleTowedComponent, ComponentShutdown>(OnTowedShutdown);
+    }
+
+    private void OnTowingShutdown(Entity<CMUVehicleTowingComponent> ent, ref ComponentShutdown args)
+    {
+        // A tower deleted outright lets its load go.
+        if (ent.Comp.Towed is { } load && !TerminatingOrDeleted(load))
+            RemComp<CMUVehicleTowedComponent>(load);
+    }
+
+    private void OnTowedShutdown(Entity<CMUVehicleTowedComponent> ent, ref ComponentShutdown args)
+    {
+        if (TryComp(ent.Comp.Tower, out CMUVehicleTowingComponent? towing) && towing.Towed == ent.Owner)
+        {
+            towing.Towed = null;
+            Dirty(ent.Comp.Tower.Value, towing);
+        }
     }
 
     /// <summary>
@@ -259,7 +277,7 @@ public sealed class CMUVehicleUtilitySystem : EntitySystem
     }
 
     /// <summary>
-    /// Whether the winch or hitch can take hold of the load: a crate, a wreck or a jeep nobody's driving,
+    /// Whether the winch or hitch can take hold of the load: a crate, a wreck or a jeep nobody's in,
     /// in the open from the vehicle and within reach, not anchored but for a wreck, and in nobody's tow.
     /// A tank or APC is far too heavy.
     /// </summary>
@@ -269,7 +287,7 @@ public sealed class CMUVehicleUtilitySystem : EntitySystem
             || _container.IsEntityInContainer(load)
             || !_whitelist.IsWhitelistPass(whitelist, load)
             || (Transform(load).Anchored && !HasComp<CMUVehiclePermanentWreckComponent>(load))
-            || CompOrNull<VehicleComponent>(load)?.Operator != null
+            || Crewed(load)
             || CompOrNull<CMUVehicleTowedComponent>(load)?.Tower != null
             || CompOrNull<CMUVehicleTowingComponent>(load)?.Towed != null
             || CompOrNull<CMUVehicleTowedComponent>(vehicle)?.Tower == load)
@@ -281,12 +299,21 @@ public sealed class CMUVehicleUtilitySystem : EntitySystem
             predicate: uid => uid == vehicle || uid == load);
     }
 
-    private List<EntityUid> Loads(EntityUid vehicle, MapCoordinates at, float range, EntityWhitelist? whitelist)
+    /// <summary>
+    /// What's within <paramref name="range"/> of <paramref name="at"/> that the vehicle can take hold of
+    /// within <paramref name="reach"/> of itself.
+    /// </summary>
+    private List<EntityUid> Loads(
+        EntityUid vehicle,
+        MapCoordinates at,
+        float range,
+        float reach,
+        EntityWhitelist? whitelist)
     {
         var loads = new List<EntityUid>();
         foreach (var near in _lookup.GetEntitiesInRange(at, range, LookupFlags.Dynamic | LookupFlags.Static))
         {
-            if (CanTake(vehicle, near, range + 2f, whitelist))
+            if (CanTake(vehicle, near, reach, whitelist))
                 loads.Add(near);
         }
 
@@ -300,7 +327,7 @@ public sealed class CMUVehicleUtilitySystem : EntitySystem
         SortedSet<InteractionVerb> verbs)
     {
         var from = _transform.GetMapCoordinates(vehicle);
-        foreach (var load in Loads(vehicle, from, winch.Comp.Range, winch.Comp.Whitelist))
+        foreach (var load in Loads(vehicle, from, winch.Comp.Range, winch.Comp.Range, winch.Comp.Whitelist))
         {
             verbs.Add(new InteractionVerb
             {
@@ -325,9 +352,14 @@ public sealed class CMUVehicleUtilitySystem : EntitySystem
     /// </summary>
     public bool TryWinch(EntityUid vehicle, EntityUid load, EntityUid? user = null)
     {
-        if (Kit<CMUVehicleWinchComponent>(vehicle) is not { } winch
-            || !CanTake(vehicle, load, winch.Comp.Range, winch.Comp.Whitelist))
+        if (Kit<CMUVehicleWinchComponent>(vehicle) is not { } winch)
+            return false;
+
+        if (!CanTake(vehicle, load, winch.Comp.Range, winch.Comp.Whitelist))
         {
+            if (user != null)
+                _popup.PopupEntity(Loc.GetString("cmu-vehicle-winch-lost", ("load", load)), vehicle, user.Value);
+
             return false;
         }
 
@@ -368,7 +400,8 @@ public sealed class CMUVehicleUtilitySystem : EntitySystem
         }
 
         var behind = _transform.ToMapCoordinates(new EntityCoordinates(vehicle, hitch.Comp.Offset));
-        foreach (var load in Loads(vehicle, behind, hitch.Comp.Reach, hitch.Comp.Whitelist))
+        var reach = hitch.Comp.Offset.Length() + hitch.Comp.Reach;
+        foreach (var load in Loads(vehicle, behind, hitch.Comp.Reach, reach, hitch.Comp.Whitelist))
         {
             verbs.Add(new InteractionVerb
             {
@@ -393,8 +426,10 @@ public sealed class CMUVehicleUtilitySystem : EntitySystem
     /// </summary>
     public bool TryHitch(EntityUid vehicle, EntityUid load)
     {
+        // No trains: a jeep in tow can't tow another.
         if (Kit<CMUVehicleTowHitchComponent>(vehicle) is not { } hitch
             || CompOrNull<CMUVehicleTowingComponent>(vehicle)?.Towed != null
+            || CompOrNull<CMUVehicleTowedComponent>(vehicle)?.Tower != null
             || !CanTake(vehicle, load, hitch.Comp.Offset.Length() + hitch.Comp.Reach, hitch.Comp.Whitelist))
         {
             return false;
@@ -410,6 +445,9 @@ public sealed class CMUVehicleUtilitySystem : EntitySystem
         return true;
     }
 
+    /// <summary>
+    /// Lets go of whatever the vehicle tows.
+    /// </summary>
     public void Unhitch(EntityUid vehicle)
     {
         if (!TryComp(vehicle, out CMUVehicleTowingComponent? towing) || towing.Towed is not { } load)
@@ -546,6 +584,26 @@ public sealed class CMUVehicleUtilitySystem : EntitySystem
         return last;
     }
 
+    /// <summary>
+    /// Whether anyone is driving the vehicle or sitting in it.
+    /// </summary>
+    private bool Crewed(EntityUid vehicle)
+    {
+        if (CompOrNull<VehicleComponent>(vehicle)?.Operator != null)
+            return true;
+
+        if (!TryComp(vehicle, out CMUVehicleSeatsComponent? seats))
+            return false;
+
+        foreach (var seat in seats.SeatEntities)
+        {
+            if (TryComp(seat, out StrapComponent? strap) && strap.BuckledEntities.Count > 0)
+                return true;
+        }
+
+        return false;
+    }
+
     private bool Moving(EntityUid vehicle)
     {
         return CompOrNull<CMUVehicleTowedComponent>(vehicle)?.Tower != null
@@ -572,8 +630,10 @@ public sealed class CMUVehicleUtilitySystem : EntitySystem
             if (comp.Towed is not { } towed)
                 continue;
 
+            // Someone taking the wheel or a seat in a towed jeep slips the tow.
             if (TerminatingOrDeleted(towed)
                 || Kit<CMUVehicleTowHitchComponent>(uid) is not { } hitch
+                || Crewed(towed)
                 || Transform(towed).Anchored
                 || _container.IsEntityInContainer(towed))
             {

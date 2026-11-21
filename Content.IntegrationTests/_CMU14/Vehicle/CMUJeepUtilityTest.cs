@@ -139,6 +139,14 @@ public sealed class CMUJeepUtilityTest : GameTest
 
             Assert.That(utility.TryHitch(jeep, other), Is.True, "A jeep should tow another nobody's driving.");
             Assert.That(utility.TryHitch(other, jeep), Is.False, "The towed jeep shouldn't tow its tower back.");
+
+            var third = SEntMan.SpawnEntity("CMUVehicleJeepCargo", new EntityCoordinates(map.Grid, 0.5f, 6f));
+            Assert.That(utility.TryHitch(other, third), Is.False, "A jeep in tow shouldn't tow another.");
+
+            // The tower deleted outright, its load is free to be towed again.
+            SEntMan.DeleteEntity(jeep);
+            Assert.That(SEntMan.HasComponent<CMUVehicleTowedComponent>(other), Is.False,
+                "A deleted tower should let its load go.");
         });
     }
 

@@ -90,6 +90,7 @@ cmu-vehicle-smoke-full = The smoke dischargers are already loaded.
 cmu-vehicle-smoke-reloaded = You load the smoke dischargers: {$charges} ready.
 cmu-vehicle-winch-verb = Winch in {THE($load)}
 cmu-vehicle-winch-blocked = Something's in the way behind the jeep.
+cmu-vehicle-winch-lost = The winch can't get a hold on {THE($load)} any more.
 cmu-vehicle-winch-done = The winch hauls {THE($load)} up behind the jeep.
 cmu-vehicle-hitch-verb = Hitch {THE($load)}
 cmu-vehicle-unhitch-verb = Unhitch {THE($load)}
