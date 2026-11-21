@@ -1,6 +1,8 @@
 using System.Linq;
 using Content.IntegrationTests.Fixtures;
 using Content.Shared.CMU14.Vehicle.Open;
+using Content.Shared.Damage.Systems;
+using Content.Shared.Stunnable;
 using Content.Shared.Containers.ItemSlots;
 using Content.Shared.Weapons.Ranged.Components;
 using Content.Shared.Weapons.Ranged.Events;
@@ -8,13 +10,14 @@ using Content.Shared.Weapons.Ranged.Systems;
 using Robust.Shared.Containers;
 using Robust.Shared.GameObjects;
 using Robust.Shared.Map;
+using Robust.Shared.Prototypes;
 
 namespace Content.IntegrationTests.CMU14.Vehicle;
 
 /// <summary>
 /// The gun jeep's grenade launcher and rocket pod swap onto its pedestal in the machine gun's place.
-/// The launcher won't fire at anything so close its burst would reach the jeep; the pod won't fire
-/// while anyone stands in its backblast.
+/// The launcher won't fire at anything so close its burst would reach the jeep; the pod's backblast
+/// knocks down and scorches whoever stands behind it.
 /// </summary>
 [TestFixture]
 public sealed class CMUJeepGunsTest : GameTest
@@ -95,9 +98,11 @@ public sealed class CMUJeepGunsTest : GameTest
     }
 
     [Test]
-    public async Task TheRocketPodWontFireIntoSomeoneBehindIt()
+    public async Task TheRocketPodsBackblastThrowsDownWhoeverIsBehindIt()
     {
         var (map, _, pod) = await GunJeep("CMUJeepRocketPod");
+        EntityUid behind = default;
+        EntityUid aside = default;
         await Server.WaitAssertion(() =>
         {
             var gunner = SEntMan.SpawnEntity("CMMobHuman", new EntityCoordinates(map.Grid, 0.5f, 1.5f));
@@ -105,15 +110,32 @@ public sealed class CMUJeepGunsTest : GameTest
             Assert.That(full, Is.GreaterThan(0), "The rocket pod should come loaded.");
 
             // Aiming forward, the blast throws out behind the pedestal, over the back of the jeep.
-            var behind = SEntMan.SpawnEntity("CMMobHuman", new EntityCoordinates(map.Grid, 0.5f, 2.5f));
-            Assert.That(TryShoot(pod, gunner, new EntityCoordinates(map.Grid, 0.5f, -7.5f)), Is.False,
-                "It shouldn't fire with someone in its backblast.");
-            Assert.That(Ammo(pod), Is.EqualTo(full));
-
-            SEntMan.DeleteEntity(behind);
+            behind = SEntMan.SpawnEntity("CMMobHuman", new EntityCoordinates(map.Grid, 0.5f, 2.5f));
+            aside = SEntMan.SpawnEntity("CMMobHuman", new EntityCoordinates(map.Grid, 3.5f, 0.5f));
             Assert.That(TryShoot(pod, gunner, new EntityCoordinates(map.Grid, 0.5f, -7.5f)), Is.True,
-                "With the backblast clear, it should fire.");
+                "Someone behind it shouldn't stop it firing.");
             Assert.That(Ammo(pod), Is.LessThan(full));
+        });
+        await RunTicksSync(2);
+        await Server.WaitAssertion(() =>
+        {
+            Assert.That(SEntMan.HasComponent<KnockedDownComponent>(behind), Is.True,
+                "The backblast should knock down whoever stands behind the pod.");
+            Assert.That(SEntMan.System<DamageableSystem>().GetTotalDamage(behind).Float(), Is.GreaterThan(0f),
+                "The backblast should scorch whoever stands behind the pod.");
+            Assert.That(SEntMan.HasComponent<KnockedDownComponent>(aside), Is.False,
+                "Someone off to the side is clear of the backblast.");
+        });
+    }
+
+    [Test]
+    public async Task TheRocketPodsRocketIsNotAnAntiArmorRound()
+    {
+        await Server.WaitAssertion(() =>
+        {
+            var rocket = SProtoMan.Index<EntityPrototype>("CMUJeepProjectileRocket");
+            Assert.That(rocket.Components.ContainsKey("TankCookOffProjectile"), Is.False,
+                "The jeep's light rocket shouldn't carry the TOW's cook-off and hull damage.");
         });
     }
 

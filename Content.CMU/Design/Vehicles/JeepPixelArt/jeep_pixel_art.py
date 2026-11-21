@@ -1751,23 +1751,25 @@ def build_mg(damaged=False):
 
 
 def build_gl(damaged=False):
-    """Pintle-mounted automatic grenade launcher; pivot at the origin, barrel towards +f."""
+    """Pintle-mounted grenade launcher; pivot at the origin, barrel towards +f."""
     m = Model()
     m.box(-1, 0, -1, 0, -3, -1, "steel", "mg_mount")
     m.box(-5, 4, -2, 2, 0, 3, "gun", "mg")
     m.box(-7, -6, -2, -2, 0, 3, "black", "mg")
     m.box(-7, -6, 2, 2, 0, 3, "black", "mg")
     m.box(-6, -6, -1, 1, 1, 1, "steel", "mg")
+    # A fat drum of rounds hung off the left side, banded yellow.
+    m.box(-3, 2, -7, -3, -1, 4, "od", "mg")
+    m.box(-3, 2, -7, -7, 1, 2, "yellow", "mg")
+    m.box(-3, 2, -5, -5, 4, 4, "yellow", "mg")
     if damaged:
-        m.box(5, 9, -1, 1, 1, 2, "gun", "mg")
-        m.box(9, 10, 0, 0, 1, 1, "char", "mg")
+        m.box(5, 8, -2, 2, 0, 3, "gun", "mg")
+        m.box(8, 9, -1, 1, 1, 2, "char", "mg")
     else:
-        m.box(5, 12, -1, 1, 1, 2, "gun", "mg")
-        m.paint(lambda f, r, z: 5 <= f <= 11 and z == 2 and r == 0 and f % 2 == 1, "black")
-        m.box(13, 13, -1, 1, 1, 2, "black", "mg")
-    m.box(-2, 3, -6, -3, -1, 3, "od", "mg")
-    m.box(-2, 3, -6, -6, 1, 1, "yellow", "mg")
-    m.box(1, 2, -3, -3, 1, 2, "brass", "mg")
+        # A short, wide barrel with a flared muzzle.
+        m.box(5, 9, -2, 2, 0, 3, "gun", "mg")
+        m.box(10, 11, -2, 2, 0, 3, "black", "mg")
+        m.paint(lambda f, r, z: 5 <= f <= 9 and z == 3 and f % 2 == 1, "black")
     if damaged:
         m.paint(lambda f, r, z: r <= -3 and (f + z) % 2 == 0, "char")
         m.paint(lambda f, r, z: -5 <= f <= 4 and z == 3 and (f + r) % 3 == 0, "char")
@@ -1775,22 +1777,29 @@ def build_gl(damaged=False):
 
 
 def build_rl(damaged=False):
-    """Pintle-mounted four-tube rocket pod; pivot at the origin, tubes towards +f."""
+    """Pintle-mounted two-tube rocket pod; pivot at the origin, tubes towards +f."""
     m = Model()
     m.box(-1, 0, -1, 0, -3, -1, "steel", "mg_mount")
-    m.box(-6, 8, -3, 2, 0, 4, "od", "mg")
-    m.box(-7, -7, -3, 2, 0, 4, "steel", "mg")
-    m.box(-2, 3, -3, 2, 5, 5, "yellow", "mg")
-    # Four tubes standing proud of the pod, their mouths dark.
-    for r0 in (-3, 1):
-        for z0 in (0, 3):
-            m.box(9, 10, r0, r0 + 1, z0, z0 + 1, "gun", "mg")
-            m.box(11, 11, r0, r0 + 1, z0, z0 + 1, "black", "mg")
-    m.box(-4, -3, -4, -4, 1, 2, "gun", "mg")
+    # Two fat tubes side by side on a cradle, each wider than the pintle.
+    for r0 in (-5, 1):
+        m.box(-7, 8, r0, r0 + 3, 0, 3, "od", "mg")
+        m.box(9, 10, r0, r0 + 3, 0, 3, "gun", "mg")
+        m.box(10, 10, r0 + 1, r0 + 2, 1, 2, "black", "mg")
+        m.box(-8, -8, r0, r0 + 3, 0, 3, "steel", "mg")
+        m.box(-1, 2, r0, r0 + 3, 4, 4, "yellow", "mg")
+    m.box(-2, 3, -1, 0, 0, 2, "steel", "mg")
     if damaged:
         m.paint(lambda f, r, z: (f + r + z) % 3 == 0 and z >= 2, "char")
-        m.remove(lambda f, r, z: f >= 9 and r >= 1 and z >= 3)
+        m.remove(lambda f, r, z: f >= 7 and r >= 1)
     return m
+
+def build_pedestal(damaged=False):
+    """The gun jeep's pedestal with no gun on it: the pintle post and its empty cradle."""
+    m = Model()
+    m.box(-1, 0, -1, 0, -3, 0, "steel", "mg_mount")
+    m.box(-2, 1, -2, 1, 1, 1, "black" if damaged else "steel", "mg")
+    return m
+
 
 # ---------------------------------------------------------------- rendering
 
@@ -3157,6 +3166,8 @@ def write_rsi(variant, dy):
         save("glturret_1", mg_images(damaged=True, build=build_gl), directions=8)
         save("rlturret_0", mg_images(build=build_rl), directions=8)
         save("rlturret_1", mg_images(damaged=True, build=build_rl), directions=8)
+        save("pedestal_0", mg_images(build=build_pedestal), directions=8)
+        save("pedestal_1", mg_images(damaged=True, build=build_pedestal), directions=8)
     for name, tiles in click_masks(variant, per_dir, dy).items():
         save(f"click_{name}", tiles)
     blank = to_image({})

@@ -36,7 +36,7 @@
   - type: GunIgnoreContainerOwnerCollision
   - type: GunIgnorePrediction
   - type: Gun
-    fireRate: 0.5
+    fireRate: 0.15 # About seven seconds between rounds, slower than the tank's launcher.
     projectileSpeed: 18
     minAngle: 6
     maxAngle: 6
@@ -58,9 +58,9 @@
   - type: BallisticAmmoProvider
     cycleable: false
     proto: CMGrenadeHighExplosive
-    capacity: 10
+    capacity: 6
   - type: VehicleHardpointAmmo
-    magazineSize: 10
+    magazineSize: 6
     maxStoredMagazines: 1
   - type: GunFireArc
     arc: 100
@@ -73,14 +73,14 @@
     state: glturret_0
     damagedState: glturret_1
 
-# A two-tube rocket pod with anti-armor rockets: two shots that can wreck a vehicle, then a slow reload
-# from a rocket crate. Its backblast throws out behind it: it won't fire with anyone standing there,
-# the jeep's own riders included.
+# A two-tube pod of light rockets: enough to make an APC's crew think twice or knock a tank's gear
+# about, not to kill either. It fires slower than the tank's own launcher, carries two, and reloads
+# from its own rocket crates. Its backblast knocks down and scorches anyone standing behind it.
 - type: entity
   parent: CMUJeepHardpointBase
   id: CMUJeepRocketPod
   name: jeep rocket pod
-  description: A rocket pod for the gun jeep's pedestal, loaded from anti-armor rocket crates. Its backblast won't let it fire with anyone behind it.
+  description: A two-tube pod of light rockets for the gun jeep's pedestal, loaded from jeep rocket crates. Don't stand behind it.
   components:
   - type: ContainerContainer
     containers:
@@ -109,7 +109,7 @@
   - type: GunIgnoreContainerOwnerCollision
   - type: GunIgnorePrediction
   - type: Gun
-    fireRate: 0.1 # Ten seconds between rockets.
+    fireRate: 0.0667 # Fifteen seconds between rockets, like the tank's launcher.
     projectileSpeed: 18
     minAngle: 4
     maxAngle: 4
@@ -122,12 +122,16 @@
   - type: CMUGunBackblast
     range: 2.5
     arc: 60
+    damage:
+      types:
+        Heat: 15
+        Blunt: 10
   - type: RMCWeaponAccuracy
     accuracyMultiplier: 5
     accuracyMultiplierUnwielded: 5
   - type: BallisticAmmoProvider
     cycleable: false
-    proto: VehicleRocket84mmAntiArmor
+    proto: CMUJeepRocket
     capacity: 2
   - type: VehicleHardpointAmmo
     magazineSize: 2
@@ -135,7 +139,7 @@
   - type: GunFireArc
     arc: 90
   - type: RefillableByBulletBox
-    bulletType: VehicleAmmoBoxRocketLauncher
+    bulletType: CMUJeepRocketBox
   - type: CMUVehicleGunOrigin
     pivot: "0,0.5"
     barrel: 0.5
@@ -157,9 +161,85 @@
   parent: RMCCrateBase
   id: CMUCrateJeepRocketPod
   name: jeep rocket pod crate
-  description: A jeep rocket pod, to swap for the gun jeep's machine gun, with a crate of anti-armor rockets.
+  description: A jeep rocket pod, to swap for the gun jeep's machine gun, with a crate of its rockets.
   components:
   - type: StorageFill
     contents:
     - id: CMUJeepRocketPod
-    - id: VehicleAmmoBoxRocketLauncher
+    - id: CMUJeepRocketBox
+
+- type: entity
+  parent: RMCCrateBase
+  id: CMUCrateJeepRockets
+  name: jeep rocket crate
+  description: Two crates of light rockets for the gun jeep's rocket pod.
+  components:
+  - type: StorageFill
+    contents:
+    - id: CMUJeepRocketBox
+      amount: 2
+
+# The rocket pod's light rocket: a smaller warhead than the 84mm, without the anti-armor round's
+# cook-off and hull damage. A hit staggers and burns, and does a vehicle a fraction of a TOW's harm.
+- type: entity
+  parent: VehicleRocket84mmAntiArmor
+  id: CMUJeepRocket
+  categories: [ HideSpawnMenu ]
+  name: jeep light rocket
+  components:
+  - type: CartridgeAmmo
+    proto: CMUJeepProjectileRocket
+    deleteOnSpawn: false
+
+- type: entity
+  parent: RMCProjectileRocket84mm
+  id: CMUJeepProjectileRocket
+  categories: [ HideSpawnMenu ]
+  name: jeep light rocket
+  components:
+  - type: Projectile
+    impactEffect: BulletImpactEffect
+    damage:
+      types:
+        Blunt: 40
+        Heat: 40
+    maxFixedRange: 20
+  - type: CMArmorPiercing
+    amount: 15
+  - type: Explosive
+    explosionType: RMC
+    maxIntensity: 8
+    intensitySlope: 4
+    totalIntensity: 40
+    maxTileBreak: 0
+  - type: VehicleDamageMultiplier
+    multiplier: 2
+  - type: RMCKnockOutOnCollide
+    paralyzeTime: 1.5
+  - type: TriggerOnFixedDistanceStop
+    delay: 0
+
+- type: entity
+  parent: VehicleAmmoBoxBase
+  id: CMUJeepRocketBox
+  name: jeep rocket crate
+  description: Four light rockets for the gun jeep's rocket pod.
+  components:
+  - type: Sprite
+    layers:
+    - state: quad_rocket
+      map: [ "enum.BulletBoxLayers.Fill" ]
+  - type: GenericVisualizer
+    visuals:
+      enum.BulletBoxLayers.Fill:
+        enum.BulletBoxLayers.Fill:
+          Empty: { state: quad_rocket_e, visible: true }
+          Low: { state: quad_rocket_e, visible: true }
+          Medium: { state: quad_rocket, visible: true }
+          High: { state: quad_rocket, visible: true }
+          Full: { state: quad_rocket, visible: true }
+  - type: BulletBox
+    amount: 4
+    max: 4
+    bulletType: CMUJeepRocketBox
+    usedIn: Jeep rocket pod

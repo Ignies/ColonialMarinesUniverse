@@ -7,8 +7,8 @@ namespace Content.Client.CMU14.Vehicle;
 
 /// <summary>
 /// Draws a vehicle's turret overlay as the gun fitted to its mount: the machine gun, the grenade
-/// launcher or the rocket pod, damaged while it's too damaged to fire. The overlay otherwise only ever
-/// shows the mount prototype's one state.
+/// launcher or the rocket pod, or the bare pedestal with none on; damaged while the gun or its mount
+/// is too damaged to fire. The overlay otherwise only ever shows the mount prototype's one state.
 /// </summary>
 /// <remarks>
 /// The overlay entity is the vehicle turret system's, redrawn only when it first appears; nothing is
@@ -27,15 +27,24 @@ public sealed class CMUJeepGunArtSystem : EntitySystem
         {
             if (!TryGetEntity(visual.Turret, out var turret)
                 || HasComp<CMUJeepSentryMountComponent>(turret)
-                || FittedGun(turret.Value) is not { } gun
                 || !_sprite.TryGetLayer((uid, sprite), 0, out var layer, false))
             {
                 continue;
             }
 
-            var state = !_hardpoints.IsHardpointFunctional(gun.Owner) && gun.Comp.DamagedState is { } damaged
+            // The fitted gun's art, or the bare mount's once the gun is off.
+            Entity<CMUVehicleTurretArtComponent>? art = FittedGun(turret.Value);
+            if (art == null && TryComp(turret, out CMUVehicleTurretArtComponent? bare))
+                art = (turret.Value, bare);
+
+            if (art is not { } shown)
+                continue;
+
+            var broken = !_hardpoints.IsHardpointFunctional(turret.Value)
+                || (shown.Owner != turret && !_hardpoints.IsHardpointFunctional(shown.Owner));
+            var state = broken && shown.Comp.DamagedState is { } damaged
                 ? damaged
-                : gun.Comp.State;
+                : shown.Comp.State;
 
             if (layer.State.Name != state)
                 _sprite.LayerSetRsiState((uid, sprite), 0, state);

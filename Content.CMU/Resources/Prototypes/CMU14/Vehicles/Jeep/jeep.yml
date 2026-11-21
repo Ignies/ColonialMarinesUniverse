@@ -414,6 +414,10 @@
     pixelOffsetEast: "-20,18"
     pixelOffsetSouth: "0,24"
     pixelOffsetWest: "20,18"
+  # Drawn with no gun on; each gun brings its own art.
+  - type: CMUVehicleTurretArt
+    state: pedestal_0
+    damagedState: pedestal_1
   - type: ItemSlots
     slots:
       turret-gun:

@@ -213,15 +213,15 @@ cmu-jeep-manual-gun-repair =
     Weld it like the hull.
     It comes off through vehicle maintenance with the jack: the gun before its mount.
 cmu-jeep-manual-grenade-launcher = Gun jeep: grenade launcher
-cmu-jeep-manual-grenade-launcher-about = An automatic grenade launcher that takes the machine gun's place on the pedestal. It lobs its rounds to where it's aimed, up to ten tiles off, and they burst a moment after landing.
+cmu-jeep-manual-grenade-launcher-about = A grenade launcher that takes the machine gun's place on the pedestal. It lobs six rounds, about seven seconds apart, to where it's aimed, up to ten tiles off, and they burst a moment after landing.
 cmu-jeep-manual-grenade-launcher-use =
     Swap it for the machine gun through vehicle maintenance with the jack. Load it with a grenade launcher ammo crate on the jeep.
     It won't fire at anything within three tiles: the burst would reach the jeep.
 cmu-jeep-manual-rocket-pod = Gun jeep: rocket pod
-cmu-jeep-manual-rocket-pod-about = A two-tube pod of anti-armor rockets that takes the machine gun's place on the pedestal: two shots that can wreck a vehicle, ten seconds apart, then a reload.
+cmu-jeep-manual-rocket-pod-about = A two-tube pod of light rockets that takes the machine gun's place on the pedestal: two shots, fifteen seconds apart, then a reload. They stagger people and rattle a vehicle's crew; they won't kill an APC or a tank on their own.
 cmu-jeep-manual-rocket-pod-use =
-    Swap it for the machine gun through vehicle maintenance with the jack. Load it with an anti-armor rocket crate on the jeep.
-    Its backblast throws out behind it, and it won't fire while anyone stands there, the jeep's own riders included: aim it so the blast clears them.
+    Swap it for the machine gun through vehicle maintenance with the jack. Load it with a jeep rocket crate on the jeep.
+    Its backblast knocks down and scorches anyone standing behind it in the open. The jeep's own riders are sheltered by its bodywork.
 cmu-jeep-manual-sentry = Gun jeep: sentry pintle
 cmu-jeep-manual-sentry-about = A pintle, made at the autolathe, that takes the place of the machine gun mount and carries any engineer's sentry gun. The sentry fires by itself, all the way round, and its rounds pass the jeep's own riders by. Nobody sits in the gunner's seat while it's on.
 cmu-jeep-manual-sentry-use =

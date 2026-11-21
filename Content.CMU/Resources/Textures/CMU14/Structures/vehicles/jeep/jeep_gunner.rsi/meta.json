@@ -4241,6 +4241,14 @@
         {
             "name": "rlturret_1",
             "directions": 8
+        },
+        {
+            "name": "pedestal_0",
+            "directions": 8
+        },
+        {
+            "name": "pedestal_1",
+            "directions": 8
         }
     ]
 }

@@ -1,3 +1,4 @@
+using Content.Shared.Damage;
 using Robust.Shared.GameStates;
 
 namespace Content.Shared.CMU14.Vehicle.Open;
@@ -23,7 +24,7 @@ public sealed partial class CMUVehicleTurretArtComponent : Component
 /// A gun that won't fire at anything closer than this, like a grenade launcher whose rounds would
 /// burst on the vehicle firing them.
 /// </summary>
-[RegisterComponent, NetworkedComponent]
+[RegisterComponent, NetworkedComponent, Access(typeof(CMUJeepGunSystem))]
 public sealed partial class CMUGunMinimumRangeComponent : Component
 {
     /// <summary>
@@ -34,10 +35,10 @@ public sealed partial class CMUGunMinimumRangeComponent : Component
 }
 
 /// <summary>
-/// A gun that throws its blast out behind it as it fires, like a rocket launcher. It won't fire while
-/// anyone but its gunner stands in that blast.
+/// A gun that throws its blast out behind it as it fires, like a rocket launcher: anyone standing in it,
+/// but its gunner and the vehicle's riders, is knocked down and scorched.
 /// </summary>
-[RegisterComponent, NetworkedComponent]
+[RegisterComponent, NetworkedComponent, Access(typeof(CMUJeepGunSystem))]
 public sealed partial class CMUGunBackblastComponent : Component
 {
     /// <summary>
@@ -51,4 +52,10 @@ public sealed partial class CMUGunBackblastComponent : Component
     /// </summary>
     [DataField]
     public float Arc = 60f;
+
+    [DataField]
+    public TimeSpan KnockdownTime = TimeSpan.FromSeconds(2);
+
+    [DataField]
+    public DamageSpecifier Damage = new();
 }
