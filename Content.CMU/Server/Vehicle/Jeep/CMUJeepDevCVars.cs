@@ -34,7 +34,8 @@ public sealed class CMUJeepDevCVars
 
     /// <summary>
     /// A turret mount to show off, e.g. "CMUJeepSentryMount": the dev kit also parks four gun jeeps
-    /// carrying it, one facing each way, for screenshots of its art. Empty for none.
+    /// carrying it, one facing each way, for screenshots of its art. "CMUJeepTechnicalFrame" parks
+    /// cargo jeeps with the frame wrenched down in their beds instead. Empty for none.
     /// </summary>
     public static readonly CVarDef<string> DevTurret = CVarDef.Create("cmu.jeep.dev_turret", "", CVar.SERVERONLY);
 

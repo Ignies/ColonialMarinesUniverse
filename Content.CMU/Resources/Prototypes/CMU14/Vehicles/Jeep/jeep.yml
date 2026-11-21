@@ -1374,6 +1374,59 @@
   components:
   - type: GridVehicleMover
     maxSpeed: 9
+  # A gunner stands in the bed behind a technical frame's gun once it's bolted down; without one there's
+  # no gun to man and the seat stays shut.
+  - type: CMUVehicleSeats
+    seats:
+    - id: driver
+      name: cmu-vehicle-seat-driver
+      offset: 0.3125,0.25
+      exit: 0.95,0.25
+      door: door_driver
+      doorSide: East
+      windshield: true
+      pixelOffsets:
+        South: 10,6
+        North: -10,-3
+        East: -8,6
+        West: 8,-8
+      clips:
+        South: 3
+        North: 4
+        East: 2
+        West: 2
+      driver: true
+    - id: passenger
+      name: cmu-vehicle-seat-passenger
+      offset: -0.3125,0.25
+      exit: -0.95,0.25
+      door: door_passenger
+      doorSide: West
+      windshield: true
+      pixelOffsets:
+        South: -10,6
+        North: 10,-3
+        East: -8,-8
+        West: 8,6
+      clips:
+        South: 3
+        North: 4
+        East: 2
+        West: 2
+    - id: gunner
+      name: cmu-vehicle-seat-gunner
+      prototype: CMUVehicleSeatGunner
+      gunner: true
+      guns: None
+      offset: 0,0.9
+      exit: 0,1.7
+      door: tailgate
+      pixelOffsets:
+        South: 0,34
+        North: 0,-18
+        East: -33,13
+        West: 33,13
+      lift: 14
   - type: CMUVehicleCargo
     whitelist:
       requireAll: true
@@ -1411,6 +1464,7 @@
       jeep-door-driver: !type:ContainerSlot
       jeep-door-passenger: !type:ContainerSlot
       jeep-tailgate: !type:ContainerSlot
+      turret: !type:ContainerSlot
       vehicle-searchlight-left: !type:ContainerSlot
       vehicle-searchlight-right: !type:ContainerSlot
   - type: ItemSlots
@@ -1497,6 +1551,26 @@
         whitelist:
           tags:
           - CMUJeepTailgate
+      # Filled only by a technical frame bolted down in the bed.
+      turret:
+        disableEject: true
+        whitelist:
+          tags:
+          - CMUJeepTechnicalMount
+  - type: HardpointSlots
+    vehicleFamily: CMUJeep
+    slots:
+    - id: wheel-1
+      disableEject: true
+      hardpointType: Wheel
+      slotType: Wheel
+      insertDelay: 1.5
+    - id: turret
+      disableEject: true
+      hardpointType: Turret
+      slotType: Turret
+      insertDelay: 2.0
+      required: false
 
 - type: entity
   parent: CMUVehicleJeepBase
@@ -1937,7 +2011,6 @@
       offset: 0,0.703
       exit: 0,1.55
       door: tailgate
-      autoSeat: false
       pixelOffsets:
         South: 0,23
         North: 0,-21
@@ -2745,6 +2818,8 @@
   recipes:
   - CMUVehicleSprayPainter
   - CMUJeepSentryMount
+  - CMUJeepTechnicalFrame
+  - CMUJeepGunCradle
   - CMUJeepHood
   - CMUJeepDoor
   - CMUJeepTailgate

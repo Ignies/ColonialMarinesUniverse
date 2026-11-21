@@ -4249,6 +4249,14 @@
         {
             "name": "pedestal_1",
             "directions": 8
+        },
+        {
+            "name": "cradleturret_0",
+            "directions": 8
+        },
+        {
+            "name": "cradleturret_1",
+            "directions": 8
         }
     ]
 }

@@ -48,6 +48,12 @@
         },
         {
             "name": "rlturret"
+        },
+        {
+            "name": "cradleturret"
+        },
+        {
+            "name": "technical_frame"
         }
     ]
 }

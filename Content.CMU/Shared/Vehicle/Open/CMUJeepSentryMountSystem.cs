@@ -6,8 +6,6 @@ using Content.Shared._RMC14.Weapons.Ranged;
 using Content.Shared._RMC14.Weapons.Ranged.IFF;
 using Content.Shared._RMC14.Xenonids;
 using Content.Shared.Administration.Logs;
-using Content.Shared.Buckle;
-using Content.Shared.Buckle.Components;
 using Content.Shared.Containers.ItemSlots;
 using Content.Shared.Database;
 using Content.Shared.Hands.EntitySystems;
@@ -43,7 +41,6 @@ namespace Content.Shared.CMU14.Vehicle.Open;
 public sealed class CMUJeepSentryMountSystem : EntitySystem
 {
     [Dependency] private ISharedAdminLogManager _adminLog = default!;
-    [Dependency] private SharedBuckleSystem _buckle = default!;
     [Dependency] private SharedContainerSystem _container = default!;
     [Dependency] private SharedGunSystem _guns = default!;
     [Dependency] private SharedHandsSystem _hands = default!;
@@ -56,6 +53,7 @@ public sealed class CMUJeepSentryMountSystem : EntitySystem
     [Dependency] private INetManager _net = default!;
     [Dependency] private SharedPopupSystem _popup = default!;
     [Dependency] private IPrototypeManager _prototypes = default!;
+    [Dependency] private CMUVehicleSeatSystem _seats = default!;
     [Dependency] private RMCSizeStunSystem _size = default!;
     [Dependency] private TagSystem _tags = default!;
     [Dependency] private SharedSentryTargetingSystem _targeting = default!;
@@ -138,7 +136,7 @@ public sealed class CMUJeepSentryMountSystem : EntitySystem
         ApplyRules(ent);
 
         if (_turret.TryGetVehicle(ent, out var vehicle))
-            ClearGunnerSeat(vehicle);
+            _seats.ClearGunnerSeats(vehicle);
     }
 
     private void OnSentryRemoved(Entity<CMUJeepSentryMountComponent> ent, ref EntRemovedFromContainerMessage args)
@@ -158,31 +156,7 @@ public sealed class CMUJeepSentryMountSystem : EntitySystem
         if (_timing.ApplyingState || GetSentry(ent) == null || !_turret.TryGetVehicle(ent, out var vehicle))
             return;
 
-        ClearGunnerSeat(vehicle);
-    }
-
-    /// <summary>
-    /// The sentry takes the gunner's place: whoever sat there gets out.
-    /// </summary>
-    private void ClearGunnerSeat(EntityUid vehicle)
-    {
-        if (_net.IsClient || !TryComp(vehicle, out CMUVehicleSeatsComponent? seats))
-            return;
-
-        foreach (var seat in seats.SeatEntities)
-        {
-            if (!TryComp(seat, out CMUVehicleSeatComponent? seatComp)
-                || !seatComp.Gunner
-                || !TryComp(seat, out StrapComponent? strap))
-            {
-                continue;
-            }
-
-            foreach (var rider in strap.BuckledEntities.ToArray())
-            {
-                _buckle.Unbuckle(rider, null);
-            }
-        }
+        _seats.ClearGunnerSeats(vehicle);
     }
 
     /// <summary>

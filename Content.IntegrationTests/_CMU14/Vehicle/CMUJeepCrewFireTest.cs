@@ -111,12 +111,12 @@ public sealed class CMUJeepCrewFireTest : GameTest
 
         await Server.WaitPost(() =>
         {
-            // The cargo jeep has two seats: the driver's, and the passenger's beside it.
+            // The cargo jeep seats a driver and, beside them, a passenger; a technical also takes a gunner.
             var seats = SEntMan.GetComponent<CMUVehicleSeatsComponent>(jeep).SeatEntities;
             var seatSystem = SEntMan.System<CMUVehicleSeatSystem>();
             seatSystem.ClickSeat(seats.First(s => SEntMan.GetComponent<CMUVehicleSeatComponent>(s).Driver), driver);
             if (passenger)
-                seatSystem.ClickSeat(seats.First(s => !SEntMan.GetComponent<CMUVehicleSeatComponent>(s).Driver), rider);
+                seatSystem.ClickSeat(seats.First(s => SEntMan.GetComponent<CMUVehicleSeatComponent>(s) is { Driver: false, Gunner: false }), rider);
         });
         await RunSeconds(4f);
 

@@ -134,6 +134,17 @@ public sealed class CMUVehicleCargoSystem : EntitySystem
         if (TryComp(crate, out PullableComponent? pullable) && pullable.BeingPulled)
             _pulling.TryStopPull(crate, pullable);
 
+        Load(ent, crate);
+    }
+
+    /// <summary>
+    /// Puts the crate on the empty bed, loose.
+    /// </summary>
+    public void Load(Entity<CMUVehicleCargoComponent> ent, EntityUid crate)
+    {
+        if (_net.IsClient || ent.Comp.Crate != null)
+            return;
+
         // Set before the move so OnCrateParentChanged sees the vehicle as the expected parent.
         var cargo = EnsureComp<CMUVehicleCargoCrateComponent>(crate);
         cargo.Vehicle = ent;
@@ -170,6 +181,13 @@ public sealed class CMUVehicleCargoSystem : EntitySystem
                 _popup.PopupEntity(Loc.GetString("cmu-vehicle-cargo-unload-blocked"), ent, user.Value, PopupType.SmallCaution);
 
             return false;
+        }
+
+        // A crate still bolted down, as on a vehicle going away, is let loose first.
+        if (ent.Comp.Secured)
+        {
+            var released = new CMUVehicleCargoSecuredEvent(ent, false);
+            RaiseLocalEvent(crate, ref released);
         }
 
         ent.Comp.Crate = null;
@@ -278,10 +296,23 @@ public sealed class CMUVehicleCargoSystem : EntitySystem
             return;
 
         args.Handled = true;
-        ent.Comp.Secured = !ent.Comp.Secured;
-        Dirty(ent);
+        SetSecured(ent, !ent.Comp.Secured);
         var message = ent.Comp.Secured ? "cmu-vehicle-cargo-secured" : "cmu-vehicle-cargo-released";
         _popup.PopupClient(Loc.GetString(message), ent, args.User);
+    }
+
+    /// <summary>
+    /// Wrenches the loaded crate down, or lets it loose.
+    /// </summary>
+    public void SetSecured(Entity<CMUVehicleCargoComponent> ent, bool secured)
+    {
+        if (ent.Comp.Crate is not { } crate || ent.Comp.Secured == secured)
+            return;
+
+        ent.Comp.Secured = secured;
+        Dirty(ent);
+        var ev = new CMUVehicleCargoSecuredEvent(ent, secured);
+        RaiseLocalEvent(crate, ref ev);
     }
 
     private void OnPullStarted(Entity<PullerComponent> ent, ref PullStartedMessage args)

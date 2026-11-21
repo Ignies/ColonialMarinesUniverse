@@ -1,0 +1,207 @@
+# The cargo jeep's technical: a gun mount frame that rides in its bed like a crate. Wrenched down, the
+# frame's mount takes any of the jeep's guns or a gun cradle, manned by a gunner standing in the bed.
+
+- type: Tag
+  id: CMUJeepTechnicalMount
+
+# The technical's mount, which only ever sits in a frame or, bolted down, in the cargo jeep's turret
+# slot. It swings all the way round, slower than the gun jeep's pedestal, and comes with no gun.
+- type: entity
+  parent: CMUJeepHardpointBase
+  id: CMUJeepTechnicalMount
+  categories: [ HideSpawnMenu ]
+  name: technical gun mount
+  description: An improvised pintle on a frame bolted into a cargo jeep's bed. It swings all the way round.
+  components:
+  - type: Sprite
+    state: technical_frame
+  - type: Item
+    size: Huge
+  - type: Tag
+    tags:
+    - CMUJeepTechnicalMount
+  - type: HardpointItem
+    hardpointType: Turret
+    vehicleFamily: CMUJeep
+    slotType: Turret
+    damageMultiplier: 0.2
+    repairRate: 0.008
+  - type: HardpointIntegrity
+    maxIntegrity: 50
+    integrity: 50
+  - type: VehicleTurret
+    rotateToCursor: true
+    stabilizedRotation: false
+    rotationSpeed: 150
+    cmuMaxYawDegrees: 180
+    showOverlay: true
+    useDirectionalOffsets: true
+    overlayRsi: CMU14/Structures/vehicles/jeep/jeep_gunner.rsi
+    overlayState: pedestal_0
+    overlayDamagedState: pedestal_1
+    pixelOffsetNorth: "0,-11"
+    pixelOffsetEast: "-27,13"
+    pixelOffsetSouth: "0,38"
+    pixelOffsetWest: "27,13"
+  - type: CMUVehicleTurretArt
+    state: pedestal_0
+    damagedState: pedestal_1
+  - type: ItemSlots
+    slots:
+      turret-gun:
+        whitelist:
+          components:
+          - HardpointItem
+  - type: ContainerContainer
+    containers:
+      turret-gun: !type:ContainerSlot
+  - type: HardpointState
+  - type: HardpointSlots
+    vehicleFamily: CMUJeep
+    slots:
+    - id: turret-gun
+      hardpointType: Cannon
+      slotType: Cannon
+      required: false
+      insertDelay: 2.0
+
+# The frame the mount rides in: dragged onto a cargo jeep's bed like any crate, then wrenched down to
+# bring the mount into play. It doesn't open.
+- type: entity
+  parent: RMCCrateBase
+  id: CMUJeepTechnicalFrame
+  name: technical mount frame
+  description: A steel pallet with a sandbag lip and a gun pintle. Load it into a cargo jeep's bed and wrench it down to make a technical.
+  components:
+  - type: Sprite
+    sprite: CMU14/Structures/vehicles/jeep/hardpoints.rsi
+    noRot: true
+    layers:
+    - state: technical_frame
+  - type: Icon
+    sprite: CMU14/Structures/vehicles/jeep/hardpoints.rsi
+    state: technical_frame
+  - type: CMUJeepTechnical
+  - type: ContainerContainer
+    containers:
+      entity_storage: !type:Container
+      technical-mount: !type:ContainerSlot
+  - type: ContainerFill
+    containers:
+      technical-mount:
+      - CMUJeepTechnicalMount
+
+- type: latheRecipe
+  id: CMUJeepTechnicalFrame
+  result: CMUJeepTechnicalFrame
+  completetime: 12
+  # Fifteen sheets of steel.
+  materials:
+    CMSteel: 56250
+
+# A cradle that clamps a marine's own gun onto a jeep's gun mount and fires it from there, steadier
+# than in hand: heavier guns steady most. The gun keeps its own rounds; reload it on the jeep.
+- type: entity
+  parent: CMUJeepHardpointBase
+  id: CMUJeepGunCradle
+  name: pintle adapter
+  description: A steel cradle that clamps a gun onto a jeep's gun mount. Put a gun in it and screw it down to fire it from the mount.
+  components:
+  - type: Sprite
+    state: cradleturret
+  - type: Item
+    size: Huge
+  - type: HardpointItem
+    hardpointType: Cannon
+    vehicleFamily: CMUJeep
+    slotType: Cannon
+    damageMultiplier: 0.1
+    repairRate: 0.01
+  - type: HardpointIntegrity
+    maxIntegrity: 50
+    integrity: 50
+  - type: VehicleTurretAttachment
+  - type: VehicleTurret
+    showOverlay: false
+    fireWhileRotatingGraceDegrees: 15
+    useBarrelDirectionForShots: true
+    maxShotCurvatureDegrees: 10
+  - type: GunUseGunOrigin
+  - type: GunIgnoreContainerOwnerCollision
+  # Rate, burst, speed and sound are the cradled gun's; these stand in with nothing clamped.
+  - type: Gun
+    fireRate: 1
+    selectedMode: SemiAuto
+    availableModes:
+    - SemiAuto
+    - Burst
+    - FullAuto
+    cameraRecoilScalar: 0
+  - type: CMUGunCradle
+    defaultSpread: 0.75
+    recoil: 0.5
+    spreadBySize:
+      Small: 0.9
+      Normal: 0.75
+      Large: 0.65
+      Huge: 0.55
+  - type: GunFireArc
+    arc: 100
+  - type: ItemSlots
+    slots:
+      cradle-gun:
+        name: cmu-gun-cradle-slot
+        whitelist:
+          components:
+          - Gun
+          - Item
+          requireAll: true
+        blacklist:
+          components:
+          - HardpointItem
+          - CMUGunCradle
+  - type: ContainerContainer
+    containers:
+      cradle-gun: !type:ContainerSlot
+  - type: CMUVehicleGunOrigin
+    pivot: "0,0.5"
+    barrel: 0.5
+  - type: CMUVehicleTurretArt
+    state: cradleturret_0
+    damagedState: cradleturret_1
+
+- type: latheRecipe
+  id: CMUJeepGunCradle
+  result: CMUJeepGunCradle
+  completetime: 8
+  materials:
+    CMSteel: 22500
+
+# The requisitions' cradle: sprung and damped, it holds a gun steadier than the lathe's.
+- type: entity
+  parent: CMUJeepGunCradle
+  id: CMUJeepGunCradleStabilized
+  name: stabilized pintle adapter
+  description: A sprung, damped cradle that clamps a gun onto a jeep's gun mount. It holds a gun steadier than a lathe-made adapter.
+  components:
+  - type: CMUGunCradle
+    defaultSpread: 0.55
+    recoil: 0.25
+    spreadBySize:
+      Small: 0.75
+      Normal: 0.55
+      Large: 0.45
+      Huge: 0.35
+  - type: HardpointIntegrity
+    maxIntegrity: 75
+    integrity: 75
+
+- type: entity
+  parent: RMCCrateBase
+  id: CMUCrateJeepGunCradle
+  name: stabilized pintle adapter crate
+  description: A stabilized pintle adapter, to clamp a marine's own gun onto a jeep's gun mount.
+  components:
+  - type: StorageFill
+    contents:
+    - id: CMUJeepGunCradleStabilized

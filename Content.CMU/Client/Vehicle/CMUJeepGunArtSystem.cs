@@ -7,8 +7,9 @@ namespace Content.Client.CMU14.Vehicle;
 
 /// <summary>
 /// Draws a vehicle's turret overlay as the gun fitted to its mount: the machine gun, the grenade
-/// launcher or the rocket pod, or the bare pedestal with none on; damaged while the gun or its mount
-/// is too damaged to fire. The overlay otherwise only ever shows the mount prototype's one state.
+/// launcher, the rocket pod or a pintle adapter's clamped gun, or the bare pedestal with none on;
+/// damaged while the gun or its mount is too damaged to fire. The overlay otherwise only ever shows
+/// the mount prototype's one state.
 /// </summary>
 /// <remarks>
 /// The overlay entity is the vehicle turret system's, redrawn only when it first appears; nothing is
@@ -17,6 +18,7 @@ namespace Content.Client.CMU14.Vehicle;
 /// </remarks>
 public sealed class CMUJeepGunArtSystem : EntitySystem
 {
+    [Dependency] private CMUGunCradleSystem _cradle = default!;
     [Dependency] private HardpointSystem _hardpoints = default!;
     [Dependency] private SpriteSystem _sprite = default!;
 
@@ -58,8 +60,14 @@ public sealed class CMUJeepGunArtSystem : EntitySystem
 
         foreach (var slot in slots.Slots.Values)
         {
-            if (slot.Item is { } item && TryComp(item, out CMUVehicleTurretArtComponent? art))
-                return (item, art);
+            if (slot.Item is not { } item || !TryComp(item, out CMUVehicleTurretArtComponent? art))
+                continue;
+
+            // An adapter is drawn with a gun in it; empty, the mount shows bare.
+            if (TryComp(item, out CMUGunCradleComponent? cradle) && _cradle.GetGun((item, cradle)) == null)
+                return null;
+
+            return (item, art);
         }
 
         return null;

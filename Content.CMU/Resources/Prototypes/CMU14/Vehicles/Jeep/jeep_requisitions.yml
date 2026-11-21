@@ -48,6 +48,12 @@
         maxStock: 2
         startingStock: 2
         stockReplenishDelay: 900
+      # A steadier cradle than the lathe's pintle adapter, for clamping a marine's gun on a jeep's mount.
+      - cost: 2000
+        crate: CMUCrateJeepGunCradle
+        maxStock: 2
+        startingStock: 1
+        stockReplenishDelay: 1800
 
 # The colony's ASRS console only gets the cargo and medical jeeps, on the same one-at-a-time,
 # restock-to-two footing as the platoons'.

@@ -59,3 +59,14 @@ cmu-jeep-sentry-locked = This sentry's IFF is locked: it holds fire on its own f
 
 cmu-jeep-gun-too-close = Too close: the burst would reach the jeep.
 cmu-jeep-gun-backblast = The rocket pod's backblast throws you down!
+cmu-jeep-gunner-seat-no-mount = There's no gun mounted to man.
+cmu-jeep-technical-no-open = It's a gun mount frame; there's nothing inside to get at.
+
+cmu-gun-cradle-slot = gun
+cmu-gun-cradle-empty = There's no gun in the adapter.
+cmu-gun-cradle-loose = Screw the gun down in the adapter before firing it.
+cmu-gun-cradle-clamped = You screw {THE($gun)} down in the adapter.
+cmu-gun-cradle-unclamped = You unscrew {THE($gun)} from the adapter.
+cmu-gun-cradle-examine-empty = It has no gun in it.
+cmu-gun-cradle-examine-clamped = {CAPITALIZE(THE($gun))} is screwed down in it.
+cmu-gun-cradle-examine-loose = {CAPITALIZE(THE($gun))} sits loose in it; screw it down to fire it.

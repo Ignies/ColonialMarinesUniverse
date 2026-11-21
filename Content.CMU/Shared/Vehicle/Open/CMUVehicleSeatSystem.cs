@@ -15,6 +15,7 @@ using Content.Shared.Verbs;
 using Content.Shared.Weapons.Ranged.Components;
 using Content.Shared.Weapons.Ranged.Events;
 using Content.Shared.Weapons.Ranged.Systems;
+using Robust.Shared.Containers;
 using Robust.Shared.Timing;
 using Robust.Shared.Map;
 using Robust.Shared.Prototypes;
@@ -27,6 +28,7 @@ namespace Content.Shared.CMU14.Vehicle.Open;
 public sealed class CMUVehicleSeatSystem : EntitySystem
 {
     [Dependency] private SharedBuckleSystem _buckle = default!;
+    [Dependency] private SharedContainerSystem _container = default!;
     [Dependency] private SharedDoAfterSystem _doAfter = default!;
     [Dependency] private SharedGunSystem _gun = default!;
     [Dependency] private SharedHandsSystem _hands = default!;
@@ -42,6 +44,9 @@ public sealed class CMUVehicleSeatSystem : EntitySystem
     [Dependency] private IGameTiming _timing = default!;
 
     private static readonly EntProtoId<SkillDefinitionComponent> FirearmsSkill = "RMCSkillFirearms";
+
+    // The vehicle's gun mount slot, whose gun the gunner seat mans.
+    private const string TurretSlot = "turret";
 
     private readonly List<(EntityUid Rider, EntityUid Seat)> _exiting = new();
 
@@ -122,15 +127,11 @@ public sealed class CMUVehicleSeatSystem : EntitySystem
         if (args.Cancelled)
             return;
 
-        // A sentry on the pintle runs itself: there's no gun for a gunner to man.
-        if (ent.Comp.Gunner && ent.Comp.Vehicle is { } vehicle && _sentryMount.HasSentry(vehicle))
+        if (ent.Comp.Gunner && ent.Comp.Vehicle is { } vehicle && GunnerSeatBlocked(vehicle) is { } why)
         {
             args.Cancelled = true;
             if (args.Popup && args.User is { } blocked)
-            {
-                var message = Loc.GetString("cmu-jeep-sentry-gunner-seat");
-                _popup.PopupPredicted(message, blocked, blocked, PopupType.SmallCaution);
-            }
+                _popup.PopupPredicted(Loc.GetString(why), blocked, blocked, PopupType.SmallCaution);
 
             return;
         }
@@ -520,6 +521,45 @@ public sealed class CMUVehicleSeatSystem : EntitySystem
         }
     }
 
+    /// <summary>
+    /// Why the vehicle's gunner seat can't be taken, if it can't: a sentry on the pintle runs itself,
+    /// and with its gun mount off, or a technical's not bolted down, there's no gun to man.
+    /// </summary>
+    private string? GunnerSeatBlocked(EntityUid vehicle)
+    {
+        if (_sentryMount.HasSentry(vehicle))
+            return "cmu-jeep-sentry-gunner-seat";
+
+        if (_container.TryGetContainer(vehicle, TurretSlot, out var turret) && turret.ContainedEntities.Count == 0)
+            return "cmu-jeep-gunner-seat-no-mount";
+
+        return null;
+    }
+
+    /// <summary>
+    /// Puts whoever sits in the vehicle's gunner seats out, when the gun they man goes.
+    /// </summary>
+    public void ClearGunnerSeats(EntityUid vehicle)
+    {
+        if (_net.IsClient || !TryComp(vehicle, out CMUVehicleSeatsComponent? seats))
+            return;
+
+        foreach (var seat in seats.SeatEntities)
+        {
+            if (!TryComp(seat, out CMUVehicleSeatComponent? seatComp)
+                || !seatComp.Gunner
+                || !TryComp(seat, out StrapComponent? strap))
+            {
+                continue;
+            }
+
+            foreach (var rider in strap.BuckledEntities.ToArray())
+            {
+                _buckle.Unbuckle(rider, null);
+            }
+        }
+    }
+
     private bool TryGetFreeSeat(Entity<CMUVehicleSeatsComponent> ent, EntityUid user, out EntityUid seat)
     {
         seat = default;
@@ -530,7 +570,7 @@ public sealed class CMUVehicleSeatSystem : EntitySystem
             if (!IsFree(candidate) || TryComp(candidate, out CMUVehicleSeatComponent? seatComp) && !seatComp.AutoSeat)
                 continue;
 
-            if (seatComp is { Gunner: true } && _sentryMount.HasSentry(ent))
+            if (seatComp is { Gunner: true } && GunnerSeatBlocked(ent) != null)
                 continue;
 
             var distance = (_transform.GetWorldPosition(candidate) - userPos).LengthSquared();

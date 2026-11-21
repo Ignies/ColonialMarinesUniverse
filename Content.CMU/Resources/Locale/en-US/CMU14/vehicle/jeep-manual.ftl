@@ -235,6 +235,17 @@ cmu-jeep-manual-cargo-use =
     Open the tailgate, then pull a crate up and click the jeep, or use the load verb (2 s).
     Wrench it down (2 s) or it slides off the back at speed with the tailgate open.
     To unload, loosen it with the wrench and use the unload verb: it's set down behind the jeep.
+cmu-jeep-manual-technical = Cargo jeep: technical
+cmu-jeep-manual-technical-about = A gun mount frame, made at the autolathe, that turns a cargo jeep into a technical. Its pintle swings all the way round, and the gunner stands in the bed behind it.
+cmu-jeep-manual-technical-use =
+    Load the frame into the bed like a crate, then wrench it down (2 s): the mount comes up and the gunner's place in the bed opens. Wrench it loose again to take it off; the gunner gets down.
+    The mount comes bare. Fit any of the gun jeep's guns, or a pintle adapter with a gun clamped in it, through vehicle maintenance with the jack.
+    The frame doesn't open, and nothing else rides in the bed while it's there.
+cmu-jeep-manual-cradle = Pintle adapter
+cmu-jeep-manual-cradle-about = A cradle that clamps a marine's own gun onto a jeep's gun mount, made at the autolathe; requisitions sell a stabilized one. On the mount the gun shoots as true as wielded and spreads less, heavier guns most, with the gun's own rounds, rate and sound.
+cmu-jeep-manual-cradle-use =
+    Put a gun in the adapter, then screw it down (3 s); it won't fire until it is. Unscrew it to take the gun out.
+    Fit the adapter in place of a mount's gun through vehicle maintenance. Reload the gun by using its magazine on the jeep.
 cmu-jeep-manual-medical = Medical jeep: bed
 cmu-jeep-manual-medical-about = A surgical bed in the back that works as an operating table, with the medic's seat facing it.
 cmu-jeep-manual-medical-use = Use the lie on verb, or lay a patient on it. The tailgate is its door.

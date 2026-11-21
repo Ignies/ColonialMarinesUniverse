@@ -11,11 +11,12 @@ namespace Content.Shared.CMU14.Vehicle.Open;
 
 /// <summary>
 /// Loads a jeep's mounted gun from an ammo box used on its turret, or anywhere on the jeep: the box's
-/// own transfer, as if the gun were used on the box.
+/// own transfer, as if the gun were used on the box. Magazines go to a pintle's sentry or a cradled gun.
 /// </summary>
 public sealed class CMUVehicleTurretAmmoSystem : EntitySystem
 {
     [Dependency] private SharedContainerSystem _container = default!;
+    [Dependency] private CMUGunCradleSystem _cradle = default!;
     [Dependency] private SharedDoAfterSystem _doAfter = default!;
     [Dependency] private SharedPopupSystem _popup = default!;
     [Dependency] private CMUJeepSentryMountSystem _sentryMount = default!;
@@ -46,10 +47,11 @@ public sealed class CMUVehicleTurretAmmoSystem : EntitySystem
         if (args.Handled)
             return;
 
-        // A sentry on a pintle takes magazines, not ammo boxes.
+        // A sentry on a pintle, or a gun in a cradle, takes magazines, not ammo boxes.
         if (!HasComp<BulletBoxComponent>(args.Used))
         {
-            args.Handled = _sentryMount.TryLoadSentry(ent, args.User, args.Used, args.ClickLocation);
+            args.Handled = _sentryMount.TryLoadSentry(ent, args.User, args.Used, args.ClickLocation)
+                || _cradle.TryLoad(ent, args.User, args.Used, args.ClickLocation);
             return;
         }
 

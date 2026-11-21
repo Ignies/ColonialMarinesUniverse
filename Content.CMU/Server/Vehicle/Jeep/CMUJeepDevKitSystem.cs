@@ -35,6 +35,7 @@ namespace Content.Server.CMU14.Vehicle.Jeep;
 public sealed class CMUJeepDevKitSystem : EntitySystem
 {
     [Dependency] private AreaSystem _areas = default!;
+    [Dependency] private CMUVehicleCargoSystem _cargo = default!;
     [Dependency] private IConfigurationManager _cfg = default!;
     [Dependency] private SharedContainerSystem _containers = default!;
     [Dependency] private EntityLookupSystem _lookup = default!;
@@ -258,7 +259,8 @@ public sealed class CMUJeepDevKitSystem : EntitySystem
 
     /// <summary>
     /// Parks four gun jeeps carrying <see cref="CMUJeepDevCVars.DevTurret"/>, with
-    /// <see cref="CMUJeepDevCVars.DevTurretGun"/> on it, one facing each way, beside the others.
+    /// <see cref="CMUJeepDevCVars.DevTurretGun"/> on it, one facing each way, beside the others. A
+    /// technical frame goes into cargo jeeps' beds instead, wrenched down.
     /// </summary>
     private void ParkTurretShowcase(
         Entity<MapGridComponent> grid,
@@ -268,7 +270,7 @@ public sealed class CMUJeepDevKitSystem : EntitySystem
         List<string> spots)
     {
         var turret = _cfg.GetCVar(CMUJeepDevCVars.DevTurret);
-        if (string.IsNullOrEmpty(turret) || !_prototypes.HasIndex<EntityPrototype>(turret))
+        if (string.IsNullOrEmpty(turret) || !_prototypes.TryIndex<EntityPrototype>(turret, out var turretProto))
             return;
 
         var gun = _cfg.GetCVar(CMUJeepDevCVars.DevTurretGun);
@@ -280,9 +282,27 @@ public sealed class CMUJeepDevKitSystem : EntitySystem
             Reserve(grid, footprint(tile));
             placed.Add(tile);
             var coordinates = _map.GridTileToLocal(grid, grid.Comp, tile);
-            var jeep = SpawnAttachedTo("CMUVehicleJeepGunner", coordinates);
+            var technical = turretProto.TryGetComponent<CMUJeepTechnicalComponent>(out _);
+            var jeep = SpawnAttachedTo(technical ? "CMUVehicleJeepCargo" : "CMUVehicleJeepGunner", coordinates);
             _transform.SetLocalRotation(jeep, Angle.FromDegrees(90 * turn));
             LeaveKitKey(jeep);
+
+            // A technical's frame is loaded into a cargo jeep's bed and wrenched down, bringing its mount up.
+            if (technical)
+            {
+                var bed = (jeep, Comp<CMUVehicleCargoComponent>(jeep));
+                _cargo.Load(bed, Spawn(turret, MapCoordinates.Nullspace));
+                _cargo.SetSecured(bed, true);
+                if (_itemSlots.GetItemOrNull(jeep, "turret") is { } fitted
+                    && !string.IsNullOrEmpty(gun)
+                    && _prototypes.HasIndex<EntityPrototype>(gun))
+                {
+                    FitGun(fitted, Spawn(gun, MapCoordinates.Nullspace));
+                }
+
+                spots.Add($"{ToPrettyString(jeep)} with {turret} turned {90 * turn} at {coordinates.Position}");
+                continue;
+            }
 
             if (_containers.TryGetContainer(jeep, "turret", out var slot))
             {

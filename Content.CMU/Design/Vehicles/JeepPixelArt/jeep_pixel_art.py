@@ -1805,6 +1805,45 @@ def build_pedestal(damaged=False):
     return m
 
 
+def build_cradle(damaged=False):
+    """Pintle cradle clamping a marine's rifle; pivot at the origin, muzzle towards +f."""
+    m = Model()
+    m.box(-1, 0, -1, 0, -3, -1, "steel", "mg_mount")
+    # The cradle: a steel trough with a clamp band either end.
+    m.box(-5, 5, -2, 1, 0, 0, "steel", "mg")
+    m.box(-5, 5, -2, -2, 1, 1, "steel", "mg")
+    m.box(-5, 5, 1, 1, 1, 1, "steel", "mg")
+    for f0 in (-4, 3):
+        m.box(f0, f0 + 1, -2, 1, 2, 2, "black", "mg")
+    # The rifle: stock, receiver, magazine down the side, barrel and muzzle.
+    m.box(-9, -6, -1, 0, 1, 2, "od", "mg")
+    m.box(-5, 4, -1, 0, 1, 2, "gun", "mg")
+    m.box(-1, 1, -3, -3, 0, 1, "black", "mg")
+    m.box(-2, 1, -1, 0, 3, 3, "gun", "mg")
+    if damaged:
+        m.box(5, 9, 0, 0, 1, 1, "gun", "mg")
+        m.box(9, 10, 0, 0, 1, 1, "char", "mg")
+        m.paint(lambda f, r, z: (f + r + z) % 3 == 0 and z >= 1, "char")
+    else:
+        m.box(5, 13, 0, 0, 1, 1, "gun", "mg")
+        m.box(14, 14, -1, 0, 1, 2, "black", "mg")
+    return m
+
+
+def build_technical_frame():
+    """The technical's bed mount: a steel pallet with a sandbag lip and a pintle post."""
+    m = Model()
+    m.box(-11, 11, -11, 11, 0, 1, "steel", "frame")
+    m.paint(lambda f, r, z: z == 1 and (f == r or f == -r), "black")
+    for r0, r1 in ((-11, -9), (9, 11)):
+        m.box(-11, 11, r0, r1, 2, 6, "canvas", "frame")
+        m.paint(lambda f, r, z, r0=r0, r1=r1: r0 <= r <= r1 and z in (4, 6) and f % 5 == 0, "canvas_seam")
+    m.box(-11, -9, -8, 8, 2, 5, "canvas", "frame")
+    m.box(-1, 0, -1, 0, 2, 10, "steel", "frame")
+    m.box(-2, 1, -2, 1, 11, 11, "black", "frame")
+    return m
+
+
 # ---------------------------------------------------------------- rendering
 
 def to_world(view, f, r):
@@ -2772,6 +2811,8 @@ def icon_images():
         "mgturret": centred(build_mg(), "E", ICON),
         "glturret": centred(build_gl(), "E", ICON),
         "rlturret": centred(build_rl(), "E", ICON),
+        "cradleturret": centred(build_cradle(), "E", ICON),
+        "technical_frame": centred(build_technical_frame(), "S", ICON),
         "windshield": centred(small_shield, "S", ICON),
         "searchlight": centred(scaled(searchlight("left")(), 2), "E", ICON),
         "engine": centred(engine(), "S", ICON),
@@ -3172,6 +3213,8 @@ def write_rsi(variant, dy):
         save("rlturret_1", mg_images(damaged=True, build=build_rl), directions=8)
         save("pedestal_0", mg_images(build=build_pedestal), directions=8)
         save("pedestal_1", mg_images(damaged=True, build=build_pedestal), directions=8)
+        save("cradleturret_0", mg_images(build=build_cradle), directions=8)
+        save("cradleturret_1", mg_images(damaged=True, build=build_cradle), directions=8)
     for name, tiles in click_masks(variant, per_dir, dy).items():
         save(f"click_{name}", tiles)
     blank = to_image({})
